@@ -1,0 +1,42 @@
+% onoff.lvt -- the margin off and on: \florilegiumoff in the preamble, \florilegiumon in the
+% text, \florilegiumhide on a page, in a float and with a list of the PDF's pages; a theme that
+% changes on a page without a margin; the last of two switches on one page decides.
+\input{regression-test}
+\documentclass[11pt,a4paper]{article}
+\renewcommand\rmdefault{cmr}
+\usepackage[T1]{fontenc}
+\usepackage[a4paper,left=68mm,right=22mm,top=32mm,bottom=30mm]{geometry}
+\def\florilegiumseed{3}
+\usepackage[grown,sections]{florilegium}
+\directlua{require("fingerprint")}
+\newcount\paracount
+\newcommand\paras[1]{\paracount=0
+  \loop The margin can be turned off for a page and on again, and the text does not move.\par
+  \advance\paracount 1 \ifnum\paracount<#1 \repeat}
+\florilegiumoff
+\begin{document}
+\START
+\section{Page 1 has no margin, from the preamble}
+\paras{4}
+\newpage
+\florilegiumon
+\section{Page 2 has its margin}
+\paras{6}
+\newpage
+\paras{3}\florilegiumhide\paras{3}% page 3: hidden by a mark in its text
+\florilegiumhide[4, x, 9-]%         page 4: hidden by number; two items that are no pages
+\newpage
+\paras{4}
+\begin{figure}[p]\florilegiumhide\centering\rule{5cm}{12cm}\caption{A page of floats}\end{figure}
+\clearpage%                         page 5: the float's page, hidden by the mark inside it
+\section{Page 6 has its margin}
+\paras{4}\florilegiumoff\florilegiumon% the last one decides
+\newpage
+\florilegiumoff\paras{2}\florilegiumtheme{geometric}% page 7: none, and the theme changes
+\newpage
+\florilegiumon
+\section{Page 8 has its margin, in the theme}
+\paras{2}
+\florilegiumtextend
+\clearpage
+\END
