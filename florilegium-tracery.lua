@@ -16,7 +16,7 @@ local ink = require("florilegium-ink")
 local M = {}
 M.version = "2.0.1"                 -- the release; florilegium.lua checks that every file has the same
 
-local sin, cos, atan, sqrt, abs, pi = math.sin, math.cos, math.atan, math.sqrt, math.abs, math.pi
+local sin, cos, atan, acos, sqrt, abs, pi = math.sin, math.cos, math.atan, math.acos, math.sqrt, math.abs, math.pi
 local floor, ceil, min, max, huge = math.floor, math.ceil, math.min, math.max, math.huge
 local tone = ink.tone
 
@@ -752,23 +752,27 @@ local WHITE = { 1, 1, 1 }
 local function vine_passes(x0, x1, y0, ys, side, front)
   local flora = require("florilegium-flora")
   local cm = 1 / W.unit
-  -- the loops bulge outward, into the stone and the margin, and barely into the light
-  local xc, ao, ai = (x0 + x1) / 2, (x1 - x0) / 2 + 0.12 * cm, (x1 - x0) / 2 + 0.02 * cm
+  -- the loops reach the roll's two edges, a hair past them so the turns read as curves
+  local half = (x1 - x0) / 2
+  local xc, ao, ai = (x0 + x1) / 2, half + 0.012 * cm, half + 0.012 * cm
   local pitch = 0.5 * cm
   local foot = y0 + 0.08 * cm
+  -- the vine starts where its first loop meets the roll's outer edge, in front, so the
+  -- margin's branch hands over at the stone; the helix is measured from there
+  local th0 = acos(half / ao)
   local turns = max(1, floor((ys - foot - 0.3 * cm) / pitch))
   local total = turns * 2 * pi + pi / 2                 -- ends in front, past the last pass
   local function along(th)
     local c = cos(th)
-    return xc + side * (c > 0 and ao or ai) * c, foot + pitch * th / (2 * pi)
+    return xc + side * (c > 0 and ao or ai) * c, foot + pitch * (th - th0) / (2 * pi)
   end
   -- as wide as the margin's branch arrives (branch_to tapers to 0.45 of 0.05 cm), so
   -- the vine reads as that branch continuing up the jamb; a little thinner at the tip
   local w0, w1 = 0.022 * cm, 0.015 * cm
-  local th = 0
+  local th = th0
   local k = 0
   while th < total - 1e-9 do
-    local th1 = min(total, th + pi)
+    local th1 = min(total, (floor(th / pi + 1e-9) + 1) * pi)   -- passes end where a crossing does
     local isfront = k % 2 == 0
     if isfront == front then
       local pts = {}
@@ -780,8 +784,10 @@ local function vine_passes(x0, x1, y0, ys, side, front)
       if isfront and k > 0 then
         local lx, ly = along(th)
         local ang = -side * 40 + W.rng.sym(12)           -- up and away from the jamb
-        ink.push() ink.translate(lx, ly) ink.rotate(ang) ink.scale(0.32 * cm)
-        flora.leaflet(W.rng.fork()) ink.pop()
+        ink.push() ink.translate(lx, ly) ink.rotate(ang)
+        if W.leaf then W.leaf(W.rng.fork(), 0.4 * cm)      -- the page's plant's own leaf
+        else ink.scale(0.32 * cm) flora.leaflet(W.rng.fork()) end
+        ink.pop()
       end
       if th1 >= total - 1e-9 then
         local tx, ty = along(total)
@@ -791,7 +797,7 @@ local function vine_passes(x0, x1, y0, ys, side, front)
     end
     th, k = th1, k + 1
   end
-  local fx, fy = along(0)
+  local fx, fy = along(th0)
   return fx, fy
 end
 
@@ -893,9 +899,9 @@ local function window(w, xl, xr, y0, ys, b, B)
   local fx, fy
   if W.vine and w.kind == "headpiece" then
     local side = W.vine
-    -- the strip is the bundle of moldings, not the blank stone up to the first light
+    -- the strip is the roll of moldings, not the blank stone up to the first light
     local xo = xl - (B + orders * step + (hood and 0.6 * B or 0))
-    local x0, x1 = xo - W.pen / W.bp, xl - 0.5 * B
+    local x0, x1 = xo - W.pen / W.bp, xl + 0.5 * B      -- the roll, as painted below
     if side > 0 then x0, x1 = 2 * xm - x1, 2 * xm - x0 end
     fx, fy = vine_passes(x0, x1, y0, ys, side, false)
     local m = 0.04 / W.unit                        -- over the passes' ends past the strip
@@ -1090,19 +1096,60 @@ local function arcade(w, xl, xr, y0, b, B)
   return y1, fx, fy
 end
 
+-- ---------------------------------------------------------------- the initial's frame
+-- \florilegiuminitialframe{arch} (florilegium-initial.lua): the tile's opening as a cusped
+-- arch over [m, S - m] from the base m, its apex at S - m, from a headpiece `w` sampled
+-- for the tile (a flat arch). Returns a function that appends the opening's outline
+-- (for the glaze, the clip and the line), one that says whether a point lies in the
+-- opening (under the arch, the cusps' reach left out), and the springing's height
+function M.arch_frame(w, S, m)
+  local x0, x1, y0 = m, S - m, m
+  local xm = (x0 + x1) / 2
+  local _, rise = apex(half_arch(w, x0, x1, 0), xm)
+  local ys = S - m - rise
+  local main = half_arch(w, x0, x1, ys)
+  local cusps = w.cusps
+  local depth = w.cuspdepth * (x1 - x0) * 0.5
+  local lx, ly = at(main[1], main[1][4])
+  local function path()
+    ink.moveto(x0, y0) ink.lineto(lx, ly)
+    if cusps > 0 then cusped_head(main, xm, cusps, depth, false) else head_path(main, xm, false) end
+    ink.lineto(x1, y0) ink.close()
+  end
+  local function inside(x, y)
+    if x < x0 or x > x1 or y < y0 then return false end
+    if y <= ys then return true end
+    if x > xm then x = 2 * xm - x end
+    -- the piece of the arch over x: within its circle for a convex piece, outside otherwise
+    for _, p in ipairs(main) do
+      local ax, _, bx = ends(p)
+      if x >= min(ax, bx) - 1e-9 and x <= max(ax, bx) + 1e-9 then
+        local d = sqrt((x - p[1]) ^ 2 + (y - p[2]) ^ 2)
+        local under = p[6] and d <= p[3] or (not p[6] and d >= p[3])
+        return under and y < S - m - (cusps > 0 and depth or 0)
+      end
+    end
+    return false
+  end
+  return path, inside, ys
+end
+
 -- ---------------------------------------------------------------- entry
 -- Draw the window `w` (M.tsample's table) with its base at the origin, `width` wide in
 -- the local unit (the outermost molding included), `rng` an ink.rng for the wash.
 -- Returns the drawing's height. The level of detail follows the width of one light
 -- on the page: below 8 mm no cusps (ladder 1), below 5 mm plain figures and one order
 -- (2), below 3 mm the arch and its main figure alone (3).
--- `vine` (a headpiece's): -1 for a vine up the left jamb, 1 the right, nil none.
+-- `vine` (a headpiece's): -1 for a vine up the left jamb, 1 the right, nil none;
+-- `leaf(rng, L)`, if given, draws a leaf L units long along +y on the vine instead of
+-- flora's leaflet (the margin hands over the nearest plant's).
 -- Returns the height and, with a vine, the foot of the vine (local units)
-function M.draw(w, rng, width, vine)
+function M.draw(w, rng, width, vine, leaf)
   local unit = ink.unit()                           -- cm per local unit
   W.rng = rng
   W.unit = unit
   W.vine = vine
+  W.leaf = leaf
   W.tone = w.tone
   W.bp = unit * 72 / 2.54                           -- bp per local unit
   W.pen = max(0.3, min(0.6, 0.016 * width * W.bp))  -- the pen's line, in bp

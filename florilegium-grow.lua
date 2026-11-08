@@ -1051,12 +1051,22 @@ function M.page(g)
   -- column's edge, so the safety clip reaches the text there
   local headpieces = false
   local function headpiece_mark(mk, ev)
-    local a = mk.arg
-    if type(a) ~= "table" or not a.fx then return end
-    local px, py = mk.x + a.fx, mk.y + a.fy
+    if not g.headpiece then return end
+    -- the nearest stem to the sill, by the column's edge: its plant's leaves go on the
+    -- vine, and its branch reaches the vine's foot
+    local S = nearest_stem(g.colright - 0.5, mk.y)
+    local sp = S and S[6]
+    local function leaf(r, L)
+      if sp then ORG.draw("leaf", sp, pgfseed(r), { len = L, bend = r.sym(0.2), lc = r.u(), season = osea })
+      else ink.scale(L) F.leaflet(r) end                -- a theme's page: its leaflet
+    end
+    -- drawn under the garden and outside its safety clip (layer 0), in every frame
+    local layer, tag = ink.layer(-1), ink.tag(nil)
+    local px, py = g.headpiece(mk, leaf)
+    ink.layer(layer) ink.tag(tag)
+    if not px then return end
     if g.mirror then px = g.pw - px end
     if py < 0.6 or py > g.ph - 0.6 then return end
-    local S = nearest_stem(g.colright - 0.5, py)
     branch_to(S, px, py, 0.94, 0.34, 0.05, ev)
     headpieces = true
   end
