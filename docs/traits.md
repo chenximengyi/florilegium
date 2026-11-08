@@ -125,3 +125,38 @@ This page is written by `tools/tikztables.lua` from `florilegium-species.lua`.
 | `ribs` | a whole number from 0 to 24 |
 | `opencoil` | a whole number from 0 to 1 |
 | `withdrawn` | a whole number from 0 to 1 |
+
+## A window of tracery
+
+| trait | what it may be |
+|---|---|
+| `kind` | `arcade`, `foil`, `headpiece`, `rose`, `window` |
+| `period` | `curvilinear`, `early_english`, `flamboyant`, `geometric`, `perpendicular`, `rayonnant` |
+| `masonry` | `bar`, `plate` |
+| `arch` | `drop`, `equilateral`, `fourcentered`, `lancet`, `none`, `ogee`, `round`, `segmental` |
+| `excess` | a number from 0 to 1.6 |
+| `rise` | a number from 0 to 0.4 |
+| `ogee` | a number from 0 to 0.7 |
+| `shoulder` | a number from 0 to 0.25 |
+| `jamb` | a number from 0 to 2.2 |
+| `lights` | a whole number from 0 to 10 |
+| `split` | `binary`, `center`, `flat` |
+| `branch` | `Y`, `intersecting`, `none`, `panel`, `screen`, `subarch` |
+| `depth` | a whole number from 0 to 3 |
+| `setdown` | a number from 0 to 0.12 |
+| `bar` | a number from 0.012 to 0.03 |
+| `border` | a number from 0.015 to 0.06 |
+| `transoms` | a whole number from 0 to 2 |
+| `figure` | `dagger`, `foiled`, `mouchettes`, `none`, `oculus`, `soufflet`, `triangle` |
+| `foils` | a whole number from 0 to 8 |
+| `foilshape` | `pointed`, `round` |
+| `cusps` | a whole number from 0 to 4 |
+| `cuspdepth` | a number from 0.12 to 0.28 |
+| `orders` | a whole number from 1 to 3 |
+| `hood` | `none`, `plain`, `stops` |
+| `spandrel` | `blank`, `dagger`, `foliage`, `trefoil` |
+| `spokes` | a whole number from 0 to 16 |
+| `rings` | a whole number from 0 to 2 |
+| `oculus` | a number from 0 to 0.3 |
+| `tone` | a number from 0.3 to 0.5 |
+| `accent` | `center`, `none`, `stops` |
