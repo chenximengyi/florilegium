@@ -13,7 +13,7 @@ local M = { ink = ink, flora = flora }
 -- stops such a mix before anything is drawn. A release changes all of them together.
 M.version = "2.0.1"
 local PARTS = { "ink", "flora", "grow", "authored", "figures", "theme-geometric", "theme-math", "initial", "svg", "species",
-  "pgfmath", "native" }
+  "pgfmath", "native", "tracery" }
 
 local function where(file, format, module)     -- " (path)" for the message, if it can be found
   local ok, path = pcall(function() return kpse.find_file(file, format) end)
@@ -245,6 +245,47 @@ function M.ornament(name, size, inkhex, acchex, angle, seed)
   if inkhex ~= "" or acchex ~= "" then M.colors(table.unpack(current)) end
 end
 M.ornament = guarded(M.ornament)
+
+-- a window of tracery at the origin of the current TikZ scope, `width` cm wide (the
+-- outermost molding included), sampled for a role from a seed, some traits fixed
+-- (board #5236); its height is handed back to TeX in \flo@traceryheight, in cm
+function M.tracery(seed, role, width, traits)
+  sync_transform()
+  local species = require("florilegium-species")
+  local fix = traits and traits ~= "" and species.fixes(traits, "tracery") or nil
+  local w = species.tsample(seed, role, nil, fix)
+  local h = require("florilegium-tracery").draw(w, ink.rng(seed * 7919 + 601), width)
+  ink.flush()
+  -- under the package's catcodes, since the document's would split the name at the @
+  tex.sprint(luatexbase.registernumber("catcodetable@atletter"),
+    string.format("\\def\\flo@traceryheight{%.4f}", h))
+end
+M.tracery = guarded(M.tracery)
+
+-- \florilegiumheadpiece: a headpiece of tracery in a box of the given width (sp), its
+-- sill on the baseline, the k-th of the document unless a seed is given; `vine` (left,
+-- right, none) twines a vine up that jamb. The margin learns where the headpiece stands
+-- from a mark (kind headpiece: its height and the vine's foot, in cm from the box's
+-- left end on the baseline), and grows a branch to the foot
+local nheadpiece = 0
+function M.headpiece(seed, role, width, traits, vine, margin)
+  nheadpiece = nheadpiece + 1
+  if vine == "auto" then vine = margin and "left" or "none" end
+  local species = require("florilegium-species")
+  local n = seed ~= "" and seedvalue(M.number("seed", seed, nil, "the headpiece's own"), 7919, "seed", "the headpiece's own")
+  local s = n or nheadpiece
+  local fix = traits ~= "" and species.fixes(traits, "tracery") or nil
+  local w = species.tsample(s, role, nil, fix)
+  local S = width * SP_CM
+  ink.set_transform({ ink.CM, 0, 0, ink.CM, 0, 0 })
+  ink.translate(S / 2, 0)
+  local side = vine == "left" and -1 or vine == "right" and 1 or nil
+  local h, fx, fy = require("florilegium-tracery").draw(w, ink.rng(s * 7919 + 601), S, side)
+  ink.flush()
+  M.mark("headpiece", { h = h, fx = fx and fx + S / 2, fy = fy, side = side })
+  tex.sprint(luatexbase.registernumber("catcodetable@atletter"), string.format("\\def\\flo@hp@height{%.4fcm}", h))
+end
+M.headpiece = guarded(M.headpiece)
 
 -- the header: a copper ivy leaf (or the theme's fleuron) whose stem becomes the head rule
 function M.head(g)
@@ -485,7 +526,7 @@ M.authored = guarded(M.authored)
 -- load the rest of the package now, so that a mixed set stops in the preamble and not
 -- halfway through a page (florilegium-initial waits for the first initial; florilegium-svg
 -- runs only outside TeX, where it loads this file and so is checked here too)
-for _, part in ipairs({ "grow", "authored", "figures", "theme-geometric", "theme-math" }) do
+for _, part in ipairs({ "grow", "authored", "figures", "theme-geometric", "theme-math", "tracery" }) do
   require("florilegium-" .. part)
 end
 M.check_versions()

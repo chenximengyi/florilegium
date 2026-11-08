@@ -168,6 +168,28 @@
     \hss\vrule height .85\flo@orn@size depth .15\flo@orn@size width 0pt}%
   \endgroup}
 
+%% a headpiece of Gothic tracery across the text (florilegium-tracery.lua), its sill on
+%% the baseline, the k-th of the document unless a seed is given; the margin grows a
+%% branch to the vine on its jamb: \florilegiumheadpiece,
+%% \florilegiumheadpiece[seed=7,width=10cm,traits={period=perpendicular},vine=none]
+%% (vine: left, right, none, or auto, the left jamb when the margin is on)
+\newdimen\flo@hp@width
+\pgfqkeys{/florilegium/headpiece}{
+  seed/.store in=\flo@hp@seed, seed=,
+  role/.store in=\flo@hp@role, role=headpiece,
+  width/.store in=\flo@hp@w, width=\textwidth,
+  traits/.store in=\flo@hp@traits, traits=,
+  vine/.store in=\flo@hp@vine, vine=auto}
+\newcommand\florilegiumheadpiece[1][]{\par\begingroup
+  \pgfqkeys{/florilegium/headpiece}{#1}%
+  \flo@hp@width=\flo@hp@w\relax
+  \florilegium@colors
+  \noindent\hbox to\flo@hp@width{\def\flo@hp@height{0pt}\directlua{florilegium.headpiece("\luaescapestring{\flo@hp@seed}",
+      "\luaescapestring{\flo@hp@role}", \number\flo@hp@width, "\luaescapestring{\flo@hp@traits}",
+      "\luaescapestring{\flo@hp@vine}", \ifflorilegium@margin true\else false\fi)}%
+    \hss\vrule height \flo@hp@height depth 0pt width 0pt}\par
+  \endgroup}
+
 %% ---------------------------------------------------------------- page seed
 \def\florilegium@seed{%
   \directlua{tex.sprint(florilegium.seed(\number\value{page}\ifx\florilegiumseed\@empty\else,
