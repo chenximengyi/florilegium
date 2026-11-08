@@ -1117,11 +1117,14 @@ local TCOMMON = {
     ["4"] = W("binary", 3, "flat", 1), ["5"] = W("center", 2, "flat", 1), ["6"] = W("binary", 3, "flat", 1),
     ["7"] = W("center", 2, "flat", 1), _ = C("flat") }) }),
   -- the head's construction: sub-arches with a figure above, mullions forking in a Y,
-  -- intersecting arcs, panels straight up to the arch, or a headpiece's screen
+  -- intersecting arcs, panels straight up to the arch, the lights' ogee heads repeated
+  -- up the head as a net (reticulated), ogee heads with mouchettes and daggers flowing
+  -- above them, or a headpiece's screen
   branch = BY("lights", { ["0"] = C("none"), ["1"] = C("none"), _ = BY("period", {
     early_english = C("subarch"), geometric = W("subarch", 4, "Y", 1, "intersecting", 1),
-    curvilinear = W("subarch", 3, "intersecting", 2, "Y", 1), perpendicular = W("panel", 3, "subarch", 1),
-    rayonnant = C("subarch"), flamboyant = W("subarch", 3, "Y", 1) }) }),
+    curvilinear = W("subarch", 3, "intersecting", 1, "Y", 1, "reticulated", 2, "flowing", 2),
+    perpendicular = W("panel", 3, "subarch", 1),
+    rayonnant = C("subarch"), flamboyant = W("subarch", 2, "Y", 1, "flowing", 3, "reticulated", 1) }) }),
   depth = BY("branch", { subarch = BY("lights", { ["2"] = C(1), ["3"] = C(1), ["4"] = I(1, 2), ["5"] = I(1, 2),
     ["6"] = I(1, 2), ["7"] = I(1, 2), _ = I(1, 3) }), _ = C(0) }),
   setdown = BY("branch", { subarch = R(0, 0.12), _ = C(0) }),            -- the sub-arches' springing, below the main one
@@ -1239,6 +1242,8 @@ function M.tviolations(w)
   check(w.branch == "subarch" or w.depth == 0 and w.setdown == 0, "sub-arches set down under another head")
   check(w.figure == "none" or w.branch == "subarch" or w.branch == "screen" or w.kind == "foil", "a head figure with no sub-arches to sit on")
   check(w.branch ~= "screen" or w.kind == "headpiece", "a screen of lights that is not a headpiece")
+  check((w.branch ~= "reticulated" and w.branch ~= "flowing") or w.period == "curvilinear" or w.period == "flamboyant",
+    "reticulated or flowing tracery outside the curvilinear and flamboyant")
   check((w.foils > 0) == (FOILED[w.figure] ~= nil or (w.figure == "triangle" and w.foils == 3)), "foils without a foiled figure, or one without foils")
   check(w.foils == 0 or w.foils >= 3, "fewer than three foils")
   check((w.spokes > 0) == (w.kind == "rose"), "spokes on something not a rose, or a rose without")
@@ -1290,7 +1295,9 @@ function M.tdescribe(w)
     elseif FIGUREW[w.figure] then s = s .. " under " .. FIGUREW[w.figure]
     elseif w.branch == "Y" then s = s .. ", the mullions forking in a Y"
     elseif w.branch == "intersecting" then s = s .. ", the mullions crossing in the head"
-    elseif w.branch == "panel" then s = s .. " paneled to the arch" end
+    elseif w.branch == "panel" then s = s .. " paneled to the arch"
+    elseif w.branch == "reticulated" then s = s .. ", the head reticulated"
+    elseif w.branch == "flowing" then s = s .. ", mouchettes flowing in the head" end
     if w.branch == "screen" and w.figure ~= "none" then s = s .. " between the heads" end
     s = s .. ", in " .. (arcade and ARCHW[w.arch] .. " arches" or an_(ARCHW[w.arch] .. " arch"))
     if w.masonry == "plate" then s = s .. " cut through the slab" end

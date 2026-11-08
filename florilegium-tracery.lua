@@ -555,9 +555,20 @@ local function sub_arch(w, x0, x1, ys, limit)
   return chain, true
 end
 -- one light: its jambs, its own small arch head (cusped), above a sill
-local function light(w, x0, x1, y0, ys, b, cusps, depth, limit, bl, br, off, head)
+local function light(w, x0, x1, y0, ys, b, cusps, depth, limit, bl, br, off, head, rows)
   bl, br, off = bl or b, br or b, off or b
   local xm = (x0 + x1) / 2
+  -- transoms (rows > 1): the rows below the top one are plain openings, the head's
+  -- row stands on the last transom
+  if rows and rows > 1 then
+    for k = 0, rows - 2 do
+      local by0 = y0 + (ys - y0) * k / rows + (k > 0 and b or 0)
+      local by1 = y0 + (ys - y0) * (k + 1) / rows - b
+      opening(function() ink.poly({ { x0 + bl, by0 }, { x1 - br, by0 }, { x1 - br, by1 }, { x0 + bl, by1 } }, true) end,
+        x0 + bl, by0, x1 - br, by1)
+    end
+    y0 = y0 + (ys - y0) * (rows - 1) / rows + b
+  end
   local chain, flat
   if head then chain, flat = head, false else chain, flat = sub_arch(w, x0, x1, ys, limit) end
   chain = offset(chain, off, x0 + bl, xm, ys)
@@ -607,6 +618,19 @@ local function figure(w, kind, cx, cy, r, b, up)
     opening(function(first) ink.circle(cx, cy, ro) end, cx - ro, cy - ro, cx + ro, cy + ro)
   end
 end
+-- foliage carved in the stone where a figure would go: a sprig of flora's leaflets
+-- rising from the foot of the circle (cx, cy, r), one up and one leaning out each side
+local function foliage(cx, cy, r)
+  local flora = require("florilegium-flora")
+  local rng = W.rng
+  ink.push() ink.translate(cx, cy - 0.85 * r)
+  for side = -1, 1, 2 do
+    ink.push() ink.rotate(side * rng.range(30, 45)) ink.scale(1.15 * r)
+    flora.leaflet(rng.fork(), { bend = -side * 0.15 }) ink.pop()
+  end
+  ink.push() ink.rotate(rng.sym(6)) ink.scale(1.5 * r) flora.leaflet(rng.fork()) ink.pop()
+  ink.pop()
+end
 -- the group of lights [x0, x1] holding n lights under a sub-arch (lvl > 0) or the main
 -- arch (lvl 0): the lights, the sub-arches as bars, the figures found in what is left
 local function group(w, x0, x1, n, y0, ys, b, lvl, region, placed, B)
@@ -623,27 +647,46 @@ local function group(w, x0, x1, n, y0, ys, b, lvl, region, placed, B)
     -- one light alone under an arch has that arch for its head
     -- a screen's heads spring below the main arch's springing and rise into its head
     local screen = lvl == 0 and w.branch == "screen" and n > 1
+    local flowing = lvl == 0 and w.branch == "flowing" and n > 1
     local ysl = screen and ys - 0.7 * lw or ys
+    -- flowing tracery springs from ogee heads
+    local wl = flowing and setmetatable({ arch = "ogee", excess = max(w.excess, 0.85), ogee = 0.5 }, { __index = w }) or w
+    local rows = (w.transoms or 0) + 1
     local heads = {}
     for i = 0, n - 1 do
       local bl = (lvl == 0 and i == 0) and B or b
       local br = (lvl == 0 and i == n - 1) and B or b
       local off = (lvl == 0 and n == 1) and B or b
       local head = n == 1 and region.chain or nil
-      heads[i + 1] = light(w, x0 + i * lw, x0 + (i + 1) * lw, y0, ysl, b, cusps, w.cuspdepth * lw, n == 1 and nil or limit, bl, br, off, head)
+      heads[i + 1] = light(wl, x0 + i * lw, x0 + (i + 1) * lw, y0, ysl, b, cusps, w.cuspdepth * lw, n == 1 and nil or limit, bl, br, off, head, rows)
     end
-    -- a screen: a small figure in the stone between each two heads, under the arch
-    if screen and w.figure ~= "none" and W.ladder < 3 then
-      local reg = { region }
-      for i, c in ipairs(heads) do reg[#reg + 1] = { chain = c, ys = ysl, xm = x0 + (i - 0.5) * lw, outside = true } end
-      local top = select(2, apex(region.chain, xm))
+    local reg = { region }
+    for i, c in ipairs(heads) do reg[#reg + 1] = { chain = c, ys = ysl, xm = x0 + (i - 0.5) * lw, outside = true } end
+    local top = select(2, apex(region.chain, xm))
+    -- a screen: a small figure, or the spandrels' trefoil or foliage, in the stone
+    -- between each two heads, under the arch
+    if screen and (w.figure ~= "none" or w.spandrel ~= "blank") and W.ladder < 3 then
       for i = 1, n - 1 do
         local cx, cy, r = biggest(reg, x0 + (i - 0.5) * lw, ys, x0 + (i + 0.5) * lw, top)
         if r and r > 2.5 * b then
-          figure(w, w.figure, cx, cy, r, b)
+          if w.figure ~= "none" then figure(w, w.figure, cx, cy, r, b)
+          elseif w.spandrel == "foliage" then foliage(cx, cy, r)
+          else figure({ foils = 3, foilshape = "round" }, "foiled", cx, cy, r, b) end
           placed[#placed + 1] = { cx, cy, r }
           reg[#reg + 1] = { x = cx, y = cy, r = r, outside = true }
         end
+      end
+    end
+    -- flowing tracery: a pair of mouchettes curling up to the apex, then a soufflet,
+    -- more mouchettes, a dagger and pointed quatrefoils in what room is left
+    if flowing and W.ladder < 2 then
+      local wf = setmetatable({ foils = 4, foilshape = "pointed" }, { __index = w })
+      for j, kind in ipairs({ "mouchettes", "soufflet", "mouchettes", "dagger", "foiled", "foiled" }) do
+        local cx, cy, r = biggest(reg, x0, ys, x1, top, j == 1 and xm or nil)
+        if not r or r < 3 * b then break end
+        figure(wf, kind, cx, cy, r, b, j == 1 and top - b or nil)
+        placed[#placed + 1] = { cx, cy, r }
+        reg[#reg + 1] = { x = cx, y = cy, r = r, outside = true }
       end
     end
     return
@@ -695,8 +738,8 @@ local function group(w, x0, x1, n, y0, ys, b, lvl, region, placed, B)
       reg[#reg + 1] = { x = cx, y = cy, r = r, outside = true }
     end
   end
-  -- the spandrels each side: trefoils or daggers where there is room (lvl 0 only)
-  if lvl == 0 and w.spandrel ~= "blank" and w.spandrel ~= "foliage" and W.ladder < 2 and #subs > 1 then
+  -- the spandrels each side: trefoils, daggers or foliage where there is room (lvl 0 only)
+  if lvl == 0 and w.spandrel ~= "blank" and W.ladder < 2 and #subs > 1 then
     local top = select(2, apex(region.chain, xm))
     for side = -1, 1, 2 do
       local rx0, rx1 = side < 0 and x0 or xm, side < 0 and xm or x1
@@ -705,6 +748,7 @@ local function group(w, x0, x1, n, y0, ys, b, lvl, region, placed, B)
       local cx, cy, r = biggest(sreg, rx0, ys1, rx1, top)
       if r and r > 3 * b then
         if w.spandrel == "trefoil" then figure({ foils = 3, foilshape = "round" }, "foiled", cx, cy, r, b)
+        elseif w.spandrel == "foliage" then foliage(cx, cy, r)
         else figure(w, "dagger", cx, cy, r, b, cy + r + 0.5 * r) end
       end
     end
@@ -712,6 +756,59 @@ local function group(w, x0, x1, n, y0, ys, b, lvl, region, placed, B)
   return subs
 end
 
+-- reticulated tracery: the lights' ogee heads repeated up the head in rows, each row
+-- staggered by half a light and springing where the row below reaches its apexes, so
+-- that the heads of one row bound the meshes of the next from below; clipped to the head
+local function reticulation(x0, x1, n, ys, b, top)
+  local lw = (x1 - x0) / n
+  local wo = { arch = "ogee", excess = 0.85, ogee = 0.5 }
+  local _, h = apex(half_arch(wo, 0, lw, 0), lw / 2)
+  local k = 0
+  while ys + k * h < top and k < 12 do
+    local shift = (k % 2) * lw / 2
+    for i = -1, n do
+      local cx0 = x0 + i * lw + shift
+      if cx0 + lw > x0 and cx0 < x1 then
+        bars(function()
+          local ch = half_arch(wo, cx0, cx0 + lw, ys + k * h)
+          local sx, sy = at(ch[1], ch[1][4])
+          ink.moveto(sx, sy)
+          head_path(ch, cx0 + lw / 2, false)
+        end, b)
+      end
+    end
+    k = k + 1
+  end
+end
+-- Perpendicular panels: every light has a cusped four-centered head reaching the
+-- springing, and the mullions run on through the head, which is cut into a row of
+-- panels with heads of their own fitted under the arch; the stone is left where the
+-- arch leaves a panel too little room
+local function panels(w, xl, xr, n, y0, ys, b, B, region)
+  local lw = (xr - xl) / n
+  local xm = region.xm
+  local cusps = W.ladder >= 1 and 0 or w.cusps
+  local depth = w.cuspdepth * lw
+  local function limit(x)
+    local y = chain_y(region.chain, xm, x)
+    return y and y - 2 * b
+  end
+  local rows = (w.transoms or 0) + 1
+  local wp = setmetatable({ arch = "fourcentered", rise = w.rise > 0 and w.rise or 0.3, shoulder = w.shoulder > 0 and w.shoulder or 0.18 },
+    { __index = w })
+  local _, rise = apex(half_arch(wp, 0, lw, 0), lw / 2)
+  local ysl = ys - 2 * b - rise
+  for i = 0, n - 1 do
+    local px0, px1 = xl + i * lw, xl + (i + 1) * lw
+    local bl, br = i == 0 and B or b, i == n - 1 and B or b
+    light(w, px0, px1, y0, ysl, b, cusps, depth, nil, bl, br, b, half_arch(wp, px0, px1, ysl), rows)
+    local lo = min(limit(px0 + bl) or 0, limit(px1 - br) or 0)
+    if lo - ys > 0.3 * lw then
+      local ysp = max(ys + 0.1 * lw, lo - 0.45 * lw)
+      light(w, px0, px1, ys, ysp, b, cusps, depth, limit, bl, br, b)
+    end
+  end
+end
 -- the net of Y and intersecting tracery: from each mullion's top two arcs of the main
 -- arch's radius, their centers shifted by one light either way, clipped to the head
 local function net(w, x0, x1, n, ys, b, R)
@@ -844,7 +941,7 @@ local function window(w, xl, xr, y0, ys, b, B)
   local placed = {}
   local n = max(1, w.lights)
   local lw = s / n
-  if w.branch == "Y" or w.branch == "intersecting" or w.branch == "panel" then
+  if w.branch == "Y" or w.branch == "intersecting" or w.branch == "reticulated" then
     -- the head as one opening, the lights below it as rectangles, the bars over them
     local lx0, ly0 = at(inner[1], inner[1][4])
     opening(function(first)
@@ -873,14 +970,8 @@ local function window(w, xl, xr, y0, ys, b, B)
     ink.lineto(xr - B, ys)
     ink.close()
     ink.clip()
-    if w.branch == "panel" then
-      for i = 1, n - 1 do
-        local fx = xl + i * lw
-        bars(function() ink.moveto(fx, ys - 2 * b) ink.lineto(fx, ay) end, b)
-      end
-    else
-      net(w, xl, xr, n, ys, b, R)
-    end
+    if w.branch == "reticulated" then reticulation(xl, xr, n, ys, b, ay)
+    else net(w, xl, xr, n, ys, b, R) end
     -- the springing: a bar across under the net
     bars(function() ink.moveto(xl, ys) ink.lineto(xr, ys) end, b)
     ink.unclip()
@@ -888,6 +979,8 @@ local function window(w, xl, xr, y0, ys, b, B)
     ink.moveto(lx0, ly0)
     head_path(inner, xm, false)
     outline()
+  elseif w.branch == "panel" then
+    panels(w, xl, xr, n, y0, ys, b, B, region)
   else
     group(w, xl, xr, n, y0, ys, b, 0, region, placed, B)
   end

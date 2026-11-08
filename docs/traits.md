@@ -141,7 +141,7 @@ This page is written by `tools/tikztables.lua` from `florilegium-species.lua`.
 | `jamb` | a number from 0 to 2.2 |
 | `lights` | a whole number from 0 to 10 |
 | `split` | `binary`, `center`, `flat` |
-| `branch` | `Y`, `intersecting`, `none`, `panel`, `screen`, `subarch` |
+| `branch` | `Y`, `flowing`, `intersecting`, `none`, `panel`, `reticulated`, `screen`, `subarch` |
 | `depth` | a whole number from 0 to 3 |
 | `setdown` | a number from 0 to 0.12 |
 | `bar` | a number from 0.012 to 0.03 |
