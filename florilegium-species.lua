@@ -36,6 +36,114 @@ local function R(a, b) return { "r", a, b } end
 local function C(v) return { "c", v } end
 local function BY(key, map) return { "by", key, map } end
 
+-- ---------------------------------------------------------------- sampling
+-- one draw from a distribution; rng is an ink.pgfrng; sp holds the traits drawn so far
+local function draw(d, rng, sp)
+  local kind = d[1]
+  if kind == "c" then return d[2]
+  elseif kind == "i" then return rng.random(d[2], d[3])
+  elseif kind == "r" then
+    -- as \flo@R{a}{b-a} computes it: \pgfmathparse{a+(b-a)*rnd}, to the scaled point
+    local a, w = pm.sp(tostring(d[2])), pm.sp(tostring(d[3] - d[2]))
+    return pm.add(a, pm.mulf(w, math.floor(rng.rnd() * 65536 + 0.5))) / 65536
+  elseif kind == "w" then
+    local total = 0
+    for i = 3, #d, 2 do total = total + d[i] end
+    local k = rng.random(1, total)
+    for i = 2, #d, 2 do
+      k = k - d[i + 1]
+      if k <= 0 then return d[i] end
+    end
+  elseif kind == "by" then
+    local v = sp[d[2]]
+    local sub = d[3][tostring(v)] or d[3]._
+    assert(sub, "florilegium: no distribution for " .. d[2] .. " = " .. tostring(v))
+    return draw(sub, rng, sp)
+  end
+  error("florilegium: unknown distribution " .. tostring(kind))
+end
+
+-- Lehmer's generator answers seeds 1, 2, 3 ... with nearly proportional first values,
+-- so the first two are thrown away (TikZ: \pgfmathgeneratepseudorandomnumber twice).
+M.WARM = 2
+
+-- ---------------------------------------------------------------- a family of genomes
+-- The plants and the visitors are two families of one shape, and a third (a window of
+-- tracery) adds its tables and nothing else. A family f has: traits, the draw order
+-- (the first names the kind, a plant's body plan or a visitor's kind); kinds, each with
+-- a name, a weight w, the roles it may fill, and d, its own distributions; derived, the
+-- trait that follows from the kind (a plan's clade, a kind's group); fallback(k, trait),
+-- the distribution a kind's own table leaves out; weight(k, role), its weight in a role,
+-- or nil; roles, the role names (a role may also name a kind, for a specimen of it);
+-- rolelist, the roles' order in the TeX tables; noun ("plant"), what the family samples;
+-- refuse(kind, fix), an error for a fixed value that kind cannot draw, or nil; own(k, trait),
+-- the distribution the kind really draws, for the values a fixed trait may take; tex, the
+-- family's macro names in tikzlibraryflorilegium.tables.code.tex; violations(x) and
+-- describe(x), the rules and the words. family(f) adds byname, dist, rolekinds, sample
+-- and values.
+local function family(f)
+  f.byname = {}
+  for i, k in ipairs(f.kinds) do f.byname[k.name] = k k.index = i end
+  -- a trait's distribution for a kind: the kind's own, else the family's fallback
+  function f.dist(kind, trait)
+    local k = f.byname[kind]
+    if f.derived and trait == f.derived then return C(k[f.derived]) end
+    return k.d[trait] or f.fallback(k, trait)
+  end
+  -- the kinds a role may draw, as a W over their names (in f.kinds order); a role may
+  -- also name one kind ("rose", "fern", "ladybird"), for a specimen of it. A role's own
+  -- name comes first: "monocot" is the role (lily, iris or the generic monocot), not the
+  -- plan of that name.
+  function f.rolekinds(role)
+    if f.byname[role] and not f.roles[role] then return W(role, f.byname[role].w) end
+    local t = {}
+    for _, k in ipairs(f.kinds) do
+      local w = f.weight(k, role)
+      if w then t[#t + 1] = k.name t[#t + 1] = w end
+    end
+    assert(#t > 0, "florilegium: no " .. f.noun .. " for the role " .. tostring(role))
+    return W(table.unpack(t))
+  end
+  -- one of the family from a pgf seed (1 .. 2^31-2) for a role; log, if given, is a
+  -- function(trait, value) called after every draw. Returns the sample and the generator,
+  -- left where \florilegiumspecies leaves pgf's (organs go on from there). A real-valued
+  -- trait is the number pgfmath computes, a multiple of 2^-16.
+  -- fix, if given, is a table of traits fixed (M.fixes): each still takes its draw, then
+  -- its value is the fixed one, and a trait that depends on it (BY) follows it; a fixed
+  -- kind picks its own distributions. The traits drawn before a fixed one are as they
+  -- would have been; those after it too, unless a trait that depends on it draws
+  -- differently (a constant takes no draw, a range one), which moves every later draw along
+  function f.sample(seed, role, log, fix)
+    fix = fix or {}
+    local rng = ink.pgfrng(seed)
+    for _ = 1, M.WARM do rng.step() end
+    local x = { seed = seed, role = role or "any" }
+    local first = f.traits[1]
+    x[first] = draw(f.rolekinds(x.role), rng, x)
+    if fix[first] ~= nil then x[first] = fix[first] end
+    if f.refuse then
+      local refused = f.refuse(x[first], fix)
+      if refused then error(refused, 0) end
+    end
+    if log then log(first, x[first]) end
+    for i = 2, #f.traits do
+      local t = f.traits[i]
+      x[t] = draw(f.dist(x[first], t), rng, x)
+      if fix[t] ~= nil then x[t] = fix[t] end
+      if log then log(t, x[t]) end
+    end
+    return x, rng
+  end
+  f.own = f.own or function(k, trait) return f.dist(k.name, trait) end
+  return f
+end
+M.FAMILIES = {}                      -- in the order of the TeX tables
+function M.family(name)
+  local f = M.FAMILIES[name]
+  assert(f, "florilegium: no family of genomes named " .. tostring(name))
+  return f
+end
+
 -- the order of the draws; every species draws them in this order
 M.TRAITS = {
   "plan", "clade", "syndrome", "color", "form", "symmetry", "fused", "merosity", "merovar",
@@ -376,88 +484,22 @@ M.PLANS = {
     dimorphic = W(0, 4, 1, 1),
   } },
 }
-local PLAN = {}
-for i, p in ipairs(M.PLANS) do PLAN[p.name] = p p.index = i end
-
--- a trait's distribution for a plan: the plan's own, else its clade's, else everyone's
-function M.dist(plan, trait)
-  local p = PLAN[plan]
-  if trait == "clade" then return C(p.clade) end
-  return p.d[trait] or CLADE[p.clade][trait] or COMMON[trait]
-end
-
--- the plans a role may draw, as a W over plan names (in M.PLANS order); a role may also
--- name one plan ("rose", "fern"), for a specimen of that plan. A role's own name comes
--- first: "monocot" is the role (lily, iris or the generic monocot), not the plan of that
--- name. "any" draws every flowering plan (not a plan set apart, the fern).
+-- the plants: a trait's distribution is the plan's own, else its clade's, else
+-- everyone's; a role ("hero", "spray", "monocot", "any") draws its plans by their
+-- weights, and "any" every flowering plan (not a plan set apart, the fern)
 M.ROLES = { hero = true, spray = true, monocot = true, any = true }
-function M.roleplans(role)
-  if PLAN[role] and not M.ROLES[role] then return W(role, PLAN[role].w) end
-  local t = {}
-  for _, p in ipairs(M.PLANS) do
-    if (role == "any" and not p.apart) or p.roles[role] then t[#t + 1] = p.name t[#t + 1] = p.w end
-  end
-  assert(#t > 0, "florilegium: no plant for the role " .. tostring(role))
-  return W(table.unpack(t))
-end
-
--- ---------------------------------------------------------------- sampling
--- one draw from a distribution; rng is an ink.pgfrng; sp holds the traits drawn so far
-local function draw(d, rng, sp)
-  local kind = d[1]
-  if kind == "c" then return d[2]
-  elseif kind == "i" then return rng.random(d[2], d[3])
-  elseif kind == "r" then
-    -- as \flo@R{a}{b-a} computes it: \pgfmathparse{a+(b-a)*rnd}, to the scaled point
-    local a, w = pm.sp(tostring(d[2])), pm.sp(tostring(d[3] - d[2]))
-    return pm.add(a, pm.mulf(w, math.floor(rng.rnd() * 65536 + 0.5))) / 65536
-  elseif kind == "w" then
-    local total = 0
-    for i = 3, #d, 2 do total = total + d[i] end
-    local k = rng.random(1, total)
-    for i = 2, #d, 2 do
-      k = k - d[i + 1]
-      if k <= 0 then return d[i] end
-    end
-  elseif kind == "by" then
-    local v = sp[d[2]]
-    local sub = d[3][tostring(v)] or d[3]._
-    assert(sub, "florilegium: no distribution for " .. d[2] .. " = " .. tostring(v))
-    return draw(sub, rng, sp)
-  end
-  error("florilegium: unknown distribution " .. tostring(kind))
-end
-
--- a species from a pgf seed (1 .. 2^31-2) for a role ("hero", "spray", "monocot",
--- "any"); log, if given, is a function(trait, value) called after every draw. Returns the
--- species and the generator, left where \florilegiumspecies leaves pgf's (organs go on
--- from there). A real-valued trait is the number pgfmath computes, a multiple of 2^-16.
--- Lehmer's generator answers seeds 1, 2, 3 ... with nearly proportional first values,
--- so the first two are thrown away (TikZ: \pgfmathgeneratepseudorandomnumber twice).
-M.WARM = 2
--- fix, if given, is a table of traits fixed (M.fixes): each still takes its draw, then its
--- value is the fixed one, and a trait that depends on it (BY) follows it; a fixed plan
--- picks its own distributions. The traits drawn before a fixed one are as they would have
--- been; those after it too, unless a trait that depends on it draws differently (a
--- constant takes no draw, a range one), which moves every later draw along
-function M.sample(seed, role, log, fix)
-  fix = fix or {}
-  local rng = ink.pgfrng(seed)
-  for _ = 1, M.WARM do rng.step() end
-  local sp = { seed = seed, role = role or "any" }
-  sp.plan = draw(M.roleplans(sp.role), rng, sp)
-  if fix.plan ~= nil then sp.plan = fix.plan end
-  local refused = M.refused(sp.plan, fix)
-  if refused then error(refused, 0) end
-  if log then log("plan", sp.plan) end
-  for i = 2, #M.TRAITS do
-    local t = M.TRAITS[i]
-    sp[t] = draw(M.dist(sp.plan, t), rng, sp)
-    if fix[t] ~= nil then sp[t] = fix[t] end
-    if log then log(t, sp[t]) end
-  end
-  return sp, rng
-end
+local PLANT = family {
+  name = "plant", noun = "plant", what = "a species", heading = "A species",
+  traits = M.TRAITS, kinds = M.PLANS, derived = "clade", roles = M.ROLES,
+  rolelist = { "hero", "spray", "monocot", "any" },
+  fallback = function(p, trait) return CLADE[p.clade][trait] or COMMON[trait] end,
+  weight = function(p, role) if (role == "any" and not p.apart) or p.roles[role] then return p.w end end,
+  refuse = function(plan, fix) return M.refused(plan, fix) end,
+  tex = { traits = "traits", role = "role", kind = "plan", T = "T", BY = "BY", d = "", ok = "ok" },
+}
+M.FAMILIES[1], M.FAMILIES.plant = PLANT, PLANT
+local PLAN = PLANT.byname
+M.dist, M.roleplans, M.sample = PLANT.dist, PLANT.rolekinds, PLANT.sample
 
 -- ---------------------------------------------------------------- the rules
 -- report section 5c; a species that breaks one is a bug in the tables
@@ -488,6 +530,7 @@ function M.violations(sp)
   check(not fern or (sp.pinnae >= 8 and sp.stipe > 0 and sp.outline ~= "none"), "a frond without pinnae or stipe")
   return v
 end
+PLANT.violations = M.violations
 
 -- ---------------------------------------------------------------- in words
 local NUM = { "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve",
@@ -583,6 +626,7 @@ function M.describe(sp)
     .. leaf_words(sp) .. (sp.tendrils == 1 and ", climbing by tendrils" or "") .. "; then " .. FRUIT[sp.fruit] .. "."
   return s:sub(1, 1):upper() .. s:sub(2)
 end
+PLANT.describe = M.describe
 
 -- ---------------------------------------------------------------- a document's plants
 -- showy: flowers that can carry a page, one at a time or in a loose cluster, not a
@@ -781,45 +825,24 @@ M.VKINDS = {
     bill = W("curved", 2, "straight", 1), crest = W(0, 5, 1, 1), tail = R(0.3, 0.45),
   } },
 }
-local VKIND = {}
-for i, k in ipairs(M.VKINDS) do VKIND[k.name] = k k.index = i end
+-- the visitors: what a kind's table leaves out it does not have (VNONE); a role draws
+-- its kinds by the weights in their roles, "any" every kind by its weight; the TeX
+-- tables are a namespace of their own (\flo@VT, \flo@VBY), since visitors and plants
+-- share trait names. A visitor's values (M.values) are only what some kind draws itself:
+-- a kind without a shell holds a placeholder that no drawing of a shell can take
 M.VROLES = { bee = true, butterfly = true, moth = true, bird = true, beetle = true, fly = true, leaf = true,
   stem = true, perch = true, any = true }
-
-function M.vdist(kind, trait)
-  local k = VKIND[kind]
-  if trait == "group" then return C(k.group) end
-  return k.d[trait] or VNONE[trait]
-end
--- the kinds a role may draw, as a W over kind names (in M.VKINDS order); a role may
--- also name one kind ("ladybird"); "any" draws every kind by its weight
-function M.vrolekinds(role)
-  if VKIND[role] and not M.VROLES[role] then return W(role, VKIND[role].w) end
-  local t = {}
-  for _, k in ipairs(M.VKINDS) do
-    local w = role == "any" and k.w or k.roles[role]
-    if w then t[#t + 1] = k.name t[#t + 1] = w end
-  end
-  assert(#t > 0, "florilegium: no visitor for the role " .. tostring(role))
-  return W(table.unpack(t))
-end
--- a visitor from a pgf seed for a role, as M.sample draws a plant
-function M.vsample(seed, role, log, fix)
-  fix = fix or {}
-  local rng = ink.pgfrng(seed)
-  for _ = 1, M.WARM do rng.step() end
-  local v = { seed = seed, role = role or "any" }
-  v.kind = draw(M.vrolekinds(v.role), rng, v)
-  if fix.kind ~= nil then v.kind = fix.kind end
-  if log then log("kind", v.kind) end
-  for i = 2, #M.VTRAITS do
-    local t = M.VTRAITS[i]
-    v[t] = draw(M.vdist(v.kind, t), rng, v)
-    if fix[t] ~= nil then v[t] = fix[t] end
-    if log then log(t, v[t]) end
-  end
-  return v, rng
-end
+local VISITOR = family {
+  name = "visitor", noun = "visitor", what = "a visitor", heading = "A visitor",
+  traits = M.VTRAITS, kinds = M.VKINDS, derived = "group", roles = M.VROLES,
+  rolelist = { "bee", "butterfly", "moth", "bird", "beetle", "fly", "leaf", "stem", "perch", "any" },
+  fallback = function(_, trait) return VNONE[trait] end,
+  weight = function(k, role) return role == "any" and k.w or k.roles[role] end,
+  own = function(k, trait) return k.d[trait] end,
+  tex = { traits = "vtraits", role = "vrole", kind = "vkind", T = "VT", BY = "VBY", d = "vis@", ok = "vok" },
+}
+M.FAMILIES[2], M.FAMILIES.visitor = VISITOR, VISITOR
+M.vdist, M.vrolekinds, M.vsample = VISITOR.dist, VISITOR.rolekinds, VISITOR.sample
 
 -- ---------------------------------------------------------------- a genome of your own
 -- Some traits fixed, the rest sampled (board #5109): "compound=palmate, leaflets=7". The
@@ -843,29 +866,32 @@ local function collect(d, acc)
   elseif k == "by" then for _, sub in pairs(d[3]) do collect(sub, acc) end
   end
 end
-local VALUES = {}
--- trait -> { names = {name = true}, lo, hi, real }: what fixing it may give, for plants
--- (visitor false) or visitors. A visitor's trait takes only the kinds that draw it: a kind
--- without a shell holds a placeholder (VNONE) that no drawing of a shell can take
-function M.values(visitor)
-  local key = visitor and "v" or "p"
-  if VALUES[key] then return VALUES[key] end
+-- a family: the name of one (plant, visitor), or, as the first callers wrote it, true for
+-- the visitors and false (or nothing) for the plants
+local function famof(which)
+  if which == true then return VISITOR elseif not which then return PLANT end
+  return type(which) == "table" and which or M.family(which)
+end
+-- trait -> { names = {name = true}, lo, hi, real }: what fixing it may give, for a family
+-- (f.own: the distributions a kind really draws)
+function M.values(which)
+  local f = famof(which)
+  if f.VALUES then return f.VALUES end
   local out = {}
-  local traits, first = visitor and M.VTRAITS or M.TRAITS, visitor and "kind" or "plan"
-  for i, t in ipairs(traits) do
+  for i, t in ipairs(f.traits) do
     local acc = { names = {} }
-    if i == 1 then
-      for _, x in ipairs(visitor and M.VKINDS or M.PLANS) do acc.names[x.name] = true end
-    else
-      for _, x in ipairs(visitor and M.VKINDS or M.PLANS) do
-        if not visitor then collect(M.dist(x.name, t), acc) elseif x.d[t] then collect(x.d[t], acc) end
+    for _, k in ipairs(f.kinds) do
+      if i == 1 then acc.names[k.name] = true
+      else
+        local d = f.own(k, t)
+        if d then collect(d, acc) end
       end
     end
     out[t] = acc
   end
-  out[visitor and "group" or "clade"] = nil
-  assert(out[first])
-  VALUES[key] = out
+  if f.derived then out[f.derived] = nil end
+  assert(out[f.traits[1]])
+  f.VALUES = out
   return out
 end
 -- A fixed value that the other kind of plant draws, but not this one: a name only the fern
@@ -923,15 +949,16 @@ end
 -- "trait=value, ..." as a table of fixed traits, each value as the sampler holds it (a name,
 -- a whole number, or a real number to the scaled point, as TeX reads it); an unknown trait
 -- or a value the genome cannot draw is an error
-function M.fixes(text, visitor)
-  local fix, vals = {}, M.values(visitor)
+function M.fixes(text, which)
+  local f = famof(which)
+  local fix, vals = {}, M.values(f)
   for item in tostring(text or ""):gmatch("[^,]+") do
     local t, v = item:match("^%s*([%w_]+)%s*=%s*(.-)%s*$")
     if not t then
       if item:match("%S") then error("florilegium: not trait=value: '" .. item .. "'", 0) end
     else
       local ok = vals[t]
-      if not ok then error("florilegium: " .. (visitor and "a visitor" or "a species") .. " has no trait '" .. t .. "'", 0) end
+      if not ok then error("florilegium: " .. f.what .. " has no trait '" .. t .. "'", 0) end
       -- as TeX reads it (\flo@fixcheck): pgfkeys takes one pair of braces off a value; a
       -- number is a plain decimal (a minus sign first or none, at most one point), compared
       -- with the range as TeX holds both, in sp
@@ -977,6 +1004,7 @@ function M.vviolations(v)
   check(v.size > 0, "a visitor of no size")
   return out
 end
+VISITOR.violations = M.vviolations
 -- a visitor in words, after "a" or "an": "butterfly with scalloped wings and a row of eyespots"
 -- the ground in the words of the animal's own colors (the copper paints warm ones)
 local GROUNDW = {
@@ -1044,6 +1072,250 @@ function M.vdescribe(v)
   elseif #with > 1 then s = s .. " with " .. concat(with, ", ", 1, #with - 1) .. " and " .. with[#with] end
   return s .. after
 end
+VISITOR.describe = M.vdescribe
+
+-- ---------------------------------------------------------------- tracery
+-- A window of Gothic tracery sampled as a plant is (board #5235, the frames report, part
+-- B). Its kind is what it is on the page: a window (a traceried arch), a headpiece (a
+-- wide, shallow arch over a title), an arcade (bays under a straight top), a rose, or a
+-- foil alone (a trefoil or quatrefoil as an ornament). The period then locks the
+-- vocabulary as a body plan locks a plant: no ogee before 1310, no spherical triangle
+-- after 1350. One number does most of the drawing, the arch's excess (its radius over
+-- its span, after Havemann and Fellner 2004): 0.5 a round arch, 1 equilateral, more a
+-- lancet, less a drop arch. Lengths are fractions of the span; the drawing is circles
+-- struck from the springing points and the centers they give (the report's snap points).
+M.TTRAITS = {
+  "kind", "period", "masonry", "arch", "excess", "rise", "ogee", "shoulder", "jamb",
+  "lights", "split", "branch", "depth", "setdown", "bar", "border", "transoms",
+  "figure", "foils", "foilshape", "cusps", "cuspdepth", "orders", "hood", "spandrel",
+  "spokes", "rings", "oculus", "tone", "accent",
+}
+-- for every kind; a kind overrides any of them
+local TCOMMON = {
+  -- plate tracery (openings cut through a slab) belongs to the earliest windows
+  masonry = BY("period", { early_english = W("plate", 3, "bar", 1), _ = C("bar") }),
+  arch = BY("period", {
+    early_english = W("lancet", 3, "equilateral", 2),
+    geometric = W("equilateral", 4, "lancet", 1, "drop", 1),
+    curvilinear = W("equilateral", 3, "drop", 2, "ogee", 1),
+    perpendicular = W("fourcentered", 3, "drop", 2, "equilateral", 1),
+    rayonnant = C("equilateral"),
+    flamboyant = W("equilateral", 2, "ogee", 2, "drop", 1),
+  }),
+  -- radius over span; a four-centered arch is set by its rise and shoulders instead
+  excess = BY("arch", { round = C(0.5), segmental = R(0.52, 0.7), drop = R(0.6, 0.9), equilateral = C(1),
+    lancet = R(1.1, 1.6), ogee = R(0.8, 1.1), _ = C(0) }),
+  rise = BY("arch", { fourcentered = R(0.25, 0.4), _ = C(0) }),          -- rise over span
+  ogee = BY("arch", { ogee = R(0.4, 0.7), _ = C(0) }),                  -- the reversal, as a fraction of the rise
+  shoulder = BY("arch", { fourcentered = R(0.12, 0.25), _ = C(0) }),     -- the shoulder arcs' radius over span
+  jamb = C(0),                                                          -- the jambs' height over span
+  lights = C(0),
+  -- how the lights group under sub-arches: in two halves, a center light with the rest
+  -- each side, or not at all (Perpendicular mullions run to the arch)
+  split = BY("period", { perpendicular = C("flat"), _ = BY("lights", {
+    ["1"] = C("flat"), ["2"] = W("binary", 3, "flat", 1), ["3"] = W("center", 2, "flat", 2),
+    ["4"] = W("binary", 3, "flat", 1), ["5"] = W("center", 2, "flat", 1), ["6"] = W("binary", 3, "flat", 1),
+    ["7"] = W("center", 2, "flat", 1), _ = C("flat") }) }),
+  -- the head's construction: sub-arches with a figure above, mullions forking in a Y,
+  -- intersecting arcs, panels straight up to the arch, the lights' ogee heads repeated
+  -- up the head as a net (reticulated), ogee heads with mouchettes and daggers flowing
+  -- above them, or a headpiece's screen
+  branch = BY("lights", { ["0"] = C("none"), ["1"] = C("none"), _ = BY("period", {
+    early_english = C("subarch"), geometric = W("subarch", 4, "Y", 1, "intersecting", 1),
+    curvilinear = W("subarch", 3, "intersecting", 1, "Y", 1, "reticulated", 2, "flowing", 2),
+    perpendicular = W("panel", 3, "subarch", 1),
+    rayonnant = C("subarch"), flamboyant = W("subarch", 2, "Y", 1, "flowing", 3, "reticulated", 1) }) }),
+  depth = BY("branch", { subarch = BY("lights", { ["2"] = C(1), ["3"] = C(1), ["4"] = I(1, 2), ["5"] = I(1, 2),
+    ["6"] = I(1, 2), ["7"] = I(1, 2), _ = I(1, 3) }), _ = C(0) }),
+  setdown = BY("branch", { subarch = R(0, 0.12), _ = C(0) }),            -- the sub-arches' springing, below the main one
+  bar = R(0.012, 0.03),                                                 -- a bar's half-width over span
+  border = R(0.02, 0.06),                                               -- the main arch's bar, over span
+  transoms = C(0),
+  figure = BY("branch", { subarch = BY("period", {
+    early_english = W("oculus", 3, "foiled", 2, "none", 1), geometric = W("foiled", 6, "triangle", 2, "oculus", 1),
+    curvilinear = W("foiled", 2, "dagger", 2, "mouchettes", 3, "soufflet", 2, "triangle", 1),
+    perpendicular = W("foiled", 2, "none", 1), rayonnant = W("foiled", 4, "oculus", 1),
+    flamboyant = W("mouchettes", 4, "soufflet", 3, "dagger", 2) }), _ = C("none") }),
+  foils = BY("figure", { foiled = W(3, 2, 4, 5, 5, 1, 6, 3, 8, 1), triangle = W(0, 1, 3, 2), soufflet = C(4), _ = C(0) }),
+  foilshape = BY("period", { early_english = C("round"), geometric = W("round", 4, "pointed", 1), rayonnant = C("round"),
+    curvilinear = W("pointed", 2, "round", 1), perpendicular = W("pointed", 3, "round", 1),
+    flamboyant = W("pointed", 3, "round", 1) }),
+  -- cusps in each light's head: two make a trefoiled head
+  cusps = BY("period", { early_english = W(0, 2, 2, 1), geometric = W(2, 3, 0, 1), curvilinear = W(2, 3, 4, 1, 0, 1),
+    perpendicular = W(2, 3, 4, 2), rayonnant = W(2, 2, 0, 1), flamboyant = W(2, 2, 4, 1) }),
+  cuspdepth = R(0.12, 0.28),                                            -- a cusp's reach over the opening's width
+  orders = I(1, 3),                                                     -- recessed rings round the arch
+  hood = C("none"),                                                     -- the drip molding over the arch
+  spandrel = C("blank"),                                                -- what fills the leftover corners
+  spokes = C(0), rings = C(0), oculus = C(0),
+  tone = R(0.3, 0.5),                                                   -- the wash in the openings
+  accent = BY("hood", { stops = W("center", 2, "stops", 2, "none", 1), _ = W("center", 3, "none", 2) }),
+}
+-- kinds: w, the weight among all; roles, the weight in each place on the page
+-- (headpiece: over a title; window: a pic or an initial's frame; rose; ornament)
+M.TKINDS = {
+  { name = "window", w = 4, roles = { window = 1, frame = 1 }, d = {
+    period = W("early_english", 2, "geometric", 4, "curvilinear", 3, "perpendicular", 3, "rayonnant", 1, "flamboyant", 2),
+    jamb = R(0.8, 2.2),
+    lights = BY("period", { early_english = I(1, 3), geometric = I(2, 5), curvilinear = I(2, 5),
+      perpendicular = I(3, 7), rayonnant = I(2, 4), flamboyant = I(2, 5) }),
+    transoms = BY("period", { perpendicular = I(0, 2), _ = C(0) }),
+    hood = W("none", 1, "plain", 2, "stops", 2),
+    spandrel = BY("period", { early_english = C("blank"), geometric = W("blank", 2, "trefoil", 2),
+      curvilinear = W("blank", 1, "trefoil", 1, "dagger", 2), perpendicular = W("blank", 2, "trefoil", 1),
+      rayonnant = W("blank", 1, "trefoil", 1), flamboyant = W("dagger", 2, "blank", 1) }),
+  } },
+  -- a wide, shallow arch: segmental, four-centered, or an ogee depressed over shoulders
+  { name = "headpiece", w = 3, roles = { headpiece = 3 }, d = {
+    period = W("geometric", 3, "curvilinear", 2, "perpendicular", 4, "flamboyant", 2),
+    arch = BY("period", { geometric = C("segmental"), curvilinear = W("ogee", 2, "segmental", 2),
+      perpendicular = W("fourcentered", 4, "segmental", 2), flamboyant = W("ogee", 2, "fourcentered", 1, "segmental", 1) }),
+    -- flat: a segmental arch struck from well below the springing, a four-centered or
+    -- ogee arch rising a fifth of its span at most, over short jambs
+    excess = BY("arch", { segmental = R(1, 1.6), _ = C(0) }),
+    rise = BY("arch", { fourcentered = R(0.1, 0.16), ogee = R(0.11, 0.17), _ = C(0) }),
+    shoulder = BY("arch", { fourcentered = R(0.04, 0.08), ogee = R(0.05, 0.08), _ = C(0) }),
+    jamb = R(0.12, 0.18),
+    lights = I(5, 8),
+    orders = I(1, 2), border = R(0.015, 0.035),
+    -- a screen: every light its own cusped head straight under the arch, small foils in
+    -- the stone between the heads (no sub-arches, which would double the height)
+    split = C("flat"), branch = BY("period", { perpendicular = W("panel", 1, "screen", 3), _ = C("screen") }),
+    depth = C(0), setdown = C(0),
+    figure = BY("branch", { screen = W("foiled", 5, "oculus", 1, "none", 1), _ = C("none") }),
+    foils = BY("figure", { foiled = W(3, 3, 4, 3, 5, 1), _ = C(0) }),
+    hood = W("plain", 2, "stops", 2, "none", 1),
+    spandrel = W("foliage", 4, "trefoil", 2, "blank", 1),
+  } },
+  -- bays side by side under a straight molding, each a small window
+  { name = "arcade", w = 2, roles = { headpiece = 2 }, d = {
+    period = W("early_english", 1, "geometric", 2, "perpendicular", 4),
+    arch = BY("period", { early_english = W("lancet", 2, "equilateral", 1, "round", 1),
+      geometric = W("equilateral", 3, "drop", 1), perpendicular = W("fourcentered", 3, "drop", 1) }),
+    jamb = R(0.3, 0.8),
+    lights = I(5, 10),
+    branch = C("none"), figure = C("none"), depth = C(0), setdown = C(0),
+    hood = W("plain", 2, "none", 1),
+    spandrel = W("trefoil", 2, "blank", 2, "foliage", 1),
+  } },
+  { name = "rose", w = 2, roles = { rose = 1, ornament = 1 }, d = {
+    period = W("geometric", 3, "rayonnant", 3, "flamboyant", 2),
+    masonry = C("bar"), arch = C("none"), cusps = C(0), orders = I(1, 2),
+    spokes = W(6, 1, 8, 3, 12, 4, 16, 3), rings = I(1, 2), oculus = R(0.12, 0.3),
+  } },
+  -- a foiled circle alone, the margin's ornament
+  { name = "foil", w = 2, roles = { ornament = 3 }, d = {
+    period = W("early_english", 1, "geometric", 4, "perpendicular", 1, "flamboyant", 1),
+    masonry = C("bar"), arch = C("none"), figure = C("foiled"),
+    foils = W(3, 4, 4, 5, 5, 1, 6, 2, 8, 1), cusps = C(0), orders = I(1, 2),
+  } },
+}
+M.TROLES = { headpiece = true, window = true, frame = true, rose = true, ornament = true, any = true }
+local TRACERY = family {
+  name = "tracery", noun = "tracery", what = "a window", heading = "A window of tracery",
+  traits = M.TTRAITS, kinds = M.TKINDS, roles = M.TROLES,
+  rolelist = { "headpiece", "window", "frame", "rose", "ornament", "any" },
+  fallback = function(_, trait) return TCOMMON[trait] end,
+  weight = function(k, role) return role == "any" and k.w or k.roles[role] end,
+  tex = { traits = "ttraits", role = "trole", kind = "tkind", T = "TT", BY = "TBY", d = "tr@", ok = "tok" },
+}
+M.FAMILIES[3], M.FAMILIES.tracery = TRACERY, TRACERY
+M.tdist, M.trolekinds, M.tsample = TRACERY.dist, TRACERY.rolekinds, TRACERY.sample
+
+-- the rules of tracery (the report's T1-T8 and its period table); one broken is a bug
+local LATE = { ogee = 1, dagger = 1, mouchettes = 1, soufflet = 1 }   -- curvilinear and later
+local EARLY = { early_english = 1, geometric = 1, rayonnant = 1 }
+local FOILED = { foiled = 1, soufflet = 1 }
+function M.tviolations(w)
+  local out = {}
+  local function check(ok, what) if not ok then out[#out + 1] = what end end
+  local early = EARLY[w.period]
+  check(not early or not (LATE[w.arch] or LATE[w.figure]), "an ogee or a flowing figure before 1310")
+  check(w.branch ~= "panel" or w.period == "perpendicular", "panel tracery outside the Perpendicular")
+  check(w.figure ~= "triangle" or w.period ~= "perpendicular", "a spherical triangle in the Perpendicular")
+  check(w.arch ~= "fourcentered" or w.period == "perpendicular" or w.period == "flamboyant", "a four-centered arch before 1350")
+  check(w.masonry ~= "plate" or w.period == "early_english", "plate tracery after 1250")
+  check((w.lights == 0) == (w.kind == "rose" or w.kind == "foil"), "lights on a rose or a foil, or a window without")
+  check((w.arch == "none") == (w.kind == "rose" or w.kind == "foil"), "a rose or a foil with an arch, or a window without one")
+  check(w.branch ~= "none" or w.depth == 0, "sub-arches without the construction")
+  check(w.lights < 2 or w.depth <= math.floor(math.log(w.lights, 2)), "more sub-arches than lights")
+  check(w.branch == "subarch" or w.depth == 0 and w.setdown == 0, "sub-arches set down under another head")
+  check(w.figure == "none" or w.branch == "subarch" or w.branch == "screen" or w.kind == "foil", "a head figure with no sub-arches to sit on")
+  check(w.branch ~= "screen" or w.kind == "headpiece", "a screen of lights that is not a headpiece")
+  check((w.branch ~= "reticulated" and w.branch ~= "flowing") or w.period == "curvilinear" or w.period == "flamboyant",
+    "reticulated or flowing tracery outside the curvilinear and flamboyant")
+  check((w.foils > 0) == (FOILED[w.figure] ~= nil or (w.figure == "triangle" and w.foils == 3)), "foils without a foiled figure, or one without foils")
+  check(w.foils == 0 or w.foils >= 3, "fewer than three foils")
+  check((w.spokes > 0) == (w.kind == "rose"), "spokes on something not a rose, or a rose without")
+  check(w.kind ~= "rose" or (w.rings > 0 and w.oculus > 0), "a rose without rings or an eye")
+  check(w.accent ~= "stops" or w.hood == "stops", "copper on hood stops that are not there")
+  check(w.arch ~= "round" or w.excess == 0.5, "a round arch with an excess other than a half")
+  check(w.arch ~= "equilateral" or w.excess == 1, "an equilateral arch with an excess other than one")
+  check(w.arch ~= "lancet" or w.excess > 1, "a lancet with its centers inside the span")
+  check(w.arch ~= "drop" or (w.excess < 1 and w.excess > 0.5), "a drop arch with its centers outside the span")
+  local shouldered = w.arch == "fourcentered" or (w.kind == "headpiece" and w.arch == "ogee")
+  check(not shouldered or (w.rise > 0 and w.shoulder > 0), "a four-centered or depressed arch without rise or shoulders")
+  check(shouldered or (w.rise == 0 and w.shoulder == 0), "rise or shoulders on an arch not four-centered")
+  check((w.arch == "ogee") == (w.ogee > 0), "an ogee without its reversal, or a reversal on another arch")
+  check(w.transoms == 0 or w.period == "perpendicular", "transoms outside the Perpendicular")
+  check(w.kind ~= "foil" or w.figure == "foiled", "a foil that is not foiled")
+  return out
+end
+TRACERY.violations = M.tviolations
+
+-- a window in words: "a geometric window of three lights under a sexfoil, the lights
+-- trefoiled, in two orders under a hood mold ending in stops"
+local PERIODW = { early_english = "Early English", geometric = "geometric", curvilinear = "curvilinear",
+  perpendicular = "Perpendicular", rayonnant = "rayonnant", flamboyant = "flamboyant" }
+local ARCHW = { round = "round", segmental = "segmental", drop = "drop", equilateral = "equilateral", lancet = "lancet",
+  fourcentered = "four-centered", ogee = "ogee" }
+local FOILW = { [3] = "trefoil", [4] = "quatrefoil", [5] = "cinquefoil", [6] = "sexfoil", [8] = "multifoil" }
+local FIGUREW = { oculus = "an oculus", triangle = "a spherical triangle", dagger = "a dagger",
+  mouchettes = "a pair of mouchettes", soufflet = "a soufflet" }
+local CUSPW = { [1] = "cusped", [2] = "trefoiled", [3] = "trefoiled", [4] = "cinquefoiled", [5] = "cinquefoiled" }
+local function foilw(w)
+  local name = FOILW[w.foils] or n_(w.foils) .. "-foiled circle"
+  if w.foilshape == "pointed" then name = "pointed " .. name end
+  return a_(name)
+end
+local function an_(word) return (word:match("^[aeiouAEIOU]") and "an " or "a ") .. word end
+function M.tdescribe(w)
+  local s
+  local period = PERIODW[w.period]
+  if w.kind == "foil" then
+    s = foilw(w) .. " in the " .. period .. " manner"
+  elseif w.kind == "rose" then
+    s = an_(period .. " rose of " .. n_(w.spokes) .. " spokes") .. (w.rings > 1 and " in two rings" or "")
+      .. " round " .. (w.oculus > 0.22 and "a wide eye" or "a small eye")
+  else
+    local arcade = w.kind == "arcade"
+    local what = w.kind == "headpiece" and "headpiece" or arcade and "arcade" or "window"
+    s = an_(period .. " " .. what .. " of " .. n_(w.lights) .. (arcade and " bays" or w.lights == 1 and " light" or " lights"))
+    if w.figure == "foiled" then s = s .. " under " .. foilw(w)
+    elseif FIGUREW[w.figure] then s = s .. " under " .. FIGUREW[w.figure]
+    elseif w.branch == "Y" then s = s .. ", the mullions forking in a Y"
+    elseif w.branch == "intersecting" then s = s .. ", the mullions crossing in the head"
+    elseif w.branch == "panel" then s = s .. " paneled to the arch"
+    elseif w.branch == "reticulated" then s = s .. ", the head reticulated"
+    elseif w.branch == "flowing" then s = s .. ", mouchettes flowing in the head" end
+    if w.branch == "screen" and w.figure ~= "none" then s = s .. " between the heads" end
+    s = s .. ", in " .. (arcade and ARCHW[w.arch] .. " arches" or an_(ARCHW[w.arch] .. " arch"))
+    if w.masonry == "plate" then s = s .. " cut through the slab" end
+    if w.transoms > 0 then s = s .. " crossed by " .. (w.transoms == 1 and "a transom" or "two transoms") end
+  end
+  if w.orders > 1 then s = s .. " of " .. n_(w.orders) .. " orders" end
+  if w.hood == "stops" then s = s .. " with a hood mold ending in stops"
+  elseif w.hood == "plain" then s = s .. " with a hood mold" end
+  if w.cusps > 0 and w.kind ~= "rose" and w.kind ~= "foil" then
+    s = s .. ", the " .. (w.kind == "arcade" and "bays" or "lights") .. " " .. CUSPW[w.cusps]
+  end
+  if w.spandrel == "foliage" then s = s .. ", foliage in the spandrels"
+  elseif w.spandrel == "trefoil" then s = s .. ", trefoils in the spandrels"
+  elseif w.spandrel == "dagger" then s = s .. ", daggers in the spandrels" end
+  s = s .. "."
+  return s:sub(1, 1):upper() .. s:sub(2)
+end
+TRACERY.describe = M.tdescribe
 
 -- ---------------------------------------------------------------- as TeX
 -- the tables for tikzlibraryflorilegium.code.tex: one macro per plan that draws its
@@ -1056,9 +1328,8 @@ local function sorted_keys(t)
   return ks
 end
 -- the TeX for a distribution; a BY map's entries become macros \flo@d@<name>@<value>,
--- appended to out; a visitor's (vtex) looks up the earlier trait among the visitor's
-local vtex = false
-local function tex_dist(d, name, out)
+-- appended to out; by is the family's BY macro, which looks the earlier trait up among its own
+local function tex_dist(d, name, out, by)
   local kind = d[1]
   if kind == "c" then return "\\flo@C{" .. key(d[2]) .. "}"
   elseif kind == "i" then return fmt("\\flo@I{%d}{%d}", d[2], d[3])
@@ -1070,54 +1341,41 @@ local function tex_dist(d, name, out)
   elseif kind == "by" then
     for _, k in ipairs(sorted_keys(d[3])) do
       local sub = name .. "@" .. k
-      local code = tex_dist(d[3][k], sub, out)
+      local code = tex_dist(d[3][k], sub, out, by)
       out[#out + 1] = "\\expandafter\\def\\csname flo@d@" .. sub .. "\\endcsname{" .. code .. "}"
     end
-    return (vtex and "\\flo@VBY{" or "\\flo@BY{") .. d[2] .. "}{" .. name .. "}"
+    return "\\flo@" .. by .. "{" .. d[2] .. "}{" .. name .. "}"
   end
   error("florilegium: unknown distribution " .. tostring(kind))
+end
+-- a family's tables: \flo@<traits>, \flo@<role>@<role> draws a kind, \flo@<kind>@<name> its
+-- traits with \flo@<T>; a kind's name is a role too unless a role has that name
+local function tex_family(f, out)
+  local x = f.tex
+  out[#out + 1] = "\\def\\flo@" .. x.traits .. "{" .. concat(f.traits, ",") .. "}"
+  local roles = {}
+  for _, r in ipairs(f.rolelist) do roles[#roles + 1] = r end
+  for _, k in ipairs(f.kinds) do if not f.roles[k.name] then roles[#roles + 1] = k.name end end
+  for _, role in ipairs(roles) do
+    out[#out + 1] = "\\expandafter\\def\\csname flo@" .. x.role .. "@" .. role .. "\\endcsname{"
+      .. tex_dist(f.rolekinds(role), x.role, out, x.BY) .. "}"
+  end
+  for _, k in ipairs(f.kinds) do
+    local body = {}
+    for i = 2, #f.traits do
+      local t = f.traits[i]
+      body[#body + 1] = "\\flo@" .. x.T .. "{" .. t .. "}{" .. tex_dist(f.dist(k.name, t), x.d .. k.name .. "@" .. t, out, x.BY) .. "}"
+    end
+    out[#out + 1] = "\\expandafter\\def\\csname flo@" .. x.kind .. "@" .. k.name .. "\\endcsname{%\n  "
+      .. concat(body, "%\n  ") .. "}"
+  end
 end
 function M.tex()
   local out = {
     "%% tikzlibraryflorilegium.tables.code.tex -- generated by tools/tikztables.lua from",
     "%% florilegium-species.lua; do not edit. Copyright (c) 2026 Kevin Raymond. MIT License.",
-    "\\def\\flo@traits{" .. concat(M.TRAITS, ",") .. "}",
   }
-  local roles = { "hero", "spray", "monocot", "any" }
-  for _, p in ipairs(M.PLANS) do if not M.ROLES[p.name] then roles[#roles + 1] = p.name end end
-  for _, role in ipairs(roles) do
-    out[#out + 1] = "\\expandafter\\def\\csname flo@role@" .. role .. "\\endcsname{"
-      .. tex_dist(M.roleplans(role), "role", out) .. "}"
-  end
-  for _, p in ipairs(M.PLANS) do
-    local body = {}
-    for i = 2, #M.TRAITS do
-      local t = M.TRAITS[i]
-      body[#body + 1] = "\\flo@T{" .. t .. "}{" .. tex_dist(M.dist(p.name, t), p.name .. "@" .. t, out) .. "}"
-    end
-    out[#out + 1] = "\\expandafter\\def\\csname flo@plan@" .. p.name .. "\\endcsname{%\n  "
-      .. concat(body, "%\n  ") .. "}"
-  end
-  -- the visitors: \flo@vrole@<role> draws a kind, \flo@vkind@<kind> its traits, into a
-  -- namespace of their own (\flo@VT, \flo@VBY), since visitors and plants share trait names
-  vtex = true
-  out[#out + 1] = "\\def\\flo@vtraits{" .. concat(M.VTRAITS, ",") .. "}"
-  local vroles = { "bee", "butterfly", "moth", "bird", "beetle", "fly", "leaf", "stem", "perch", "any" }
-  for _, k in ipairs(M.VKINDS) do vroles[#vroles + 1] = k.name end
-  for _, role in ipairs(vroles) do
-    out[#out + 1] = "\\expandafter\\def\\csname flo@vrole@" .. role .. "\\endcsname{"
-      .. tex_dist(M.vrolekinds(role), "vrole", out) .. "}"
-  end
-  for _, k in ipairs(M.VKINDS) do
-    local body = {}
-    for i = 2, #M.VTRAITS do
-      local t = M.VTRAITS[i]
-      body[#body + 1] = "\\flo@VT{" .. t .. "}{" .. tex_dist(M.vdist(k.name, t), "vis@" .. k.name .. "@" .. t, out) .. "}"
-    end
-    out[#out + 1] = "\\expandafter\\def\\csname flo@vkind@" .. k.name .. "\\endcsname{%\n  "
-      .. concat(body, "%\n  ") .. "}"
-  end
-  vtex = false
+  for _, f in ipairs(M.FAMILIES) do tex_family(f, out) end
   -- a value the plan's kind of plant cannot draw (M.refused): the fern's plans; per trait,
   -- the names only the fern draws and the flowering plant's; the frond's own names
   local fernplans = {}
@@ -1132,15 +1390,15 @@ function M.tex()
   end
   -- what a fixed trait may be (\florilegiumspecies[...], \florilegiumvisitor[...]): its
   -- names, the range of a number (empty if none), 1 if that number is real
-  for _, vis in ipairs({ false, true }) do
-    local vals = M.values(vis)
-    for _, t in ipairs(vis and M.VTRAITS or M.TRAITS) do
+  for _, f in ipairs(M.FAMILIES) do
+    local vals = M.values(f)
+    for _, t in ipairs(f.traits) do
       local ok = vals[t]
       if ok then
         local names = {}
         for name in pairs(ok.names) do names[#names + 1] = name end
         table.sort(names)
-        out[#out + 1] = fmt("\\expandafter\\def\\csname flo@%sok@%s\\endcsname{{%s}{%s}{%s}{%d}}", vis and "v" or "", t,
+        out[#out + 1] = fmt("\\expandafter\\def\\csname flo@%s@%s\\endcsname{{%s}{%s}{%s}{%d}}", f.tex.ok, t,
           concat(names, ","), ok.lo and key(ok.lo) or "", ok.hi and key(ok.hi) or "", ok.real and 1 or 0)
       end
     end
@@ -1162,14 +1420,14 @@ function M.traitsdoc()
     "",
     "This page is written by `tools/tikztables.lua` from `florilegium-species.lua`.",
   }
-  for _, vis in ipairs({ false, true }) do
-    local vals = M.values(vis)
+  for _, f in ipairs(M.FAMILIES) do
+    local vals = M.values(f)
     out[#out + 1] = ""
-    out[#out + 1] = vis and "## A visitor" or "## A species"
+    out[#out + 1] = "## " .. f.heading
     out[#out + 1] = ""
     out[#out + 1] = "| trait | what it may be |"
     out[#out + 1] = "|---|---|"
-    for _, t in ipairs(vis and M.VTRAITS or M.TRAITS) do
+    for _, t in ipairs(f.traits) do
       local ok = vals[t]
       if ok then
         local names = {}

@@ -69,12 +69,13 @@ jobs:
             florilegium-doc.tex
           latexmk_use_lualatex: true
           # Lua does pgfmath's arithmetic exactly where the species need it (pgfmathcheck), and
-          # the TikZ library and the Lua sample the same species and visitors (tikzcheck); the
-          # tikz job below compares what the two engines draw
+          # the TikZ library and the Lua sample the same species, visitors and windows of
+          # tracery (tikzcheck); the tikz job below compares what the two engines draw
           post_compile: >-
             texlua tools/pgfmathcheck.lua 20000 &&
             texlua tools/tikzcheck.lua 1 1000 &&
-            texlua tools/tikzcheck.lua 1 1000 lualatex v:any
+            texlua tools/tikzcheck.lua 1 1000 lualatex v:any &&
+            texlua tools/tikzcheck.lua 1 1000 lualatex t:any
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: florilegium-pdfs

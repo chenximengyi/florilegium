@@ -1046,10 +1046,37 @@ function M.page(g)
     local m = M.motifs[a]                     -- a plant without tendrils
     return m, m and (m.smin + m.smax) / 2
   end
+  -- a headpiece of tracery over the text (\florilegiumheadpiece): a branch from the
+  -- nearest stem to the foot of the vine twining its jamb, which stands past the
+  -- column's edge, so the safety clip reaches the text there
+  local headpieces = false
+  local function headpiece_mark(mk, ev)
+    if not g.headpiece then return end
+    -- the nearest stem to the sill, by the column's edge: its plant's leaves go on the
+    -- vine, and its branch reaches the vine's foot
+    local S = nearest_stem(g.colright - 0.5, mk.y)
+    local sp = S and S[6]
+    local function leaf(r, L)
+      if sp then ORG.draw("leaf", sp, pgfseed(r), { len = L, bend = r.sym(0.2), lc = r.u(), season = osea })
+      else ink.scale(L) F.leaflet(r) end                -- a theme's page: its leaflet
+    end
+    -- drawn under the garden and outside its safety clip (layer 0), in every frame
+    local layer, tag = ink.layer(-1), ink.tag(nil)
+    local px, py = g.headpiece(mk, leaf)
+    ink.layer(layer) ink.tag(tag)
+    if not px then return end
+    if g.mirror then px = g.pw - px end
+    if py < 0.6 or py > g.ph - 0.6 then return end
+    branch_to(S, px, py, 0.94, 0.34, 0.05, ev)
+    headpieces = true
+  end
   local nmarks = 0
   for _, mk in ipairs(g.marks or {}) do
     local m, s, want
-    if comm then m, s, want = species_mark(mk)
+    if mk.kind == "headpiece" then
+      nmarks = nmarks + 1
+      headpiece_mark(mk, event({ kind = "stem", phase = "marks", i = nmarks }))
+    elseif comm then m, s, want = species_mark(mk)
     elseif mk.kind == "heading" then
       m, s = M.motifs[mk.arg == 1 and "flower" or "blossoms"], mk.arg == 1 and 0.95 or 0.7
     else
@@ -1598,7 +1625,7 @@ function M.page(g)
   ink.layer(0)
   local bleed = g.bleed or 0
   for _, r in ipairs(rects) do
-    local x1, y1, x2, y2 = r[1] - 0.25, r[2] - 0.3, r[3] + (r == col and 0.25 or 0.3), r[4] + 0.3
+    local x1, y1, x2, y2 = r[1] - 0.25, r[2] - 0.3, r[3] + (r == col and (headpieces and 0.5 or 0.25) or 0.3), r[4] + 0.3
     if bleed > 0 then
       if r[1] < 0.6 then x1 = x1 - bleed end
       if r[2] < 0.6 then y1 = y1 - bleed end

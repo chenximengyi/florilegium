@@ -91,6 +91,7 @@ echo "| geometric theme | both | **procedural**, grown | hand-designed kinds, cu
 echo "| math theme | both | **procedural**, packed into the free space | figures computed from their mathematics, and TeX's equations | Lua and TeX (LuaLaTeX) |"
 echo "| ornaments and initials | both | set in the text; an initial's vine grown round its letter | hand-designed kinds | Lua (LuaLaTeX) |"
 echo "| TikZ pics (\\usetikzlibrary{florilegium}) | $nname | **procedural**, each pic grows its own plants | **procedural** species from genomes | pure TikZ (pdfLaTeX or LuaLaTeX), or Lua (LuaLaTeX's default) |"
+echo "| headpieces, the tracery pic (2.1.0) | $nname | set over a heading, or a pic; the margin's branch grown to its vine | **procedural** windows of Gothic tracery from a genome | Lua (LuaLaTeX); the pic also in pure TikZ |"
 echo "| SVG without TeX, and the playground | both | as that release's margin | as that release's margin | any Lua 5.3/5.4, a browser |"
 echo "| PostScript (postscript/florilegium.ps) | both | **procedural**, grown | hand-designed kinds (v1.3's garden) | PostScript |"
 echo

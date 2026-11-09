@@ -13,7 +13,7 @@ local flora = require("florilegium-flora")
 local M = {}
 M.version = "2.0.1"                 -- the release; florilegium.lua checks that every file has the same
 
-local sqrt, cos, sin, pi, max, min, atan = math.sqrt, math.cos, math.sin, math.pi, math.max, math.min, math.atan
+local sqrt, cos, sin, pi, max, min, atan, floor = math.sqrt, math.cos, math.sin, math.pi, math.max, math.min, math.atan, math.floor
 local tone, white = ink.tone, ink.white
 local rad = pi / 180
 local function lerp(a, b, t) return a + (b - a) * t end
@@ -113,16 +113,27 @@ end
 function M.draw(rng, S, letter, o)
   o = o or {}
   local m = 0.07 * S                           -- the frame's inset
-  local cs, err = contours(o.font or "lmroman10-bold.otf", letter, S * 0.5, S * 0.47, S * 0.66, S * 0.7)
+  -- frame "arch" (\florilegiuminitialframe): the opening is a cusped arch of tracery
+  -- (florilegium-tracery.lua) and the spandrels round it stone; the letter sits a
+  -- little lower and smaller under its head
+  local apath, ainside, ys
+  if o.frame == "arch" then
+    local w = require("florilegium-species").tsample(1 + floor(rng.u() * 2147483645), "headpiece")
+    apath, ainside, ys = require("florilegium-tracery").arch_frame(w, S, m)
+  end
+  local cs, err
+  if apath then cs, err = contours(o.font or "lmroman10-bold.otf", letter, S * 0.5, S * 0.45, S * 0.64, S * 0.68)
+  else cs, err = contours(o.font or "lmroman10-bold.otf", letter, S * 0.5, S * 0.47, S * 0.66, S * 0.7) end
   if not cs then return nil, err end
-  -- free space: a grid of the distance to the letter and the frame
+  -- free space: a grid of the distance to the letter and the frame (and the arch's stone)
   local N = 36
   local cell = S / N
   local blocked, freecells = {}, {}
   for i = 0, N - 1 do
     for j = 0, N - 1 do
       local x, y = (i + 0.5) * cell, (j + 0.5) * cell
-      if inside(cs, x, y) then blocked[#blocked + 1] = { x, y } else freecells[#freecells + 1] = { x, y } end
+      if inside(cs, x, y) or (ainside and not ainside(x, y)) then blocked[#blocked + 1] = { x, y }
+      else freecells[#freecells + 1] = { x, y } end
     end
   end
   local function clearance(x, y)
@@ -134,12 +145,23 @@ function M.draw(rng, S, letter, o)
     return d
   end
 
-  -- the ground: a pale glaze and a double frame
+  -- the ground: a pale glaze and a double frame; under an arch, the stone of the
+  -- spandrels round the glazed opening, and the arch's line
   ink.layer(1)
-  ink.poly({ { 0, 0 }, { S, 0 }, { S, S }, { 0, S } }, true) ink.clip()
-    ink.flood(tone(0.975), 0, 0, S, S)
-    flora.mottle(rng, 0, 0, S, S, 6, S * 0.2, 0.93, 1.0, 0)
-  ink.unclip()
+  if apath then
+    ink.poly({ { m * 0.5, m * 0.5 }, { S - m * 0.5, m * 0.5 }, { S - m * 0.5, S - m * 0.5 }, { m * 0.5, S - m * 0.5 } }, true)
+    ink.fill(tone(0.86))                       -- the stone, a shade under the glaze
+    apath() ink.clip()
+      ink.flood(tone(0.975), 0, 0, S, S)
+      flora.mottle(rng, 0, 0, S, S, 6, S * 0.2, 0.93, 1.0, 0)
+    ink.unclip()
+    apath() ink.stroke(tone(0.1), 0.8)
+  else
+    ink.poly({ { 0, 0 }, { S, 0 }, { S, S }, { 0, S } }, true) ink.clip()
+      ink.flood(tone(0.975), 0, 0, S, S)
+      flora.mottle(rng, 0, 0, S, S, 6, S * 0.2, 0.93, 1.0, 0)
+    ink.unclip()
+  end
   ink.poly({ { 0, 0 }, { S, 0 }, { S, S }, { 0, S } }, true) ink.stroke(tone(0.1), 0.8)
   ink.poly({ { m * 0.5, m * 0.5 }, { S - m * 0.5, m * 0.5 }, { S - m * 0.5, S - m * 0.5 }, { m * 0.5, S - m * 0.5 } }, true)
   ink.stroke(tone(0.15), 0.3, 0.8)
@@ -148,7 +170,8 @@ function M.draw(rng, S, letter, o)
   local f = ink.fbm1(rng, 2)
   local ctrl = {
     { m * 1.2, m * 1.2 }, { S * rng.range(0.14, 0.22), S * rng.range(0.3, 0.4) }, { S * rng.range(0.32, 0.42), S * rng.range(0.5, 0.58) },
-    { S * rng.range(0.58, 0.68), S * rng.range(0.42, 0.52) }, { S * rng.range(0.74, 0.82), S * rng.range(0.62, 0.72) }, { S - m * 1.6, S - m * 1.4 } }
+    { S * rng.range(0.58, 0.68), S * rng.range(0.42, 0.52) }, { S * rng.range(0.74, 0.82), S * rng.range(0.62, 0.72) },
+    apath and { S - m * 2.4, ys - 0.03 * S } or { S - m * 1.6, S - m * 1.4 } }   -- under the arch's springing
   local pts = ink.catmull(ctrl, 14)
   for i, p in ipairs(pts) do local u = (i - 1) / (#pts - 1) p[2] = p[2] + 0.03 * S * f(u * 6) end
   local w0, w1 = 0.026 * S, 0.01 * S

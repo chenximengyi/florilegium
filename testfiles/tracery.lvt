@@ -1,0 +1,43 @@
+% tracery.lvt -- Gothic tracery on the page: a headpiece over every \section (option
+% headpieces) in a two-sided document, drawn at shipout with a vine up the jamb on the
+% margin's side and the margin's branch to its foot, on a species page and on a themed one;
+% one by hand with its keys; a hidden page, which keeps its headpiece without a vine;
+% the initial's arch frame; the ornaments of tracery.
+\input{regression-test}
+\documentclass[11pt,a4paper,twoside]{article}
+\renewcommand\rmdefault{cmr}
+\usepackage[T1]{fontenc}
+\usepackage[a4paper,inner=22mm,outer=68mm,top=32mm,bottom=30mm,headsep=8mm]{geometry}
+\def\florilegiumseed{5}
+\usepackage[grown,sections,headpieces]{florilegium}
+\directlua{require("fingerprint")}
+\newcount\paracount
+\newcommand\paras[1]{\paracount=0
+  \loop A headpiece is typeset with the heading and drawn when the page is shipped out,
+  so the vine climbs the jamb on the side of the margin.\par
+  \advance\paracount 1 \ifnum\paracount<#1 \repeat}
+\begin{document}
+\START
+\section{A right-hand page}
+\florilegiuminitialframe{arch}
+\florilegiuminitial[4]{A}{n} initial under a cusped arch, and ornaments of tracery:
+\florilegiumornament{trefoil} \florilegiumornament[size=2em]{quatrefoil}
+\florilegiumornament[size=2em,seed=3]{rose} \florilegiumornament[ink=5B2A1F]{cinquefoil}.
+\paras{6}
+\section*{A starred section}
+\paras{2}
+\newpage
+\florilegiumheadpiece[seed=7,width=8cm,traits={period=perpendicular},vine=none]
+\section{A left-hand page}
+\paras{8}
+\newpage
+\florilegiumhide
+\section{A page without its margin}
+\paras{3}
+\newpage
+\florilegiumtheme{geometric}
+\section{Another theme}
+\paras{3}
+\florilegiumtextend
+\clearpage
+\END

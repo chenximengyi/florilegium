@@ -45,6 +45,7 @@ can't be found, the library draws in pure TikZ.
 | `florilegium plants` | plants on one root, like a margin's main stems, the first `size` tall and the others 60–72% and 36–48% of it, with a pale flower of the first behind them (a fern grows from its crown, so `florilegium fern` draws it, not `plants`) | `plants={3/rose, 17/umbellifer, 29/mustard}`, `size width season ghost` |
 | `florilegium fern` | a fern's crown, `size` its longest frond | `seed size season draw` |
 | `florilegium visitor` | a visitor, `size` its wingspan, or its length | `seed role size draw` |
+| `florilegium tracery` | a window of Gothic tracery centered on the origin with its sill on the x axis, `size` its width (the outermost molding included) | `seed role size draw` |
 
 - `seed` picks the species (1 to 2147483646), and `role` narrows what it may be to `hero`,
   `spray`, `monocot`, `any` (the default), or a body plan (`rose`, `lily`, `pea`, `daisy`,
@@ -59,6 +60,13 @@ can't be found, the library draws in pure TikZ.
 - For a visitor, `role` is the visitor of a kind of flower (`bee`, `butterfly`, `moth`, `bird`,
   `beetle`, `fly`), one that lives off the flowers (`leaf`, `stem`, `perch`), `any`, or a kind
   (`ladybird`, `dragonfly`, `snail`, `hummingbird`, ...).
+- For tracery, `role` is `window`, `headpiece` (a screen of lights under a flat arch, as the
+  package sets over a section), `rose`, `ornament` (a foil, or a rose), `any`, or a kind
+  (`arcade`, `foil`). The traits are the window's genome: `period`, `arch`, `lights`, `branch`,
+  `figure`, `foils`, `cusps`, `transoms`, `spandrel`, `hood`, `orders` and the rest
+  (`docs/traits.md`), so `traits={period=perpendicular, lights=5, transoms=1}` asks for a
+  Perpendicular window of five lights with a transom. In pure TikZ a window takes about
+  twenty seconds, since the largest circle in each gap of the head is searched for in pgfmath.
 - `engine` is `auto` (the default), `lua` or `tikz`, for one pic or for all of them with
   `\pgfkeys{/florilegium/engine=tikz}`.
 - `traits` fixes some of the species' or the visitor's traits and leaves the rest to the seed
@@ -73,6 +81,8 @@ The traits themselves can be read too:
 \florilegiumtrait{plan}, \florilegiumtrait{merosity} parts, \florilegiumtrait{inflo}
 \florilegiumvisitor{3}{any}       % and a visitor
 \florilegiumvisitortrait{kind}
+\florilegiumtracery{3}{window}    % and a window of tracery
+\florilegiumtracerytrait{period}, \florilegiumtracerytrait{lights} lights
 ```
 
 ## A genome of your own

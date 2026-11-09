@@ -1,7 +1,7 @@
 -- Check the species tables without TeX: every sampled species keeps the rules of
 -- florilegium-species.lua, the body plans and traits are spread as intended, and the
 -- generated TikZ tables are current.
---   texlua tools/speciescheck.lua [N]          (from the repo root; N species, N/10 ferns and N visitors, default 10000)
+--   texlua tools/speciescheck.lua [N]          (from the repo root; N species, N/10 ferns, N visitors and N windows of tracery, default 10000)
 --   texlua tools/speciescheck.lua --pools K     K documents' pools, in words
 --   texlua tools/speciescheck.lua --log a b     choice logs of seeds a..b, role any (for tikzcheck)
 package.path = "./?.lua;" .. package.path
@@ -91,10 +91,34 @@ for seed = 1, N do
   end
   species.vdescribe(v)
 end
-local NV = { visitor = N // #VROLES + (N % #VROLES > 0 and 1 or 0) }
+-- tracery, in every role in turn
+local TROLES = { "any", "headpiece", "window", "frame", "rose", "ornament" }
+for seed = 1, N do
+  local role = TROLES[1 + seed % #TROLES]
+  local w = species.tsample(seed, role)
+  local bad1 = species.tviolations(w)
+  if role ~= "any" and not species.TROLES[w.kind] then
+    local ok = false
+    for _, k in ipairs(species.TKINDS) do if k.name == w.kind and k.roles[role] then ok = true end end
+    if not ok then bad1[#bad1 + 1] = "the role " .. role .. " drew " .. w.kind end
+  end
+  if #bad1 > 0 then
+    bad = bad + 1
+    if bad <= 10 then print(fmt("seed %d (tracery %s, %s): %s", seed, role, w.kind, table.concat(bad1, "; "))) end
+  end
+  if role == "any" then count("tracery", w.kind) end
+  for _, t in ipairs({ "period", "arch", "branch", "figure", "foils" }) do count("tracery " .. t, w[t]) end
+  local again = species.tsample(seed, role)
+  for _, t in ipairs(species.TTRAITS) do
+    if again[t] ~= w[t] then error(fmt("seed %d: tracery %s differs on a second draw", seed, t)) end
+  end
+  species.tdescribe(w)
+end
+local NV = { visitor = N // #VROLES + (N % #VROLES > 0 and 1 or 0), tracery = N // #TROLES + (N % #TROLES > 0 and 1 or 0) }
 for _, t in ipairs({ "plan", "syndrome", "form", "merosity", "inflo", "compound", "leafmargin", "venation", "arrangement", "fruit",
   "fern division", "fern pinnae", "fern outline", "fern sori", "fern dimorphic",
-  "visitor", "visitor pose", "visitor border", "visitor spots", "visitor hand" }) do
+  "visitor", "visitor pose", "visitor border", "visitor spots", "visitor hand",
+  "tracery", "tracery period", "tracery arch", "tracery branch", "tracery figure", "tracery foils" }) do
   local ks = {}
   for k in pairs(hist[t]) do ks[#ks + 1] = k end
   table.sort(ks, function(a, b) return hist[t][a] > hist[t][b] or (hist[t][a] == hist[t][b] and tostring(a) < tostring(b)) end)
@@ -115,5 +139,5 @@ if f then f:close() end
 if dstale then print("docs/traits.md is stale: texlua tools/tikztables.lua") end
 stale = stale or dstale
 
-print(fmt("%d species, %d ferns and %d visitors, %d broke a rule", N, NF, N, bad))
+print(fmt("%d species, %d ferns, %d visitors and %d windows of tracery, %d broke a rule", N, NF, N, N, bad))
 os.exit((bad == 0 and not stale) and 0 or 1)
