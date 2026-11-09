@@ -77,8 +77,9 @@ a mark, and the headpiece is drawn at shipout, when the page knows which side it
 on. A vine then twines up the jamb on that side, a helix seen side on round the shaft of
 moldings, with the leaves of the nearest plant on it. That plant sends a branch from the
 margin to the vine's foot. On the right-hand pages of a two-sided document it is the right
-jamb. `vine=auto` does all this; `left`, `right` and `none` choose. Under `nomargin` the
-headpiece is drawn in place, without a vine.
+jamb. `vine=auto` does all this; `left`, `right` and `none` choose. Under `nomargin`, and on
+a page that `\florilegiumoff` or `\florilegiumhide` leaves without its margin, the headpiece
+is drawn in place without a vine.
 
 ## The initial's arch, and ornaments
 

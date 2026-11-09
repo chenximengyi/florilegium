@@ -18,8 +18,10 @@ florilegium test: page 2, 2 drawings
   1. md5 7b3313b703334e0a16bc35d2dc0122f5, 5559203 bytes
   2. md5 393acbd48fa10bbaf0764eb7777df4c7, 3287 bytes
   grew: bee 0, bells 0, blossoms 0, bud 0, budding 0, budding:1 22, budding:2 5, budding:3 1, budding:4 1, butterfly 0, cyme 0, flower 0, g:bloom 0, g:budding 29, g:leaf 5, g:spray 17, g:tendril 0, g:unit 8, g:visitor 2, leaf 0, leaf:2 4, leaf:4 1, lily 0, seedhead 0, snail 1, spray:1 11, spray:2 4, spray:3 1, spray:4 1, sprig 0, tendril 0, umbel 0, unit:1 3, unit:2 3, unit:3 1, unit:4 1, visitor:1 1, visitor:2 0, visitor:3 1, visitor:4 0 [2]
-florilegium: grew 9184 cells, 153 motifs, 1064 stem points, 568 KB; visitors: 2 butterfly, 2 bee
-florilegium test: page 3, 2 drawings
-  1. md5 603e1e7b88a2d3e0d6d6b8a1c0005ff9, 581129 bytes
-  2. md5 ddeefc59be3c2ce6cf1d7715554df4a0, 521 bytes
-  grew: bee 2, bells 2, blossoms 15, bud 17, budding 0, butterfly 2, crystal 4, cyme 30, flower 6, leaf 39, lily 4, seedhead 0, sprig 10, tendril 16, umbel 6 [3]
+florilegium test: page 3, 1 drawings
+  1. md5 495c65adef63b7a1fbfb00e430be2b9d, 85937 bytes [3]
+florilegium: grew 9428 cells, 138 motifs, 1032 stem points, 623 KB; visitors: 2 butterfly, 1 snail
+florilegium test: page 4, 2 drawings
+  1. md5 360f80808d7fcdd36ab29e842198150b, 638000 bytes
+  2. md5 ff96c127d686aca3dfa70fc007edd634, 535 bytes
+  grew: bee 0, bells 2, blossoms 20, bud 13, budding 0, butterfly 2, crystal 4, cyme 22, flower 6, leaf 33, lily 4, seedhead 0, snail 1, sprig 15, tendril 10, umbel 6 [4]

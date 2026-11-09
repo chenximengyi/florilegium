@@ -1,7 +1,8 @@
 % tracery.lvt -- Gothic tracery on the page: a headpiece over every \section (option
 % headpieces) in a two-sided document, drawn at shipout with a vine up the jamb on the
 % margin's side and the margin's branch to its foot, on a species page and on a themed one;
-% one by hand with its keys; the initial's arch frame; the ornaments of tracery.
+% one by hand with its keys; a hidden page, which keeps its headpiece without a vine;
+% the initial's arch frame; the ornaments of tracery.
 \input{regression-test}
 \documentclass[11pt,a4paper,twoside]{article}
 \renewcommand\rmdefault{cmr}
@@ -29,6 +30,10 @@
 \florilegiumheadpiece[seed=7,width=8cm,traits={period=perpendicular},vine=none]
 \section{A left-hand page}
 \paras{8}
+\newpage
+\florilegiumhide
+\section{A page without its margin}
+\paras{3}
 \newpage
 \florilegiumtheme{geometric}
 \section{Another theme}
