@@ -13,6 +13,7 @@
 %   \florilegiumspecies[compound=palmate, leaflets=7]{<seed>}{<role>}   those traits fixed
 %   \florilegiumtrait{<trait>}            a trait of the species last drawn, e.g. {plan}, {merosity}
 %   \florilegiumvisitor{<seed>}{<role>}   a visitor: a butterfly, a bee, a snail ... (see below)
+%   \florilegiumtracery{<seed>}{<role>}   a window of Gothic tracery (see below)
 
 \ifdefined\ProvidesFile
   \ProvidesFile{tikzlibraryflorilegium.code.tex}[2026/11/05 v2.0.1 florilegium species in pure TikZ]
@@ -129,7 +130,8 @@
   \flo@fixcheck{\pgfkeyscurrentname}{#1}%
   \expandafter\let\csname flo@\flo@fixns fix@\pgfkeyscurrentname\endcsname\flo@fixval
   \edef\flo@fixlist{\flo@fixlist,\pgfkeyscurrentname}}}
-\def\flo@fixwhat{\ifx\flo@fixns\pgfutil@empty a species\else a visitor\fi}
+\def\flo@tns{t}
+\def\flo@fixwhat{\ifx\flo@fixns\pgfutil@empty a species\else\ifx\flo@fixns\flo@tns a window of tracery\else a visitor\fi\fi}
 \def\flo@fixcheck#1#2{%
   \ifcsname flo@\flo@fixns ok@#1\endcsname
     \expandafter\expandafter\expandafter\flo@fixcheck@\csname flo@\flo@fixns ok@#1\endcsname{#1}{#2}%
@@ -307,6 +309,43 @@
   \flo@xset{kind}{\flo@val}\flo@logT{kind}%
   \csname flo@vkind@\flo@val\endcsname
   \flo@fixclear}
+
+% ---------------------------------------------------------------- tracery (board #5237)
+% A window of Gothic tracery sampled from its genome (florilegium-species.lua's tracery
+% family, the tables' \flo@trole@<role> and \flo@tkind@<kind>), as a species is: the kind
+% first (window, headpiece, arcade, rose, foil), then its traits in \flo@ttraits order.
+%   \florilegiumtracery{<seed>}{<role>}   role headpiece, window, frame, rose, ornament, any, or a kind
+%   \florilegiumtracery[period=perpendicular, lights=5]{<seed>}{<role>}   those traits fixed
+%   \florilegiumtracerytrait{<trait>}     a trait of the window last drawn, e.g. {kind}, {arch}
+\def\flo@tset#1#2{\expandafter\edef\csname flo@t@#1\endcsname{#2}}
+\def\flo@tget#1{\csname flo@t@#1\endcsname}
+\let\florilegiumtracerytrait\flo@tget
+\def\flo@TT#1#2{#2\ifcsname flo@tfix@#1\endcsname\edef\flo@val{\csname flo@tfix@#1\endcsname}\fi
+  \flo@tset{#1}{\flo@val}\flo@logT{#1}}
+\def\flo@TBY#1#2{%
+  \edef\flo@key{flo@d@#2@\flo@tget{#1}}%
+  \ifcsname\flo@key\endcsname\else\edef\flo@key{flo@d@#2@_}\fi
+  \csname\flo@key\endcsname}
+\def\florilegiumtracery{\pgfutil@ifnextchar[\flo@sample@tracery{\flo@sample@tracery[]}}
+\def\flo@sample@tracery[#1]#2#3{%
+  \flo@fixset{t}{#1}%
+  \pgfmathsetseed{#2}\edef\flo@seedval{#2}\flo@seedcheck
+  \pgfmathgeneratepseudorandomnumber\pgfmathgeneratepseudorandomnumber
+  \flo@tset{seed}{\flo@seedval}%
+  \edef\florilegiumspecieslog{seed=\flo@seedval}%
+  \flo@isrole{flo@trole@}{#3}%
+  \ifflo@roleok\flo@tset{role}{\flo@rq}\else
+    \flo@troleerror{#3}%
+    \flo@tset{role}{any}%
+  \fi
+  \csname flo@trole@\flo@tget{role}\endcsname
+  \ifcsname flo@tfix@kind\endcsname\edef\flo@val{\flo@tfix@kind}\fi
+  \flo@tset{kind}{\flo@val}\flo@logT{kind}%
+  \csname flo@tkind@\flo@val\endcsname
+  \flo@fixclear}
+\def\flo@troleerror#1{\pgfutil@packageerror{florilegium}{No tracery has the role `#1'}{A
+  window's role is headpiece, window, frame, rose, ornament, any, or a kind (arcade, foil);
+  see docs/species.md. Press return to draw one of role any}}
 
 % ================================================================ drawing
 % Everything below draws through pgf's basic layer (\pgfpathmoveto, \pgfpathcurveto,
@@ -1991,12 +2030,14 @@
   \flo@intof\flo@luaseed\flo@o@seed
   \ifnum\flo@luaseed<1 \flo@badseed\flo@luaseed\else\ifnum\flo@luaseed>2147483646 \flo@badseed\flo@luaseed\fi\fi
   \flo@luanum\flo@luaseed
-  \def\flo@luakind{#1}\def\flo@t{visitor}%
+  \def\flo@luakind{#1}\def\flo@t{visitor}\def\flo@tmp{tracery}%
   \ifx\flo@luakind\flo@t
     \flo@isrole{flo@vrole@}{\flo@o@role}\ifflo@roleok\else\flo@vroleerror{\flo@o@role}\def\flo@o@role{any}\fi
+  \else\ifx\flo@luakind\flo@tmp
+    \flo@isrole{flo@trole@}{\flo@o@role}\ifflo@roleok\else\flo@troleerror{\flo@o@role}\def\flo@o@role{any}\fi
   \else
     \flo@isrole{flo@role@}{\flo@o@role}\ifflo@roleok\else\flo@roleerror{\flo@o@role}\def\flo@o@role{any}\fi
-  \fi
+  \fi\fi
   \ifx\flo@o@draw\pgfutil@empty\let\flo@luadraw\pgfutil@empty\else\flo@intof\flo@luadraw\flo@o@draw\flo@luanum\flo@luadraw\fi
   \flo@luadim\flo@luaseason\flo@o@season
   \flo@luadim\flo@luascale\flo@o@scale
@@ -2032,6 +2073,10 @@
   \flo@picsetup{#1}%
   \pgftransformscale{\flo@sizept}%
   \flo@stone\flo@sflower\flo@sizept}}}}
+% \pic {florilegium tracery={seed=7, role=window, size=4cm}}: a window of Gothic tracery
+% centered on the origin with its sill on the x axis, size its width (the outermost molding
+% included); role headpiece, window, frame, rose, ornament, any, or a kind
+\tikzset{pics/florilegium tracery/.style={code={\flo@engine{#1}{tracery}{\flo@tracerypic{#1}}}}}
 % \pic {florilegium leaf={seed=7, size=4cm}}: one leaf from its base along +y, size its length
 \tikzset{pics/florilegium leaf/.style={code={\flo@engine{#1}{leaf}{%
   \flo@picsetup{#1}%
@@ -6139,3 +6184,1130 @@
 % (or a kind: role=moth, role=ladybird), size its wingspan or length
 \tikzset{pics/florilegium visitor/.style={code={\flo@engine{#1}{visitor}{%
   \flo@vispicsetup{#1}\pgfsetroundcap\pgfsetroundjoin\flo@visitor\flo@sizept}}}}
+
+% ================================================================ tracery, drawn
+% florilegium-tracery.lua's drawing, step for step and draw for draw: a window in local
+% units, a hundred to its width (\pgftransformscale), so that pgfmath's squares of the
+% coordinates stay under its range; line widths absolute, in bp, as there. A chain of
+% arcs is \flo@c@<name>@<i> = {cx}{cy}{r}{a0}{a1}{convex} (angles in degrees), its count
+% \flo@cn@<name>; the right half of an arch is the chain mirrored about the axis, walked
+% from the apex down. The drawing's random draws (the wash's blotches, foliage) are the
+% library's own, one a line, from \flo@drawseed's stream, as the Lua side draws them.
+\newcount\flo@tci \newcount\flo@tcj \newcount\flo@tck \newcount\flo@tcl \newcount\flo@tcm \newcount\flo@tcn
+\definecolor{flo@paper}{rgb}{0.995,0.993,0.985}
+% ---------------------------------------------------------------- arcs and chains
+% an arc of the circle (#1,#2) of radius #3 from angle #4 to #5, Bezier pieces of a
+% quarter turn at most (ink's arcto); #6 1 moves to its start first
+\def\flo@arcto#1#2#3#4#5#6{%
+  \flo@calc\flo@aa{#4}\flo@calc\flo@ab{#5}\flo@calc\flo@ar{#3}\flo@calc\flo@acx{#1}\flo@calc\flo@acy{#2}%
+  \pgfmathtruncatemacro\flo@an{max(1,ceil(abs(\flo@ab-\flo@aa)/90-0.00001))}%
+  \flo@calc\flo@ada{(\flo@ab-\flo@aa)/\flo@an}%
+  \flo@calc\flo@ak{4/3*tan(\flo@ada/4)}%
+  \ifnum#6=1 \flo@calc\flo@xa{\flo@acx+\flo@ar*cos(\flo@aa)}\flo@calc\flo@ya{\flo@acy+\flo@ar*sin(\flo@aa)}%
+    \pgfpathmoveto{\flo@P\flo@xa\flo@ya}\fi
+  \flo@loop{tarc}\flo@tcm{1}{\flo@an}{%
+    \flo@calc\flo@ab{\flo@aa+\flo@ada}%
+    \flo@calc\flo@ca{cos(\flo@aa)}\flo@calc\flo@sa{sin(\flo@aa)}\flo@calc\flo@cb{cos(\flo@ab)}\flo@calc\flo@sb{sin(\flo@ab)}%
+    \flo@calc\flo@xa{\flo@acx+\flo@ar*(\flo@ca-\flo@ak*\flo@sa)}\flo@calc\flo@ya{\flo@acy+\flo@ar*(\flo@sa+\flo@ak*\flo@ca)}%
+    \flo@calc\flo@xb{\flo@acx+\flo@ar*(\flo@cb+\flo@ak*\flo@sb)}\flo@calc\flo@yb{\flo@acy+\flo@ar*(\flo@sb-\flo@ak*\flo@cb)}%
+    \flo@calc\flo@xc{\flo@acx+\flo@ar*\flo@cb}\flo@calc\flo@yc{\flo@acy+\flo@ar*\flo@sb}%
+    \pgfpathcurveto{\flo@P\flo@xa\flo@ya}{\flo@P\flo@xb\flo@yb}{\flo@P\flo@xc\flo@yc}%
+    \let\flo@aa\flo@ab}}
+% sqrt(#1^2 - #2^2), or 0, scaled down first so that the squares stay in pgfmath's range: \flo@sqd
+\def\flo@sqdiff#1#2{\flo@calc\flo@sqd{8*sqrt(max(0,((#1)/8)*((#1)/8)-((#2)/8)*((#2)/8)))}}
+% chains: piece #2 of chain #1 set from six values, or read into \flo@px \flo@py \flo@pr
+% \flo@pa \flo@pb \flo@pv
+\def\flo@cset#1#2#3#4#5#6#7#8{\expandafter\edef\csname flo@c@#1@#2\endcsname{{#3}{#4}{#5}{#6}{#7}{#8}}}
+\def\flo@cget#1#2{\expandafter\expandafter\expandafter\flo@cget@\csname flo@c@#1@#2\endcsname}
+\def\flo@cget@#1#2#3#4#5#6{\def\flo@px{#1}\def\flo@py{#2}\def\flo@pr{#3}\def\flo@pa{#4}\def\flo@pb{#5}\def\flo@pv{#6}}
+\def\flo@cnumset#1#2{\expandafter\edef\csname flo@cn@#1\endcsname{#2}}
+\def\flo@cnum#1{\csname flo@cn@#1\endcsname}
+\def\flo@ccopy#1#2{\flo@cnumset{#2}{\flo@cnum{#1}}%
+  \flo@loop{tcc}\flo@tcl{1}{\flo@cnum{#1}}{\expandafter\let\csname flo@c@#2@\the\flo@tcl\expandafter\endcsname\csname flo@c@#1@\the\flo@tcl\endcsname}}
+% the chain #1 mirrored about x = #3 into #2, walked from the apex down
+\def\flo@cmirror#1#2#3{\flo@cnumset{#2}{\flo@cnum{#1}}%
+  \flo@loop{tcm}\flo@tcl{1}{\flo@cnum{#1}}{\flo@cget{#1}{\the\numexpr\flo@cnum{#1}+1-\flo@tcl\relax}%
+    \flo@calc\flo@t{2*(#3)-\flo@px}\flo@calc\flo@ta{180-\flo@pb}\flo@calc\flo@tb{180-\flo@pa}%
+    \flo@cset{#2}{\the\flo@tcl}\flo@t\flo@py\flo@pr\flo@ta\flo@tb\flo@pv}}
+% a chain written to the log, for debugging
+\def\flo@cdump#1{\flo@loop{tcd}\flo@tcl{1}{\flo@cnum{#1}}{\flo@cget{#1}{\the\flo@tcl}%
+  \typeout{chain #1 \the\flo@tcl: \flo@px\space\flo@py\space\flo@pr\space\flo@pa\space\flo@pb\space\flo@pv}}}
+% the point of the piece read last at angle #1: \flo@atx \flo@aty
+\def\flo@tat#1{\flo@calc\flo@atx{\flo@px+\flo@pr*cos(#1)}\flo@calc\flo@aty{\flo@py+\flo@pr*sin(#1)}}
+% the angle, from (#1,#2), of the upper (#5 0) or lower (#5 1) point where the circle of
+% radius #3 meets the vertical x = #4: \flo@axa, \ifflo@yes false if it does not reach it
+\def\flo@angleatx#1#2#3#4#5{%
+  \flo@calc\flo@axt{(#4)-(#1)}%
+  \pgfmathparse{abs(\flo@axt)>(#3)}\ifdim\pgfmathresult pt>0pt \flo@yesfalse\else\flo@yestrue
+    \flo@sqdiff{#3}\flo@axt
+    \ifnum#5=1 \flo@calc\flo@axa{atan2(-\flo@sqd,\flo@axt)}\else\flo@calc\flo@axa{atan2(\flo@sqd,\flo@axt)}\fi\fi}
+% the apex of chain #1: \flo@apy (the last piece's end)
+\def\flo@apex#1{\flo@cget{#1}{\flo@cnum{#1}}\flo@tat\flo@pb\let\flo@apy\flo@aty}
+% the arch's head: chain #1 from its start, then its mirror about #2; #3 1 moves first
+\def\flo@headpath#1#2#3{\edef\flo@hpn{\flo@cnum{#1}}\edef\flo@hpxm{#2}\edef\flo@hpfirst{#3}%
+  \flo@loop{thpa}\flo@tcl{1}{\flo@hpn}{\flo@cget{#1}{\the\flo@tcl}%
+    \flo@arcto\flo@px\flo@py\flo@pr\flo@pa\flo@pb{\ifnum\flo@tcl=1 \flo@hpfirst\else0\fi}}%
+  \flo@loop{thpb}\flo@tcl{1}{\flo@hpn}{\flo@cget{#1}{\the\numexpr\flo@hpn+1-\flo@tcl\relax}%
+    \flo@calc\flo@t{2*\flo@hpxm-\flo@px}\flo@calc\flo@ta{180-\flo@pb}\flo@calc\flo@tb{180-\flo@pa}%
+    \flo@arcto\flo@t\flo@py\flo@pr\flo@ta\flo@tb{0}}}
+% the left half of an arch over [#2, #3] springing at #4, as its construction line, into
+% chain #1: kind #5, excess #6, ogee #7, rise #8, shoulder #9 (the traits, or a head's own)
+\def\flo@halfarch#1#2#3#4#5#6#7#8#9{%
+  \flo@calc\flo@has{(#3)-(#2)}\flo@calc\flo@haxm{((#2)+(#3))/2}\edef\flo@hays{#4}\edef\flo@haxl{#2}%
+  \edef\flo@t{#5}\def\flo@tmp{round}%
+  \ifx\flo@t\flo@tmp
+    \flo@calc\flo@tr{\flo@has/2}\flo@cset{#1}{1}\flo@haxm\flo@hays\flo@tr{180}{90}{1}\flo@cnumset{#1}{1}%
+  \else\def\flo@tmp{segmental}\ifx\flo@t\flo@tmp
+    \flo@calc\flo@tr{max(#6,0.52)*\flo@has}\flo@calc\flo@t{\flo@has/2}\flo@sqdiff\flo@tr\flo@t\flo@calc\flo@tcy{\flo@hays-\flo@sqd}%
+    \flo@angleatx\flo@haxm\flo@tcy\flo@tr\flo@haxl{0}%
+    \flo@cset{#1}{1}\flo@haxm\flo@tcy\flo@tr\flo@axa{90}{1}\flo@cnumset{#1}{1}%
+  \else\def\flo@tmp{fourcentered}\ifx\flo@t\flo@tmp
+    % Rickman's four-centered arch: shoulders of radius r1 at the springing, the crown
+    % arcs centered on the axis below them, tangent, meeting at the apex
+    \flo@calc\flo@hah{(#8)*\flo@has}\flo@calc\flo@har{min((#9)*\flo@has,0.9*\flo@hah)}%
+    \flo@calc\flo@tdx{\flo@has/2-\flo@har}%
+    \flo@calc\flo@tR{(\flo@tdx*\flo@tdx+\flo@hah*\flo@hah-\flo@har*\flo@har)/(2*(\flo@hah-\flo@har))}%
+    \flo@calc\flo@tcx{\flo@haxl+\flo@har}\flo@calc\flo@tcy{\flo@hays+\flo@hah-\flo@tR}%
+    \flo@calc\flo@tux{\flo@tcx-\flo@haxm}\flo@calc\flo@tuy{\flo@hays-\flo@tcy}%
+    \flo@calc\flo@td{veclen(\flo@tux,\flo@tuy)}\flo@calc\flo@tux{\flo@tux/\flo@td}\flo@calc\flo@tuy{\flo@tuy/\flo@td}%
+    \flo@calc\flo@tex{\flo@haxm+\flo@tR*\flo@tux}\flo@calc\flo@tey{\flo@tcy+\flo@tR*\flo@tuy}%
+    \flo@calc\flo@ta{atan2(\flo@tey-\flo@hays,\flo@tex-\flo@tcx)}%
+    \flo@cset{#1}{1}\flo@tcx\flo@hays\flo@har{180}\flo@ta{1}%
+    \flo@calc\flo@ta{atan2(\flo@tey-\flo@tcy,\flo@tex-\flo@haxm)}%
+    \flo@cset{#1}{2}\flo@haxm\flo@tcy\flo@tR\flo@ta{90}{1}\flo@cnumset{#1}{2}%
+  \else\def\flo@tmp{ogee}\ifx\flo@t\flo@tmp
+    % a pointed arch reversed above its inflection: the lower arcs rise to the angle the
+    % genome gives, then arcs the other way, tangent there, meet at the apex
+    \flo@calc\flo@tR{(#6)*\flo@has}\flo@calc\flo@tcx{\flo@haxl+\flo@tR}%
+    \flo@calc\flo@tphi{180-90*(#7)}%
+    \flo@calc\flo@tix{\flo@tcx+\flo@tR*cos(\flo@tphi)}\flo@calc\flo@tiy{\flo@hays+\flo@tR*sin(\flo@tphi)}%
+    \flo@calc\flo@tux{cos(\flo@tphi)}\flo@calc\flo@tuy{sin(\flo@tphi)}%
+    \flo@calc\flo@tdx{\flo@haxm-\flo@tix}\flo@calc\flo@trm{\flo@tdx/(1-abs(\flo@tux))}%
+    \flo@calc\flo@tRu{max(1.4*\flo@trm,\flo@tR)}%
+    \flo@calc\flo@tcux{\flo@tix+\flo@tRu*\flo@tux}\flo@calc\flo@tcuy{\flo@tiy+\flo@tRu*\flo@tuy}%
+    \flo@calc\flo@tdx{\flo@haxm-\flo@tcux}%
+    \flo@sqdiff\flo@tRu\flo@tdx\flo@calc\flo@tay{\flo@tcuy-\flo@sqd}%
+    \flo@cset{#1}{1}\flo@tcx\flo@hays\flo@tR{180}\flo@tphi{1}%
+    \flo@calc\flo@ta{atan2(\flo@tiy-\flo@tcuy,\flo@tix-\flo@tcux)}\flo@calc\flo@tb{atan2(\flo@tay-\flo@tcuy,\flo@tdx)}%
+    \flo@cset{#1}{2}\flo@tcux\flo@tcuy\flo@tRu\flo@ta\flo@tb{0}\flo@cnumset{#1}{2}%
+  \else\def\flo@tmp{depressed}\ifx\flo@t\flo@tmp
+    % a headpiece's ogee: shoulders as the four-centered arch's, then reversed crowns, the
+    % crown's radius at most forty spans (pgfmath's range; the Lua side caps it the same)
+    \flo@calc\flo@har{(#9)*\flo@has}\flo@calc\flo@hah{(#8)*\flo@has}\flo@calc\flo@tcx{\flo@haxl+\flo@har}%
+    \flo@calc\flo@tex{\flo@tcx+\flo@har*cos(100)}\flo@calc\flo@tey{\flo@hays+\flo@har*sin(100)}%
+    \flo@calc\flo@tux{cos(100)}\flo@calc\flo@tuy{sin(100)}%
+    \flo@calc\flo@tdx{\flo@haxm-\flo@tex}\flo@calc\flo@tdy{\flo@hays+\flo@hah-\flo@tey}%
+    \flo@calc\flo@tRu{min(40*\flo@has,(\flo@tdx*\flo@tdx+\flo@tdy*\flo@tdy)/(2*(\flo@tdx*\flo@tux+\flo@tdy*\flo@tuy)))}%
+    \flo@calc\flo@tcux{\flo@tex+\flo@tRu*\flo@tux}\flo@calc\flo@tcuy{\flo@tey+\flo@tRu*\flo@tuy}%
+    \flo@cset{#1}{1}\flo@tcx\flo@hays\flo@har{180}{100}{1}%
+    \flo@calc\flo@ta{atan2(\flo@tey-\flo@tcuy,\flo@tex-\flo@tcux)}%
+    \flo@angleatx\flo@tcux\flo@tcuy\flo@tRu\flo@haxm{1}%
+    \ifflo@yes\else\flo@calc\flo@axa{atan2(\flo@hays+\flo@hah-\flo@tcuy,\flo@haxm-\flo@tcux)}\fi
+    \flo@cset{#1}{2}\flo@tcux\flo@tcuy\flo@tRu\flo@ta\flo@axa{0}\flo@cnumset{#1}{2}%
+  \else
+    % two-centered: drop, equilateral, lancet
+    \flo@calc\flo@tR{(#6)*\flo@has}\flo@calc\flo@tcx{\flo@haxl+\flo@tR}%
+    \flo@calc\flo@t{\flo@has/2-\flo@tR}\flo@sqdiff\flo@tR\flo@t\flo@calc\flo@ta{atan2(\flo@sqd,\flo@t)}%
+    \flo@cset{#1}{1}\flo@tcx\flo@hays\flo@tR{180}\flo@ta{1}\flo@cnumset{#1}{1}%
+  \fi\fi\fi\fi\fi}
+% the arch in the window's manner: \flo@ha@<kind, excess, ogee, rise, shoulder> are the
+% traits unless a head sets its own (\flo@haset)
+\def\flo@hafromtraits{\edef\flo@ha@kind{\flo@tget{arch}}\edef\flo@ha@excess{\flo@tget{excess}}%
+  \edef\flo@ha@ogee{\flo@tget{ogee}}\edef\flo@ha@rise{\flo@tget{rise}}\edef\flo@ha@shoulder{\flo@tget{shoulder}}}
+\def\flo@haset#1#2#3#4#5{\def\flo@ha@kind{#1}\edef\flo@ha@excess{#2}\edef\flo@ha@ogee{#3}\edef\flo@ha@rise{#4}\edef\flo@ha@shoulder{#5}}
+\def\flo@harch#1#2#3#4{\flo@halfarch{#1}{#2}{#3}{#4}{\flo@ha@kind}{\flo@ha@excess}{\flo@ha@ogee}{\flo@ha@rise}{\flo@ha@shoulder}}
+% chain #1 with its circles' radii moved so the curve moves #3 toward the opening into
+% #2 (convex pieces shrink, concave ones grow); the ends on the jamb line #4 and the axis
+% #5 are found again, tangent joins keep their angles; #6 the springing, or empty
+\def\flo@coffset#1#2#3#4#5#6{%
+  \edef\flo@con{\flo@cnum{#1}}\flo@cnumset{#2}{\flo@con}\flo@calc\flo@cooff{#3}\edef\flo@coxj{#4}\edef\flo@coxm{#5}\edef\flo@coys{#6}%
+  \flo@loop{tco}\flo@tcl{1}{\flo@con}{\flo@cget{#1}{\the\flo@tcl}%
+    \ifnum\flo@pv=1 \flo@calc\flo@tr{\flo@pr-\flo@cooff}\else\flo@calc\flo@tr{\flo@pr+\flo@cooff}\fi
+    \let\flo@ta\flo@pa\let\flo@tb\flo@pb
+    \ifnum\flo@tcl=1
+      \flo@yesfalse
+      \ifx\flo@coys\pgfutil@empty\else
+        \pgfmathparse{and(\flo@py<\flo@coys-0.000001,abs(\flo@coys-\flo@py)<\flo@tr)}\ifdim\pgfmathresult pt>0pt \flo@yestrue\fi\fi
+      \ifflo@yes
+        % a center below the springing (segmental): the arc starts on the springing line
+        \flo@calc\flo@t{\flo@coys-\flo@py}\flo@sqdiff\flo@tr\flo@t\flo@calc\flo@ta{atan2(\flo@t,-\flo@sqd)}%
+      \else
+        \flo@angleatx\flo@px\flo@py\flo@tr\flo@coxj{\ifnum\flo@pv=1 0\else1\fi}\ifflo@yes\let\flo@ta\flo@axa\fi
+      \fi
+    \fi
+    \ifnum\flo@tcl=\flo@con\relax
+      \flo@angleatx\flo@px\flo@py\flo@tr\flo@coxm{\ifnum\flo@pv=1 0\else1\fi}\ifflo@yes\let\flo@tb\flo@axa\fi
+    \fi
+    \flo@cset{#2}{\the\flo@tcl}\flo@px\flo@py\flo@tr\flo@ta\flo@tb\flo@pv}%
+  % a ring outside a reversed apex (an ogee's): parallel arcs would meet in a spire, or
+  % not at all, so the reversed arc is struck again from the ring's inflection, tangent
+  % there, to an apex -off above the arch's own
+  \ifnum\flo@con>1
+    \flo@cget{#1}{\flo@con}%
+    \ifnum\flo@pv=0 \ifdim\flo@cooff pt<0pt
+      \flo@tat\flo@pb\let\flo@coay\flo@aty
+      \flo@cget{#2}{\the\numexpr\flo@con-1\relax}\flo@tat\flo@pb
+      \flo@calc\flo@tux{cos(\flo@pb)}\flo@calc\flo@tuy{sin(\flo@pb)}\let\flo@tix\flo@atx\let\flo@tiy\flo@aty
+      \flo@calc\flo@tdx{\flo@coxm-\flo@tix}\flo@calc\flo@tdy{\flo@coay-\flo@cooff-\flo@tiy}%
+      \flo@calc\flo@tdot{\flo@tdx*\flo@tux+\flo@tdy*\flo@tuy}%
+      \ifdim\flo@tdot pt>0.000001pt
+        \flo@calc\flo@td{veclen(\flo@tdx,\flo@tdy)}%
+        \flo@calc\flo@tt{min(20*\flo@td,\flo@td/(2*\flo@tdot/\flo@td))}%
+        \flo@calc\flo@tcx{\flo@tix+\flo@tt*\flo@tux}\flo@calc\flo@tcy{\flo@tiy+\flo@tt*\flo@tuy}%
+        \flo@calc\flo@ta{atan2(\flo@tiy-\flo@tcy,\flo@tix-\flo@tcx)}\flo@calc\flo@tb{atan2(\flo@coay-\flo@cooff-\flo@tcy,\flo@coxm-\flo@tcx)}%
+        \flo@calc\flo@td{\flo@tb-\flo@ta}%
+        \pgfmathparse{\flo@td>180}\ifdim\pgfmathresult pt>0pt \flo@calc\flo@td{\flo@td-360}\fi
+        \pgfmathparse{\flo@td<-180}\ifdim\pgfmathresult pt>0pt \flo@calc\flo@td{\flo@td+360}\fi
+        \flo@calc\flo@tb{\flo@ta+\flo@td}%
+        \flo@cset{#2}{\flo@con}\flo@tcx\flo@tcy\flo@tt\flo@ta\flo@tb{0}%
+      \fi
+    \fi\fi
+  \fi}
+% a point on chain #1 at parameter #2 in 0..1 (by angle along the pieces), and the inward
+% normal there: \flo@cpx \flo@cpy \flo@cnx \flo@cny
+\def\flo@chainpoint#1#2{%
+  \def\flo@cptot{0}%
+  \flo@loop{tcpa}\flo@tck{1}{\flo@cnum{#1}}{\flo@cget{#1}{\the\flo@tck}\flo@calc\flo@cptot{\flo@cptot+abs(\flo@pb-\flo@pa)}}%
+  \flo@calc\flo@cpw{(#2)*\flo@cptot}\flo@yesfalse
+  \flo@loop{tcpb}\flo@tck{1}{\flo@cnum{#1}}{\ifflo@yes\else
+    \flo@cget{#1}{\the\flo@tck}\flo@calc\flo@cpl{abs(\flo@pb-\flo@pa)}%
+    \pgfmathparse{\flo@cpw<=\flo@cpl+0.0000001}\ifdim\pgfmathresult pt>0pt
+      \flo@yestrue
+      \ifdim\flo@cpl pt>0pt \flo@calc\flo@ta{\flo@pa+(\flo@pb-\flo@pa)*\flo@cpw/\flo@cpl}\else\let\flo@ta\flo@pa\fi
+      \flo@tat\flo@ta\let\flo@cpx\flo@atx\let\flo@cpy\flo@aty
+      \ifnum\flo@pv=1 \flo@calc\flo@cnx{-cos(\flo@ta)}\flo@calc\flo@cny{-sin(\flo@ta)}%
+      \else\flo@calc\flo@cnx{cos(\flo@ta)}\flo@calc\flo@cny{sin(\flo@ta)}\fi
+    \else\flo@calc\flo@cpw{\flo@cpw-\flo@cpl}\fi\fi}%
+  \ifflo@yes\else\flo@cget{#1}{\flo@cnum{#1}}\flo@tat\flo@pb\let\flo@cpx\flo@atx\let\flo@cpy\flo@aty
+    \flo@calc\flo@cnx{-cos(\flo@pb)}\flo@calc\flo@cny{-sin(\flo@pb)}\fi
+  \flo@yestrue}
+% the y of an arch (chain #1 mirrored about #2) at x = #3: \flo@cyv, \ifflo@yes false outside it
+\def\flo@chainy#1#2#3{%
+  \flo@calc\flo@cyx{#3}\pgfmathparse{\flo@cyx>(#2)}\ifdim\pgfmathresult pt>0pt \flo@calc\flo@cyx{2*(#2)-\flo@cyx}\fi
+  \flo@yesfalse
+  \flo@loop{tcy}\flo@tcl{1}{\flo@cnum{#1}}{\ifflo@yes\else
+    \flo@cget{#1}{\the\flo@tcl}\flo@calc\flo@tdx{\flo@cyx-\flo@px}%
+    \pgfmathparse{abs(\flo@tdx)<=\flo@pr}\ifdim\pgfmathresult pt>0pt
+      \flo@sqdiff\flo@pr\flo@tdx\let\flo@tdy\flo@sqd
+      \ifnum\flo@pv=1 \flo@calc\flo@cyv{\flo@py+\flo@tdy}\else\flo@calc\flo@cyv{\flo@py-\flo@tdy}\fi
+      \flo@calc\flo@ta{atan2(\flo@cyv-\flo@py,\flo@tdx)}%
+      \pgfmathparse{and(\flo@ta>=min(\flo@pa,\flo@pb)-0.0000001,\flo@ta<=max(\flo@pa,\flo@pb)+0.0000001)}%
+      \ifdim\pgfmathresult pt>0pt \flo@yestrue\fi
+    \fi\fi}}
+% ---------------------------------------------------------------- cusps
+% the head of an opening with cusps (Havemann and Fellner's foliation): each side of chain
+% #1 in k + 1 lobes with a cusp between them #4 into the opening; a lobe is a circle
+% tangent to the arch, at its outer end for the first and last lobes and at its middle for
+% the others, curling in to the cusps; #2 the axis, #3 the cusps, #5 1 moves first
+\def\flo@cuspedhead#1#2#3#4#5{%
+  \pgfmathtruncatemacro\flo@chk{floor((#3)/2)}\edef\flo@chn{\the\numexpr\flo@chk+1\relax}%
+  \edef\flo@chdepth{#4}\edef\flo@chxm{#2}%
+  \flo@cmirror{#1}{tcm}{#2}%
+  \flo@cuspside{#1}{#5}\flo@cuspside{tcm}{0}}
+% the circle tangent to chain #1 at parameter #2, through (#3,#4), its radius at most fifty
+% times the reach (the Lua side caps it the same): \flo@lbx \flo@lby \flo@lbr, the tangent point \flo@lbtx \flo@lbty
+\def\flo@lobe#1#2#3#4{\flo@chainpoint{#1}{#2}%
+  \let\flo@lbtx\flo@cpx\let\flo@lbty\flo@cpy
+  \flo@calc\flo@tvx{(#3)-\flo@cpx}\flo@calc\flo@tvy{(#4)-\flo@cpy}%
+  \flo@calc\flo@tdot{\flo@tvx*\flo@cnx+\flo@tvy*\flo@cny}\flo@calc\flo@td{veclen(\flo@tvx,\flo@tvy)}%
+  \pgfmathparse{abs(\flo@tdot)<\flo@td/100}\ifdim\pgfmathresult pt>0pt
+    \pgfmathparse{\flo@tdot<0}\ifdim\pgfmathresult pt>0pt \flo@calc\flo@tdot{-\flo@td/100}\else\flo@calc\flo@tdot{\flo@td/100}\fi\fi
+  \flo@calc\flo@trho{\flo@td/(2*\flo@tdot/\flo@td)}%
+  \flo@calc\flo@lbx{\flo@cpx+\flo@cnx*\flo@trho}\flo@calc\flo@lby{\flo@cpy+\flo@cny*\flo@trho}\flo@calc\flo@lbr{abs(\flo@trho)}}
+\def\flo@short#1#2{\flo@calc\flo@tsh{(#2)-(#1)}%
+  \pgfmathparse{\flo@tsh>180}\ifdim\pgfmathresult pt>0pt \flo@calc\flo@tsh{\flo@tsh-360}\fi
+  \pgfmathparse{\flo@tsh<-180}\ifdim\pgfmathresult pt>0pt \flo@calc\flo@tsh{\flo@tsh+360}\fi}
+\def\flo@cuspside#1#2{%
+  \flo@chainpoint{#1}{0}\let\flo@csx\flo@cpx\let\flo@csy\flo@cpy
+  \flo@chainpoint{#1}{1/\flo@chn}%
+  \flo@calc\flo@csd{min(\flo@chdepth,0.3*veclen(\flo@cpx-\flo@csx,\flo@cpy-\flo@csy))}%
+  \flo@loop{tcsq}\flo@tcj{0}{\flo@chn}{%
+    \flo@chainpoint{#1}{\the\flo@tcj/\flo@chn}%
+    \ifnum\flo@tcj=0 \def\flo@t{0}\else\ifnum\flo@tcj=\flo@chn\relax\def\flo@t{0}\else\let\flo@t\flo@csd\fi\fi
+    \flo@calc\flo@ta{\flo@cpx+\flo@cnx*\flo@t}\flo@calc\flo@tb{\flo@cpy+\flo@cny*\flo@t}%
+    \expandafter\let\csname flo@csqx\the\flo@tcj\endcsname\flo@ta\expandafter\let\csname flo@csqy\the\flo@tcj\endcsname\flo@tb}%
+  \flo@loop{tcsl}\flo@tcj{1}{\flo@chn}{%
+    \edef\flo@qax{\csname flo@csqx\the\numexpr\flo@tcj-1\relax\endcsname}\edef\flo@qay{\csname flo@csqy\the\numexpr\flo@tcj-1\relax\endcsname}%
+    \edef\flo@qbx{\csname flo@csqx\the\flo@tcj\endcsname}\edef\flo@qby{\csname flo@csqy\the\flo@tcj\endcsname}%
+    \ifnum\flo@chn=1
+      % one lobe a side: tangent at the springing, through the apex
+      \flo@lobe{#1}{0}\flo@qbx\flo@qby
+      \flo@calc\flo@ta{atan2(\flo@qay-\flo@lby,\flo@qax-\flo@lbx)}\flo@calc\flo@tb{atan2(\flo@qby-\flo@lby,\flo@qbx-\flo@lbx)}%
+      \flo@short\flo@ta\flo@tb\flo@calc\flo@tb{\flo@ta+\flo@tsh}%
+      \flo@arcto\flo@lbx\flo@lby\flo@lbr\flo@ta\flo@tb{\ifnum#2=1 \ifnum\flo@tcj=1 1\else0\fi\else0\fi}%
+    \else\ifnum\flo@tcj=1
+      \flo@lobe{#1}{0}\flo@qbx\flo@qby
+      \flo@calc\flo@ta{atan2(\flo@qay-\flo@lby,\flo@qax-\flo@lbx)}\flo@calc\flo@tb{atan2(\flo@qby-\flo@lby,\flo@qbx-\flo@lbx)}%
+      \flo@short\flo@ta\flo@tb\flo@calc\flo@tb{\flo@ta+\flo@tsh}%
+      \flo@arcto\flo@lbx\flo@lby\flo@lbr\flo@ta\flo@tb{#2}%
+    \else\ifnum\flo@tcj=\flo@chn\relax
+      \flo@lobe{#1}{1}\flo@qax\flo@qay
+      \flo@calc\flo@ta{atan2(\flo@qay-\flo@lby,\flo@qax-\flo@lbx)}\flo@calc\flo@tb{atan2(\flo@qby-\flo@lby,\flo@qbx-\flo@lbx)}%
+      \flo@short\flo@ta\flo@tb\flo@calc\flo@tb{\flo@ta+\flo@tsh}%
+      \flo@arcto\flo@lbx\flo@lby\flo@lbr\flo@ta\flo@tb{0}%
+    \else
+      \flo@lobe{#1}{(\the\flo@tcj-0.5)/\flo@chn}\flo@qax\flo@qay
+      \flo@calc\flo@ta{atan2(\flo@qay-\flo@lby,\flo@qax-\flo@lbx)}\flo@calc\flo@tam{atan2(\flo@lbty-\flo@lby,\flo@lbtx-\flo@lbx)}%
+      \flo@calc\flo@tb{atan2(\flo@qby-\flo@lby,\flo@qbx-\flo@lbx)}%
+      \flo@short\flo@ta\flo@tam\let\flo@tda\flo@tsh\flo@short\flo@tam\flo@tb\let\flo@tdb\flo@tsh
+      \flo@calc\flo@tb{\flo@ta+\flo@tda}\flo@arcto\flo@lbx\flo@lby\flo@lbr\flo@ta\flo@tb{0}%
+      \flo@calc\flo@ta{\flo@ta+\flo@tda}\flo@calc\flo@tb{\flo@ta+\flo@tdb}\flo@arcto\flo@lbx\flo@lby\flo@lbr\flo@ta\flo@tb{0}%
+    \fi\fi\fi}}
+% ---------------------------------------------------------------- the wash
+% the current path (clipped by the caller) washed in the ink: darker toward the top in six
+% faint bands, and blotches from the drawing's stream; (#1,#2)-(#3,#4) its box
+\def\flo@twash#1#2#3#4{%
+  \flo@calc\flo@tt{\flo@ttone+0.3}\flo@vtone{flo@c}{\flo@tt}%
+  \flo@calc\flo@twa{(#1)-1}\flo@calc\flo@twb{(#2)-1}\flo@calc\flo@twc{(#3)+1}\flo@calc\flo@twd{(#4)+1}%
+  \flo@vfill{flo@c}{1}{0}{\pgfpathrectanglecorners{\flo@P\flo@twa\flo@twb}{\flo@P\flo@twc\flo@twd}}%
+  \flo@calc\flo@twh{(#4)-(#2)}%
+  \ifdim\flo@twh pt>0pt
+    \flo@calc\flo@tt{\flo@ttone+0.05}\flo@vtone{flo@c}{\flo@tt}%
+    \flo@loop{twb}\flo@tcn{1}{6}{\flo@calc\flo@tyk{(#2)+\flo@twh*(0.25+0.12*\the\flo@tcn)}%
+      \flo@vfill{flo@c}{0.14}{1}{\pgfpathrectanglecorners{\flo@P\flo@twa\flo@tyk}{\flo@P\flo@twc\flo@twd}}}%
+  \fi
+  \ifnum\flo@tdetail>0
+    \pgfmathtruncatemacro\flo@twn{max(2,floor((((#3)-(#1))/\flo@tcell)*(((#4)-(#2))/\flo@tcell)/2))}%
+    \ifnum\flo@twn>40 \def\flo@twn{40}\fi
+    \flo@loop{twm}\flo@tcn{1}{\flo@twn}{%
+      \flo@range\flo@tmx{#1}{#3}\flo@range\flo@tmy{#2}{#4}\flo@range\flo@t{0.5}{1.3}\flo@calc\flo@tmr{\flo@tcell*\flo@t}%
+      \flo@range\flo@t{0.5}{1}\flo@calc\flo@tms{\flo@tmr*\flo@t}%
+      \flo@vblob\flo@tmx\flo@tmy\flo@tmr\flo@tms{0.4}{7}%
+      \flo@chance{0.6}%
+      \ifflo@yes\flo@sym\flo@t{0.06}\flo@calc\flo@tt{\flo@ttone+\flo@t}\flo@vtone{flo@c}{\flo@tt}\flo@range\flo@op{0.08}{0.16}%
+        \flo@vfill{flo@c}{\flo@op}{1}{\flo@smoothpath}%
+      \else\flo@sym\flo@t{0.06}\flo@calc\flo@tt{\flo@ttone+0.4+\flo@t}\flo@vtone{flo@c}{\flo@tt}\flo@range\flo@op{0.1}{0.2}%
+        \flo@vfill{flo@c}{\flo@op}{0}{\flo@smoothpath}\fi}%
+  \fi}
+% an opening: the path #1 builds, washed and outlined in the pen's line; #2..#5 its box
+\def\flo@topening#1#2#3#4#5{%
+  \ifdefined\flo@tracerydebug\typeout{OPEN \pgfmath@rnd@z\space box #2 #3 #4 #5}\fi
+  \begin{pgfscope}#1\pgfpathclose\pgfusepath{clip}\flo@twash{#2}{#3}{#4}{#5}\end{pgfscope}%
+  \flo@vtone{flo@c}{0.08}\flo@vstroke{flo@c}{\flo@tpen}{0.9}{0}{#1\pgfpathclose}}
+% a bar through stone, drawn by its two edges: the path #1 builds stroked wide in the
+% pen's ink, then as wide as the bar (half-width #2) in paper, so bars that cross join
+\def\flo@tbars#1#2{%
+  \flo@vtone{flo@c}{0.08}\flo@calc\flo@t{2*(#2)*\flo@tbp+2*\flo@tpen}\flo@vstroke{flo@c}{\flo@t}{0.9}{0}{#1}%
+  \flo@calc\flo@t{2*(#2)*\flo@tbp}\flo@vstroke{flo@paper}{\flo@t}{1}{0}{#1}}
+% ---------------------------------------------------------------- lights
+% a head arch over [#2, #3] springing at #4 into chain #1, flattened step by step
+% (equilateral, drop, round, segmental) until it fits under the arch above it: chain
+% \flo@lt@lim (mirrored about \flo@lt@limxm) less two bars, or no limit when empty.
+% \ifflo@flat afterward: a segmental head (no cusps on it)
+\def\flo@flatter#1{\ifcase#1 \flo@haset{equilateral}{1}{0}{0}{0}\or\flo@haset{drop}{0.75}{0}{0}{0}%
+  \or\flo@haset{round}{0.5}{0}{0}{0}\else\flo@haset{segmental}{0.55}{0}{0}{0}\fi}
+\newif\ifflo@flat
+\def\flo@subarch#1#2#3#4{%
+  \edef\flo@sadst{#1}\edef\flo@saxa{#2}\edef\flo@saxb{#3}\edef\flo@says{#4}\flo@calc\flo@saxm{((#2)+(#3))/2}%
+  \flo@hafromtraits\flo@sawant
+  \def\flo@t{none}\ifx\flo@ha@kind\flo@t\flo@flatter0\fi
+  \def\flo@t{fourcentered}\ifx\flo@ha@kind\flo@t\flo@flatter0\fi
+  \def\flo@t{segmental}\ifx\flo@ha@kind\flo@t\flo@flatter0\fi
+  \flo@harch\flo@sadst\flo@saxa\flo@saxb\flo@says
+  \flo@safits
+  \ifflo@yes\else
+    \flo@flatter0\flo@harch\flo@sadst\flo@saxa\flo@saxb\flo@says\flo@safits
+    \ifflo@yes\else\flo@flatter1\flo@harch\flo@sadst\flo@saxa\flo@saxb\flo@says\flo@safits
+    \ifflo@yes\else\flo@flatter2\flo@harch\flo@sadst\flo@saxa\flo@saxb\flo@says\flo@safits
+    \ifflo@yes\else\flo@flatter3\flo@harch\flo@sadst\flo@saxa\flo@saxb\flo@says\fi\fi\fi
+  \fi
+  \def\flo@t{segmental}\ifx\flo@ha@kind\flo@t\flo@flattrue\else\flo@flatfalse\fi}
+\let\flo@sawant\relax                      % a head's own arch, set by the caller (\flo@haset) or nothing
+% does the chain fit under the limit? \ifflo@yes
+\def\flo@safits{\flo@yestrue
+  \ifx\flo@lt@lim\pgfutil@empty\else
+    \flo@loop{tsaf}\flo@tcj{0}{8}{\ifflo@yes
+      \flo@chainpoint{\flo@sadst}{\the\flo@tcj/8}\let\flo@tfx\flo@cpx\let\flo@tfy\flo@cpy
+      \flo@chainy{\flo@lt@lim}{\flo@lt@limxm}{\flo@tfx}%
+      \ifflo@yes\pgfmathparse{\flo@tfy>\flo@cyv-2*\flo@tbw}\ifdim\pgfmathresult pt>0pt \flo@yesfalse\else\flo@yestrue\fi\else\flo@yestrue\fi
+      \ifflo@yes
+        \flo@calc\flo@t{2*\flo@saxm-\flo@tfx}\flo@chainy{\flo@lt@lim}{\flo@lt@limxm}{\flo@t}%
+        \ifflo@yes\pgfmathparse{\flo@tfy>\flo@cyv-2*\flo@tbw}\ifdim\pgfmathresult pt>0pt \flo@yesfalse\else\flo@yestrue\fi\else\flo@yestrue\fi
+      \fi\fi}%
+  \fi}
+% one light: its jambs, its own small arch head (cusped), above a sill; reads \flo@lt@xa
+% x1 y0 ys cusps depth lim limxm bl br off head rows, leaves its head chain in #1
+\def\flo@tlight#1{%
+  \edef\flo@ltdst{#1}\flo@calc\flo@ltxm{(\flo@lt@xa+\flo@lt@xb)/2}%
+  \ifx\flo@lt@head\pgfutil@empty\flo@subarch{tlh}{\flo@lt@xa}{\flo@lt@xb}{\flo@lt@ys}\else\flo@ccopy{\flo@lt@head}{tlh}\flo@flatfalse\fi
+  \flo@calc\flo@t{\flo@lt@xa+\flo@lt@bl}\flo@coffset{tlh}{#1}{\flo@lt@off}{\flo@t}{\flo@ltxm}{\flo@lt@ys}%
+  \edef\flo@ltcusps{\flo@lt@cusps}\ifflo@flat\def\flo@ltcusps{0}\fi
+  \edef\flo@ltdepth{\flo@lt@depth}%
+  \flo@apex{#1}\let\flo@ltay\flo@apy
+  \flo@cget{#1}{1}\flo@tat\flo@pa\let\flo@ltlx\flo@atx\let\flo@ltly\flo@aty
+  \flo@calc\flo@ltxa{\flo@lt@xa+\flo@lt@bl}\flo@calc\flo@ltxb{\flo@lt@xb-\flo@lt@br}\edef\flo@ltya{\flo@lt@ya}%
+  % transoms: the rows below the top one are plain openings, the head's row stands on the last
+  \ifnum\flo@lt@rows>1
+    \flo@loop{tltr}\flo@tcj{0}{\flo@lt@rows-2}{%
+      \flo@calc\flo@tya{\flo@lt@ya+(\flo@lt@ys-\flo@lt@ya)*\the\flo@tcj/\flo@lt@rows+\ifnum\flo@tcj>0 \flo@tbw\else0\fi}%
+      \flo@calc\flo@tyb{\flo@lt@ya+(\flo@lt@ys-\flo@lt@ya)*(\the\flo@tcj+1)/\flo@lt@rows-\flo@tbw}%
+      \flo@topening{\pgfpathrectanglecorners{\flo@P\flo@ltxa\flo@tya}{\flo@P\flo@ltxb\flo@tyb}}\flo@ltxa\flo@tya\flo@ltxb\flo@tyb}%
+    \flo@calc\flo@ltya{\flo@lt@ya+(\flo@lt@ys-\flo@lt@ya)*(\flo@lt@rows-1)/\flo@lt@rows+\flo@tbw}%
+  \fi
+  \flo@topening{\flo@ltbuild}\flo@ltxa\flo@ltya\flo@ltxb\flo@ltay}
+\def\flo@ltbuild{\pgfpathmoveto{\flo@P\flo@ltxa\flo@ltya}\pgfpathlineto{\flo@P\flo@ltlx\flo@ltly}%
+  \ifnum\flo@ltcusps>0 \flo@cuspedhead{\flo@ltdst}{\flo@ltxm}{\flo@ltcusps}{\flo@ltdepth}{0}%
+  \else\flo@headpath{\flo@ltdst}{\flo@ltxm}{0}\fi
+  \pgfpathlineto{\flo@P\flo@ltxb\flo@ltya}}
+% ---------------------------------------------------------------- the group of lights
+% the group [#1, #2] of #3 lights over the sill #4 springing at #5 under the region whose
+% chain is #6 (springing #7, axis #8), at level \flo@lvl (0 under the main arch): the
+% lights, the sub-arches as bars, the figures found in what is left. State a level needs
+% after the groups under it ran is kept per level (\flo@gset, \flo@gget)
+\def\flo@gset#1#2{\expandafter\edef\csname flo@g\flo@lvl @#1\endcsname{#2}}
+\def\flo@gget#1{\csname flo@g\flo@lvl @#1\endcsname}
+\def\flo@lvl{0}
+\def\flo@tgroup#1#2#3#4#5#6#7#8{%
+  \flo@gset{x0}{#1}\flo@gset{x1}{#2}\flo@gset{n}{#3}\flo@gset{y0}{#4}\flo@gset{ys}{#5}%
+  \flo@gset{rch}{#6}\flo@gset{rys}{#7}\flo@gset{rxm}{#8}%
+  \flo@calc\flo@t{((#2)-(#1))/(#3)}\flo@gset{lw}{\flo@t}%
+  \flo@calc\flo@t{((#1)+(#2))/2}\flo@gset{xm}{\flo@t}%
+  \ifnum\flo@tladder>0 \flo@gset{cusps}{0}\else\flo@gset{cusps}{\flo@tget{cusps}}\fi
+  \flo@yesfalse
+  \ifnum#3=1 \flo@yestrue\fi
+  \ifnum\flo@lvl<\flo@tget{depth}\relax\else\flo@yestrue\fi
+  \edef\flo@t{\flo@tget{branch}}\def\flo@tmp{subarch}\ifx\flo@t\flo@tmp\else\flo@yestrue\fi
+  \ifflo@yes\expandafter\flo@tgrouplights\else\expandafter\flo@tgroupsubs\fi}
+% the lights, each with its own head; the outer ones against the main arch's bar; one
+% light alone under an arch has that arch for its head; a screen's heads spring below the
+% main arch's springing and rise into its head; flowing tracery springs from ogee heads
+\def\flo@tgrouplights{%
+  \flo@gset{screen}{0}\flo@gset{flowing}{0}%
+  \ifnum\flo@lvl=0 \ifnum\flo@gget{n}>1
+    \edef\flo@t{\flo@tget{branch}}\def\flo@tmp{screen}\ifx\flo@t\flo@tmp\flo@gset{screen}{1}\fi
+    \def\flo@tmp{flowing}\ifx\flo@t\flo@tmp\flo@gset{flowing}{1}\fi\fi\fi
+  \ifnum\flo@gget{screen}=1 \flo@calc\flo@t{\flo@gget{ys}-0.7*\flo@gget{lw}}\flo@gset{ysl}{\flo@t}\else\flo@gset{ysl}{\flo@gget{ys}}\fi
+  \edef\flo@t{\the\numexpr\flo@tget{transoms}+1\relax}\flo@gset{rows}{\flo@t}%
+  \flo@loop{tgl}\flo@tci{0}{\flo@gget{n}-1}{%
+    \flo@calc\flo@lt@xa{\flo@gget{x0}+\the\flo@tci*\flo@gget{lw}}\flo@calc\flo@lt@xb{\flo@gget{x0}+(\the\flo@tci+1)*\flo@gget{lw}}%
+    \edef\flo@lt@ya{\flo@gget{y0}}\edef\flo@lt@ys{\flo@gget{ysl}}\edef\flo@lt@cusps{\flo@gget{cusps}}%
+    \flo@calc\flo@lt@depth{\flo@tget{cuspdepth}*\flo@gget{lw}}%
+    \ifnum\flo@lvl=0 \ifnum\flo@tci=0 \edef\flo@lt@bl{\flo@tBw}\else\edef\flo@lt@bl{\flo@tbw}\fi\else\edef\flo@lt@bl{\flo@tbw}\fi
+    \ifnum\flo@lvl=0 \ifnum\flo@tci=\numexpr\flo@gget{n}-1\relax\edef\flo@lt@br{\flo@tBw}\else\edef\flo@lt@br{\flo@tbw}\fi\else\edef\flo@lt@br{\flo@tbw}\fi
+    \ifnum\flo@lvl=0 \ifnum\flo@gget{n}=1 \edef\flo@lt@off{\flo@tBw}\else\edef\flo@lt@off{\flo@tbw}\fi\else\edef\flo@lt@off{\flo@tbw}\fi
+    \ifnum\flo@gget{n}=1 \edef\flo@lt@head{\flo@gget{rch}}\let\flo@lt@lim\pgfutil@empty
+    \else\let\flo@lt@head\pgfutil@empty\edef\flo@lt@lim{\flo@gget{rch}}\edef\flo@lt@limxm{\flo@gget{rxm}}\fi
+    \edef\flo@lt@rows{\flo@gget{rows}}%
+    \ifnum\flo@gget{flowing}=1 \def\flo@sawant{\flo@calc\flo@t{max(\flo@tget{excess},0.85)}\flo@haset{ogee}{\flo@t}{0.5}{0}{0}}\else\let\flo@sawant\relax\fi
+    \flo@tlight{g\flo@lvl h\the\flo@tci}%
+    \let\flo@sawant\relax}%
+  % the figures between the heads (a screen) or above them (flowing)
+  \flo@tgroupfigures}
+% sub-groups: the lights in two halves, a center light with the rest each side, or one
+% by one, each under a sub-arch set down a little, a bar through the stone, its jambs
+% down to the sill, under the lights
+\def\flo@tgroupsubs{%
+  \edef\flo@t{\flo@tget{split}}\def\flo@tmp{binary}%
+  \ifx\flo@t\flo@tmp
+    \ifodd\flo@gget{n}
+      \edef\flo@tk@{\the\numexpr(\flo@gget{n}-1)/2\relax}\flo@gset{np}{3}%
+      \flo@gset{p1a}{\flo@gget{x0}}\flo@calc\flo@t{\flo@gget{x0}+\flo@tk@*\flo@gget{lw}}\flo@gset{p1b}{\flo@t}\flo@gset{p1n}{\flo@tk@}%
+      \flo@gset{p2a}{\flo@t}\flo@calc\flo@t{\flo@gget{x0}+(\flo@tk@+1)*\flo@gget{lw}}\flo@gset{p2b}{\flo@t}\flo@gset{p2n}{1}%
+      \flo@gset{p3a}{\flo@t}\flo@gset{p3b}{\flo@gget{x1}}\flo@gset{p3n}{\flo@tk@}%
+    \else
+      \flo@gset{np}{2}\flo@gset{p1a}{\flo@gget{x0}}\flo@gset{p1b}{\flo@gget{xm}}\edef\flo@t{\the\numexpr\flo@gget{n}/2\relax}\flo@gset{p1n}{\flo@t}%
+      \flo@gset{p2a}{\flo@gget{xm}}\flo@gset{p2b}{\flo@gget{x1}}\flo@gset{p2n}{\flo@t}%
+    \fi
+  \else\def\flo@tmp{center}\ifx\flo@t\flo@tmp
+    \edef\flo@tk@{\the\numexpr(\flo@gget{n}-1)/2\relax}%
+    \ifnum\flo@tk@=0 \flo@gset{np}{1}\flo@gset{p1a}{\flo@gget{x0}}\flo@gset{p1b}{\flo@gget{x1}}\flo@gset{p1n}{1}%
+    \else\flo@gset{np}{3}%
+      \flo@gset{p1a}{\flo@gget{x0}}\flo@calc\flo@t{\flo@gget{x0}+\flo@tk@*\flo@gget{lw}}\flo@gset{p1b}{\flo@t}\flo@gset{p1n}{\flo@tk@}%
+      \flo@gset{p2a}{\flo@t}\flo@calc\flo@t{\flo@gget{x0}+(\flo@tk@+1)*\flo@gget{lw}}\flo@gset{p2b}{\flo@t}\flo@gset{p2n}{1}%
+      \flo@gset{p3a}{\flo@t}\flo@gset{p3b}{\flo@gget{x1}}\flo@gset{p3n}{\flo@tk@}\fi
+  \else
+    \flo@gset{np}{\flo@gget{n}}%
+    \flo@loop{tgsp}\flo@tci{1}{\flo@gget{n}}{%
+      \flo@calc\flo@t{\flo@gget{x0}+(\the\flo@tci-1)*\flo@gget{lw}}\flo@gset{p\the\flo@tci a}{\flo@t}%
+      \flo@calc\flo@t{\flo@gget{x0}+\the\flo@tci*\flo@gget{lw}}\flo@gset{p\the\flo@tci b}{\flo@t}\flo@gset{p\the\flo@tci n}{1}}%
+  \fi\fi
+  \flo@calc\flo@t{\flo@gget{ys}-\flo@tget{setdown}*(\flo@gget{x1}-\flo@gget{x0})}\flo@gset{ys1}{\flo@t}%
+  \flo@loop{tgs}\flo@tci{1}{\flo@gget{np}}{%
+    \edef\flo@tpa{\flo@gget{p\the\flo@tci a}}\edef\flo@tpb{\flo@gget{p\the\flo@tci b}}\edef\flo@tpn{\flo@gget{p\the\flo@tci n}}%
+    \flo@calc\flo@tpm{(\flo@tpa+\flo@tpb)/2}%
+    \edef\flo@lt@lim{\flo@gget{rch}}\edef\flo@lt@limxm{\flo@gget{rxm}}%
+    \flo@subarch{g\flo@lvl s\the\flo@tci}{\flo@tpa}{\flo@tpb}{\flo@gget{ys1}}%
+    % the sub-arch as a bar through the stone, its jambs down to the sill, under the lights
+    \edef\flo@tbxa{\flo@tpa}\edef\flo@tbxb{\flo@tpb}\edef\flo@tbxm{\flo@tpm}\flo@calc\flo@tby{\flo@gget{y0}+\flo@tbw}\edef\flo@tbch{g\flo@lvl s\the\flo@tci}%
+    \flo@tbars{\flo@tsubbar}{\flo@tbw}%
+    % the group under it, a level down; the loop's counter is kept in this level's state
+    % (a group two levels down would clobber a plain macro), and the level comes back by one
+    \flo@gset{savei}{\the\flo@tci}\edef\flo@tsub{\the\flo@tci}%
+    \edef\flo@lvlup{\flo@lvl}\edef\flo@lvl{\the\numexpr\flo@lvl+1\relax}%
+    \edef\flo@tmp{\noexpand\flo@tgroup{\flo@tpa}{\flo@tpb}{\flo@tpn}{\csname flo@g\flo@lvlup @y0\endcsname}{\csname flo@g\flo@lvlup @ys1\endcsname}{g\flo@lvlup s\flo@tsub}{\csname flo@g\flo@lvlup @ys1\endcsname}{\flo@tpm}}%
+    \flo@tmp
+    \edef\flo@lvl{\the\numexpr\flo@lvl-1\relax}\flo@tci=\flo@gget{savei}\relax}%
+  % the figure in the head above this group's sub-arches, and the spandrels each side
+  \flo@tgroupheadfigure}
+\def\flo@tsubbar{\pgfpathmoveto{\flo@P\flo@tbxa\flo@tby}\flo@cget{\flo@tbch}{1}\flo@tat\flo@pa
+  \pgfpathlineto{\flo@P\flo@atx\flo@aty}\flo@headpath{\flo@tbch}{\flo@tbxm}{0}\pgfpathlineto{\flo@P\flo@tbxb\flo@tby}}
+% ---------------------------------------------------------------- the window
+% the band of stone between two offsets #1 and #2 of the main arch (#1 outside #2, both
+% negative outward), round the head and down both jambs to the sill, as one closed path
+\def\flo@tband#1#2{\edef\flo@tboa{#1}\edef\flo@tbob{#2}%
+  \flo@calc\flo@tbt{\flo@twxl+\flo@tboa}\flo@coffset{main}{tbA}{\flo@tboa}{\flo@tbt}{\flo@twxm}{\flo@twys}%
+  \flo@calc\flo@tbt{\flo@twxl+\flo@tbob}\flo@coffset{main}{tbC}{\flo@tbob}{\flo@tbt}{\flo@twxm}{\flo@twys}%
+  \flo@cget{tbA}{1}\flo@tat\flo@pa\let\flo@tbax\flo@atx\let\flo@tbay\flo@aty
+  \flo@cget{tbC}{1}\flo@tat\flo@pa\let\flo@tbcx\flo@atx\let\flo@tbcy\flo@aty
+  \pgfpathmoveto{\flo@P\flo@tbax\flo@twya}\pgfpathlineto{\flo@P\flo@tbax\flo@tbay}%
+  \flo@headpath{tbA}{\flo@twxm}{0}%
+  \flo@calc\flo@t{2*\flo@twxm-\flo@tbax}\pgfpathlineto{\flo@P\flo@t\flo@twya}%
+  \flo@calc\flo@t{2*\flo@twxm-\flo@tbcx}\pgfpathlineto{\flo@P\flo@t\flo@twya}\pgfpathlineto{\flo@P\flo@t\flo@tbcy}%
+  % the inner edge back: the mirrored chain reversed, then the chain reversed
+  \flo@loop{tbd1}\flo@tcl{1}{\flo@cnum{tbC}}{\flo@cget{tbC}{\the\flo@tcl}%
+    \flo@calc\flo@t{2*\flo@twxm-\flo@px}\flo@calc\flo@ta{180-\flo@pa}\flo@calc\flo@tb{180-\flo@pb}%
+    \flo@arcto\flo@t\flo@py\flo@pr\flo@ta\flo@tb{0}}%
+  \flo@loop{tbd2}\flo@tcl{1}{\flo@cnum{tbC}}{\flo@cget{tbC}{\the\numexpr\flo@cnum{tbC}+1-\flo@tcl\relax}%
+    \flo@arcto\flo@px\flo@py\flo@pr\flo@pb\flo@pa{0}}%
+  \pgfpathlineto{\flo@P\flo@tbcx\flo@twya}\pgfpathclose}
+% the moldings painted as stone: a roll from the outermost line (#1) in to #2, washed pale
+% and shaded darker toward both edges, so that it stands off the page as a shaft
+\def\flo@troll#1#2{\edef\flo@troa{#1}\edef\flo@trob{#2}%
+  \flo@calc\flo@tt{\flo@ttone+0.62}\flo@vtone{flo@c}{\flo@tt}\flo@vfill{flo@c}{0.7}{0}{\flo@tband{\flo@troa}{\flo@trob}}%
+  \flo@calc\flo@trd{(\flo@trob-\flo@troa)*0.3}%
+  \flo@calc\flo@tt{\flo@ttone+0.3}\flo@vtone{flo@c}{\flo@tt}%
+  \flo@calc\flo@troc{\flo@troa+\flo@trd}\flo@vfill{flo@c}{0.22}{1}{\flo@tband{\flo@troa}{\flo@troc}}%
+  \flo@calc\flo@troc{\flo@trob-\flo@trd}\flo@vfill{flo@c}{0.14}{1}{\flo@tband{\flo@troc}{\flo@trob}}}
+% the main window over [#1, #2] with the sill at #3 and the springing at #4: lights and
+% head under the main arch, orders and hood outside
+\def\flo@twindow#1#2#3#4{%
+  \edef\flo@twxl{#1}\edef\flo@twxr{#2}\edef\flo@twya{#3}\edef\flo@twys{#4}%
+  \flo@calc\flo@tws{\flo@twxr-\flo@twxl}\flo@calc\flo@twxm{(\flo@twxl+\flo@twxr)/2}%
+  \flo@hafromtraits
+  \edef\flo@t{\flo@tget{kind}}\def\flo@tmp{headpiece}\ifx\flo@t\flo@tmp\edef\flo@t{\flo@tget{arch}}\def\flo@tmp{ogee}\ifx\flo@t\flo@tmp\def\flo@ha@kind{depressed}\fi\fi
+  \flo@harch{main}\flo@twxl\flo@twxr\flo@twys
+  \flo@calc\flo@t{\flo@twxl+\flo@tBw}\flo@coffset{main}{inner}{\flo@tBw}{\flo@t}{\flo@twxm}{\flo@twys}%
+  \flo@apex{inner}\let\flo@tway\flo@apy
+  \def\flo@placedn{0}%
+  \pgfmathtruncatemacro\flo@twn{max(1,\flo@tget{lights})}\flo@calc\flo@twlw{\flo@tws/\flo@twn}%
+  \edef\flo@t{\flo@tget{branch}}\def\flo@tmp{Y}\def\flo@tmpb{intersecting}\def\flo@tmpc{reticulated}\def\flo@tmpd{panel}%
+  \ifx\flo@t\flo@tmp\flo@twnet\else\ifx\flo@t\flo@tmpb\flo@twnet\else\ifx\flo@t\flo@tmpc\flo@twnet\else\ifx\flo@t\flo@tmpd\flo@twpanels\else
+    \def\flo@lvl{0}\flo@tgroup{\flo@twxl}{\flo@twxr}{\flo@twn}{\flo@twya}{\flo@twys}{inner}{\flo@twys}{\flo@twxm}%
+  \fi\fi\fi\fi
+  % orders: rings outside the main arch, and the hood mold over them
+  \ifnum\flo@tladder>1 \def\flo@tworders{1}\else\edef\flo@tworders{\flo@tget{orders}}\fi
+  \flo@calc\flo@twstep{0.8*\flo@tBw}%
+  \edef\flo@t{\flo@tget{hood}}\def\flo@tmp{none}\ifx\flo@t\flo@tmp\def\flo@twhood{0}\else\ifnum\flo@tladder<2 \def\flo@twhood{1}\else\def\flo@twhood{0}\fi\fi
+  \flo@calc\flo@twxo{\flo@twxl-(\flo@tBw+\flo@tworders*\flo@twstep+\ifnum\flo@twhood=1 0.6*\flo@tBw\else0\fi)}%
+  % the bundle of moldings as one shaded roll, from the outermost line to half the frame's
+  % width inside the main arch
+  \flo@calc\flo@t{-(\flo@tBw+\flo@tworders*\flo@twstep+\ifnum\flo@twhood=1 0.6*\flo@tBw\else0\fi)}\flo@calc\flo@tmp{0.5*\flo@tBw}%
+  \flo@troll{\flo@t}{\flo@tmp}%
+  \flo@loop{twor}\flo@tck{1}{\flo@tworders}{%
+    \flo@calc\flo@two{-(\flo@tBw+\the\flo@tck*\flo@twstep)}\flo@calc\flo@t{\flo@twxl+\flo@two}%
+    \flo@coffset{main}{tord}{\flo@two}{\flo@t}{\flo@twxm}{\flo@twys}%
+    \flo@cget{tord}{1}\flo@tat\flo@pa\let\flo@twox\flo@atx\let\flo@twoy\flo@aty
+    \ifnum\flo@tck=\flo@tworders\relax\def\flo@twk{1.3}\else\def\flo@twk{0.8}\fi
+    \flo@vtone{flo@c}{0.12}\flo@calc\flo@t{\flo@tpen*\flo@twk}%
+    \flo@vstroke{flo@c}{\flo@t}{0.85}{0}{\pgfpathmoveto{\flo@P\flo@twox\flo@twoy}\flo@headpath{tord}{\flo@twxm}{0}}%
+    % the jambs down to the sill
+    \flo@calc\flo@tmp{2*\flo@twxm-\flo@twox}%
+    \flo@vstroke{flo@c}{\flo@t}{0.85}{0}{\pgfpathmoveto{\flo@P\flo@twox\flo@twoy}\pgfpathlineto{\flo@P\flo@twox\flo@twya}%
+      \pgfpathmoveto{\flo@P\flo@tmp\flo@twoy}\pgfpathlineto{\flo@P\flo@tmp\flo@twya}}}%
+  \ifnum\flo@twhood=1
+    \flo@calc\flo@two{-(\flo@tBw+\flo@tworders*\flo@twstep+0.6*\flo@tBw)}\flo@calc\flo@t{\flo@twxl+\flo@two}%
+    \flo@coffset{main}{thood}{\flo@two}{\flo@t}{\flo@twxm}{\flo@twys}%
+    \flo@cget{thood}{1}\flo@tat\flo@pa\let\flo@twhx\flo@atx\let\flo@twhy\flo@aty
+    \flo@vtone{flo@c}{0.1}\flo@calc\flo@t{\flo@tpen*1.6}%
+    \flo@vstroke{flo@c}{\flo@t}{0.9}{0}{\pgfpathmoveto{\flo@P\flo@twhx\flo@twhy}\flo@headpath{thood}{\flo@twxm}{0}}%
+    \edef\flo@t{\flo@tget{hood}}\def\flo@tmp{stops}\ifx\flo@t\flo@tmp
+      \flo@calc\flo@twq{0.9*\flo@tBw}%
+      \flo@calc\flo@twsa{\flo@twhx-\flo@twq}\flo@calc\flo@twsb{\flo@twhx+\flo@twq}\flo@calc\flo@twsc{\flo@twhy-\flo@twq}\flo@calc\flo@twsd{\flo@twhy+\flo@twq}%
+      \flo@calc\flo@twse{2*\flo@twxm-\flo@twhx-\flo@twq}\flo@calc\flo@twsf{2*\flo@twxm-\flo@twhx+\flo@twq}%
+      \edef\flo@t{\flo@tget{accent}}\ifx\flo@t\flo@tmp\flo@vaccent{flo@c}{-0.1}\def\flo@twsop{0.9}\else\flo@vtone{flo@c}{0.3}\def\flo@twsop{0.8}\fi
+      \flo@vfill{flo@c}{\flo@twsop}{0}{\pgfpathrectanglecorners{\flo@P\flo@twsa\flo@twsc}{\flo@P\flo@twsb\flo@twsd}}%
+      \flo@vtone{flo@c}{0.08}\flo@vstroke{flo@c}{\flo@tpen}{0.9}{0}{\pgfpathrectanglecorners{\flo@P\flo@twsa\flo@twsc}{\flo@P\flo@twsb\flo@twsd}}%
+      \edef\flo@t{\flo@tget{accent}}\ifx\flo@t\flo@tmp\flo@vaccent{flo@c}{-0.1}\else\flo@vtone{flo@c}{0.3}\fi
+      \flo@vfill{flo@c}{\flo@twsop}{0}{\pgfpathrectanglecorners{\flo@P\flo@twse\flo@twsc}{\flo@P\flo@twsf\flo@twsd}}%
+      \flo@vtone{flo@c}{0.08}\flo@vstroke{flo@c}{\flo@tpen}{0.9}{0}{\pgfpathrectanglecorners{\flo@P\flo@twse\flo@twsc}{\flo@P\flo@twsf\flo@twsd}}%
+    \fi
+  \fi
+  % the sill, over the bars' feet, as wide as the moldings
+  \flo@vtone{flo@c}{0.1}\flo@calc\flo@t{\flo@tpen*2}\flo@calc\flo@tmp{2*\flo@twxm-\flo@twxo}%
+  \flo@vstroke{flo@c}{\flo@t}{0.9}{0}{\pgfpathmoveto{\flo@P\flo@twxo\flo@twya}\pgfpathlineto{\flo@P\flo@tmp\flo@twya}}%
+  % the copper boss at the main figure's center
+  \edef\flo@t{\flo@tget{accent}}\def\flo@tmp{center}\ifx\flo@t\flo@tmp\ifnum\flo@placedn>0
+    \flo@calc\flo@t{max(0.06*\flo@placedr{1},1.2*\flo@tbw)}\flo@vaccent{flo@c}{-0.05}%
+    \flo@vfill{flo@c}{0.95}{0}{\pgfpathcircle{\flo@P{\flo@placedx{1}}{\flo@placedy{1}}}{\flo@t pt}}\fi\fi}
+\def\flo@placedx#1{\csname flo@tpl@#1@x\endcsname}\def\flo@placedy#1{\csname flo@tpl@#1@y\endcsname}\def\flo@placedr#1{\csname flo@tpl@#1@r\endcsname}
+% ---------------------------------------------------------------- the pic
+% \pic {florilegium tracery={seed=7, role=window, size=4cm}}: sample the window, reseed for
+% the drawing, and draw it a hundred units wide, scaled to its size (florilegium-tracery.lua:
+% M.draw). The level of detail follows the width of one light on the page (\flo@tladder:
+% under 8 mm no cusps, under 5 plain figures and one order, under 3 the arch and its figure alone)
+\def\flo@tracerypic#1{%
+  \pgfkeys{/florilegium,#1}\flo@colors\flo@intof\flo@o@seed\flo@o@seed
+  \edef\flo@tmp{\noexpand\florilegiumtracery[{\flo@o@traits}]{\flo@o@seed}{\flo@o@role}}\flo@tmp
+  \edef\flo@o@seed{\flo@tget{seed}}%
+  \ifx\flo@o@draw\pgfutil@empty
+    \edef\flo@o@draw{\the\numexpr\ifnum\flo@o@seed=2147483646 1\else\flo@o@seed+1\fi\relax}\fi
+  \flo@drawseed\flo@o@draw
+  \pgfmathsetlength\pgf@x{\flo@o@size}\edef\flo@sizept{\pgf@sys@tonumber\pgf@x}%
+  \pgfsetroundcap\pgfsetroundjoin
+  \flo@calc\flo@tu{\flo@sizept/100}\pgftransformscale{\flo@tu}%
+  \flo@calc\flo@tunit{\flo@tu/28.45276}%            cm per local unit
+  \flo@calc\flo@tbp{\flo@tu*72/72.27}%                bp per local unit
+  \flo@calc\flo@tpen{max(0.3,min(0.6,1.6*\flo@tbp))}% the pen's line, in bp
+  \flo@calc\flo@tcell{3.698859/\flo@tu}%              the wash's blotches, 1.3 mm
+  \edef\flo@ttone{\flo@tget{tone}}%
+  \edef\flo@t{\flo@tget{kind}}\def\flo@tmp{rose}\def\flo@tmpb{foil}\def\flo@tmpc{arcade}%
+  \ifx\flo@t\flo@tmp\flo@trosepic\else\ifx\flo@t\flo@tmpb\flo@trosepic\else
+    \pgfmathtruncatemacro\flo@twn{max(1,\flo@tget{lights})}%
+    % the span: the width less the orders and the hood outside the main arch
+    \edef\flo@tmpd{\flo@tget{hood}}\def\flo@tmpe{none}\ifx\flo@tmpd\flo@tmpe\def\flo@thk{0}\else\def\flo@thk{0.6}\fi
+    \flo@calc\flo@tout{\flo@tget{border}*(1.9+0.8*\flo@tget{orders}+\flo@thk)*min(1,3/\flo@twn)}%
+    \flo@calc\flo@tws{100/(1+2*\flo@tout)}\flo@calc\flo@twlw{\flo@tws/\flo@twn}%
+    \flo@calc\flo@tmm{\flo@twlw*\flo@tunit*10}%
+    \pgfmathtruncatemacro\flo@tladder{\flo@tmm<3?3:(\flo@tmm<5?2:(\flo@tmm<8?1:0))}%
+    \ifnum\flo@tladder<2 \def\flo@tdetail{1}\else\def\flo@tdetail{0}\fi
+    \flo@calc\flo@tmod{min(\flo@tws,3*\flo@twlw)}%
+    \flo@calc\flo@tbw{\flo@tget{bar}*\flo@tmod}\flo@calc\flo@tBw{\flo@tget{border}*\flo@tmod}%
+    \flo@calc\flo@txl{-\flo@tws/2}\flo@calc\flo@txr{\flo@tws/2}%
+    \ifx\flo@t\flo@tmpc\flo@tarcade\else
+      \flo@calc\flo@tys{\flo@tget{jamb}*\flo@tws}%
+      \def\flo@tmp{headpiece}\ifx\flo@t\flo@tmp\flo@calc\flo@tys{max(\flo@tys,3*\flo@tBw)}\fi
+      \flo@twindow{\flo@txl}{\flo@txr}{0}{\flo@tys}%
+    \fi
+  \fi\fi
+  \ifdefined\flo@tracerydebug\flo@tracerydebug\fi}
+% ---------------------------------------------------------------- arcades
+% a pier as the same roll as the moldings, a rectangle (#1,#3)-(#2,#4) shaded toward both edges
+\def\flo@tpier#1#2#3#4{%
+  \flo@calc\flo@tpd{((#2)-(#1))*0.3}\flo@calc\flo@tpxa{(#1)+\flo@tpd}\flo@calc\flo@tpxb{(#2)-\flo@tpd}%
+  \flo@calc\flo@tt{\flo@ttone+0.62}\flo@vtone{flo@c}{\flo@tt}\flo@vfill{flo@c}{0.7}{0}{\pgfpathrectanglecorners{\flo@P{#1}{#3}}{\flo@P{#2}{#4}}}%
+  \flo@calc\flo@tt{\flo@ttone+0.3}\flo@vtone{flo@c}{\flo@tt}%
+  \flo@vfill{flo@c}{0.22}{1}{\pgfpathrectanglecorners{\flo@P{#1}{#3}}{\flo@P\flo@tpxa{#4}}}%
+  \flo@vfill{flo@c}{0.14}{1}{\pgfpathrectanglecorners{\flo@P\flo@tpxb{#3}}{\flo@P{#2}{#4}}}}
+% an arcade: n bays side by side over [\flo@txl, \flo@txr], each a window of one light,
+% under a straight molding
+\def\flo@tarcade{%
+  \flo@calc\flo@tabw{(\flo@txr-\flo@txl)/\flo@twn}\flo@calc\flo@tays{\flo@tget{jamb}*\flo@tabw}%
+  \ifnum\flo@tladder>0 \def\flo@tacusps{0}\else\edef\flo@tacusps{\flo@tget{cusps}}\fi
+  \def\flo@tatop{0}\flo@hafromtraits
+  \flo@loop{tarc}\flo@tcj{0}{\flo@twn-1}{%
+    \flo@calc\flo@lt@xa{\flo@txl+\the\flo@tcj*\flo@tabw}\flo@calc\flo@lt@xb{\flo@txl+(\the\flo@tcj+1)*\flo@tabw}%
+    \edef\flo@lt@bl{\flo@tbw}\edef\flo@lt@br{\flo@tbw}\edef\flo@lt@off{\flo@tbw}\edef\flo@lt@cusps{\flo@tacusps}%
+    \flo@calc\flo@lt@depth{\flo@tget{cuspdepth}*\flo@tabw}\def\flo@lt@ya{0}\edef\flo@lt@ys{\flo@tays}\def\flo@lt@rows{1}%
+    \let\flo@lt@lim\pgfutil@empty\let\flo@lt@head\pgfutil@empty
+    \edef\flo@tsave{\the\flo@tcj}%
+    \flo@tlight{tabay}\flo@apex{tabay}\flo@calc\flo@tatop{max(\flo@tatop,\flo@apy)}%
+    % the bay's arch as a bar: outer edge over the stone
+    \flo@hafromtraits\flo@harch{tabo}\flo@lt@xa\flo@lt@xb\flo@tays
+    \flo@calc\flo@taxm{(\flo@lt@xa+\flo@lt@xb)/2}\flo@calc\flo@t{-\flo@tbw}\flo@calc\flo@tmp{\flo@lt@xa-\flo@tbw}%
+    \flo@coffset{tabo}{tabof}{\flo@t}{\flo@tmp}{\flo@taxm}{}%
+    \flo@cget{tabof}{1}\flo@tat\flo@pa\let\flo@taox\flo@atx\let\flo@taoy\flo@aty
+    \flo@vtone{flo@c}{0.12}\flo@vstroke{flo@c}{\flo@tpen}{0.85}{0}{\pgfpathmoveto{\flo@P\flo@taox\flo@taoy}\flo@headpath{tabof}{\flo@taxm}{0}}%
+    \flo@tcj=\flo@tsave\relax}%
+  % the molding along the top and the piers' feet; the outer piers as shaded stone
+  \flo@calc\flo@tay@{\flo@tatop+2.5*\flo@tBw}\flo@calc\flo@tayb{\flo@tay@-1.2*\flo@tBw}%
+  \flo@calc\flo@taxa{\flo@txl-\flo@tBw}\flo@calc\flo@taxb{\flo@txl+\flo@tbw}\flo@tpier\flo@taxa\flo@taxb{0}\flo@tayb
+  \flo@calc\flo@taxc{\flo@txr-\flo@tbw}\flo@calc\flo@taxd{\flo@txr+\flo@tBw}\flo@tpier\flo@taxc\flo@taxd{0}\flo@tayb
+  \flo@vtone{flo@c}{0.1}\flo@calc\flo@t{\flo@tpen*1.6}%
+  \flo@vstroke{flo@c}{\flo@t}{0.9}{0}{\pgfpathmoveto{\flo@P\flo@taxa\flo@tay@}\pgfpathlineto{\flo@P\flo@taxd\flo@tay@}}%
+  \flo@vtone{flo@c}{0.12}\flo@calc\flo@t{\flo@tpen*0.8}%
+  \flo@vstroke{flo@c}{\flo@t}{0.85}{0}{\pgfpathmoveto{\flo@P\flo@taxa\flo@tayb}\pgfpathlineto{\flo@P\flo@taxd\flo@tayb}}%
+  \flo@vtone{flo@c}{0.1}\flo@calc\flo@t{\flo@tpen*1.3}%
+  \flo@vstroke{flo@c}{\flo@t}{0.9}{0}{\pgfpathmoveto{\flo@P\flo@taxa{0}}\pgfpathlineto{\flo@P\flo@taxd{0}}}%
+  % spandrel trefoils between the bays
+  \edef\flo@t{\flo@tget{spandrel}}\def\flo@tmp{trefoil}\ifx\flo@t\flo@tmp\ifnum\flo@tladder<2
+    \flo@calc\flo@tasy{\flo@tayb-\flo@tbw}%
+    \flo@loop{tasp}\flo@tcj{1}{\flo@twn-1}{%
+      \flo@calc\flo@tasx{\flo@txl+\the\flo@tcj*\flo@tabw}\edef\flo@tsave{\the\flo@tcj}%
+      \flo@calc\flo@t{\flo@tasx-\flo@tabw}\flo@hafromtraits\flo@harch{tasl}\flo@t\flo@tasx\flo@tays
+      \flo@calc\flo@tmp{\flo@tasx+\flo@tabw}\flo@harch{tasr}\flo@tasx\flo@tmp\flo@tays
+      \flo@rgnew{tasr}\flo@calc\flo@tmp{\flo@tasx-\flo@tabw/2}\flo@rgarch{tasr}{tasl}{\flo@tays}{\flo@tmp}{1}%
+      \flo@calc\flo@tmp{\flo@tasx+\flo@tabw/2}\flo@rgarch{tasr}{tasr}{\flo@tays}{\flo@tmp}{1}%
+      \flo@rgplane{tasr}{0}{\flo@tasy}{0}{-1}%
+      \flo@calc\flo@t{\flo@tasx-\flo@tabw/2}\flo@calc\flo@tmp{\flo@tasx+\flo@tabw/2}%
+      \flo@biggest{tasr}{\flo@t}{\flo@tays}{\flo@tmp}{\flo@tay@}{\flo@tasx}%
+      \pgfmathparse{\flo@bgr>3*\flo@tbw}\ifdim\pgfmathresult pt>0pt \flo@fgtrefoil\flo@tfigure{foiled}\flo@bgx\flo@bgy\flo@bgr{}\fi
+      \flo@tcj=\flo@tsave\relax}%
+  \fi\fi}
+% ---------------------------------------------------------------- roses and foils
+% an arc from (#1,#2) through (#3,#4) to (#5,#6) around the circle through them, computed
+% about the first point so that pgfmath's squares stay in range; a line when they are in
+% line; #7 moves first
+\def\flo@arcthrough#1#2#3#4#5#6#7{%
+  % in sixteenths about the first point, so that pgfmath's products stay in range
+  \flo@calc\flo@tbx{((#3)-(#1))/16}\flo@calc\flo@tby{((#4)-(#2))/16}\flo@calc\flo@tcx{((#5)-(#1))/16}\flo@calc\flo@tcy{((#6)-(#2))/16}%
+  \flo@calc\flo@td{2*(\flo@tbx*\flo@tcy-\flo@tcx*\flo@tby)}%
+  \pgfmathparse{abs(\flo@td)<0.0000001}\ifdim\pgfmathresult pt>0pt
+    \ifnum#7=1 \pgfpathmoveto{\flo@P{#1}{#2}}\fi\pgfpathlineto{\flo@P{#3}{#4}}\pgfpathlineto{\flo@P{#5}{#6}}%
+  \else
+    \flo@calc\flo@tbb{\flo@tbx*\flo@tbx+\flo@tby*\flo@tby}\flo@calc\flo@tcc{\flo@tcx*\flo@tcx+\flo@tcy*\flo@tcy}%
+    \flo@calc\flo@tux{(\flo@tcy*\flo@tbb-\flo@tby*\flo@tcc)/\flo@td}\flo@calc\flo@tuy{(\flo@tbx*\flo@tcc-\flo@tcx*\flo@tbb)/\flo@td}%
+    \flo@calc\flo@tr{16*veclen(\flo@tux,\flo@tuy)}%
+    \flo@calc\flo@ta{atan2(-\flo@tuy,-\flo@tux)}\flo@calc\flo@tam{atan2(\flo@tby-\flo@tuy,\flo@tbx-\flo@tux)}\flo@calc\flo@tb{atan2(\flo@tcy-\flo@tuy,\flo@tcx-\flo@tux)}%
+    \flo@calc\flo@tux{16*\flo@tux}\flo@calc\flo@tuy{16*\flo@tuy}%
+    \flo@fwd\flo@ta\flo@tam\let\flo@tfa\flo@tfw\flo@fwd\flo@ta\flo@tb\let\flo@tfb\flo@tfw
+    \flo@calc\flo@tux{\flo@tux+(#1)}\flo@calc\flo@tuy{\flo@tuy+(#2)}%
+    \pgfmathparse{\flo@tfa<\flo@tfb}\ifdim\pgfmathresult pt>0pt \flo@calc\flo@tb{\flo@ta+\flo@tfb}%
+    \else\flo@fwd\flo@tb\flo@ta\flo@calc\flo@tb{\flo@ta-\flo@tfw}\fi
+    \flo@arcto\flo@tux\flo@tuy\flo@tr\flo@ta\flo@tb{#7}%
+  \fi}
+% a rose: spokes from a foiled eye to the rim, a second ring of sectors when the genome
+% asks, every sector an opening; the rim and its orders; (\flo@trcx, \flo@trcy) its center,
+% \flo@trR its radius, \flo@tbw the bars' half-width
+\def\flo@trsector#1#2#3#4{% r0 r1 k head
+  \flo@calc\flo@tsth{(#3)*\flo@tra+90}\flo@calc\flo@tsthb{((#3)+1)*\flo@tra+90}%
+  \flo@calc\flo@tsga{\flo@tbw/(#1)*57.29578}\flo@calc\flo@tsgb{\flo@tbw/(#2)*57.29578}% the gap for the spoke's bar, as an angle at each radius
+  \flo@calc\flo@tspax{\flo@trcx+(#1)*cos(\flo@tsth+\flo@tsga)}\flo@calc\flo@tspay{\flo@trcy+(#1)*sin(\flo@tsth+\flo@tsga)}%
+  \flo@calc\flo@tspbx{\flo@trcx+(#1)*cos(\flo@tsthb-\flo@tsga)}\flo@calc\flo@tspby{\flo@trcy+(#1)*sin(\flo@tsthb-\flo@tsga)}%
+  \flo@calc\flo@tsqax{\flo@trcx+(#2)*cos(\flo@tsth+\flo@tsgb)}\flo@calc\flo@tsqay{\flo@trcy+(#2)*sin(\flo@tsth+\flo@tsgb)}%
+  \flo@calc\flo@tsqbx{\flo@trcx+(#2)*cos(\flo@tsthb-\flo@tsgb)}\flo@calc\flo@tsqby{\flo@trcy+(#2)*sin(\flo@tsthb-\flo@tsgb)}%
+  \edef\flo@tsra{#1}\edef\flo@tsrb{#2}\edef\flo@tshead{#4}%
+  \flo@calc\flo@tsmx{\flo@trcx+(#2)*cos((\flo@tsth+\flo@tsthb)/2)}\flo@calc\flo@tsmy{\flo@trcy+(#2)*sin((\flo@tsth+\flo@tsthb)/2)}%
+  \flo@calc\flo@tsaa{\flo@tsth+\flo@tsgb}\flo@calc\flo@tsab{\flo@tsthb-\flo@tsgb}\flo@calc\flo@tsac{\flo@tsthb-\flo@tsga}\flo@calc\flo@tsad{\flo@tsth+\flo@tsga}%
+  \flo@calc\flo@tsxa{\flo@trcx-(#2)}\flo@calc\flo@tsya{\flo@trcy-(#2)}\flo@calc\flo@tsxb{\flo@trcx+(#2)}\flo@calc\flo@tsyb{\flo@trcy+(#2)}%
+  \flo@topening{\flo@trsectorpath}\flo@tsxa\flo@tsya\flo@tsxb\flo@tsyb}
+\def\flo@trsectorpath{\pgfpathmoveto{\flo@P\flo@tspax\flo@tspay}\pgfpathlineto{\flo@P\flo@tsqax\flo@tsqay}%
+  \ifnum\flo@tshead=1 \flo@arcthrough\flo@tsqax\flo@tsqay\flo@tsmx\flo@tsmy\flo@tsqbx\flo@tsqby{0}%
+  \else\flo@arcto\flo@trcx\flo@trcy\flo@tsrb\flo@tsaa\flo@tsab{0}\fi
+  \pgfpathlineto{\flo@P\flo@tspbx\flo@tspby}\flo@arcto\flo@trcx\flo@trcy\flo@tsra\flo@tsac\flo@tsad{0}}
+\def\flo@trose{%
+  \pgfmathtruncatemacro\flo@trn{\flo@tget{spokes}}\flo@calc\flo@tro{\flo@trR-1.5*\flo@tbw}\flo@calc\flo@tre{\flo@tget{oculus}*\flo@trR}%
+  \ifnum\flo@tladder>1 \def\flo@trrings{1}\else\edef\flo@trrings{\flo@tget{rings}}\fi
+  \ifnum\flo@trrings>1 \flo@calc\flo@trmid{\flo@tre+0.55*(\flo@tro-\flo@tre)}\fi
+  \flo@calc\flo@tra{360/\flo@trn}%
+  \flo@loop{tros}\flo@tcj{0}{\flo@trn-1}{\edef\flo@tsave{\the\flo@tcj}%
+    \ifnum\flo@trrings>1
+      \flo@calc\flo@t{\flo@tre+\flo@tbw}\flo@calc\flo@tmp{\flo@trmid-\flo@tbw}\flo@trsector\flo@t\flo@tmp{\flo@tsave}{0}%
+      \flo@calc\flo@t{\flo@trmid+\flo@tbw}\flo@trsector\flo@t\flo@tro{\flo@tsave}{1}%
+    \else
+      \flo@calc\flo@t{\flo@tre+\flo@tbw}\flo@trsector\flo@t\flo@tro{\flo@tsave}{1}%
+    \fi
+    \flo@tcj=\flo@tsave\relax}%
+  % the eye
+  \pgfmathtruncatemacro\flo@trfoils{min(8,max(3,floor(\flo@trn/2)))}\ifnum\flo@tladder>1 \ifnum\flo@trfoils>4 \def\flo@trfoils{4}\fi\fi
+  \flo@calc\flo@trei{\flo@tre-\flo@tbw}%
+  \pgfmathparse{\flo@trei>2*\flo@tbw}\ifdim\pgfmathresult pt>0pt
+    \flo@calc\flo@tsxa{\flo@trcx-\flo@trei}\flo@calc\flo@tsya{\flo@trcy-\flo@trei}\flo@calc\flo@tsxb{\flo@trcx+\flo@trei}\flo@calc\flo@tsyb{\flo@trcy+\flo@trei}%
+    \flo@topening{\flo@foiledpath\flo@trcx\flo@trcy\flo@trei\flo@trfoils{0}{1}}\flo@tsxa\flo@tsya\flo@tsxb\flo@tsyb
+  \else
+    \flo@calc\flo@t{max(\flo@trei,\flo@tbw)}%
+    \flo@calc\flo@tsxa{\flo@trcx-\flo@tre}\flo@calc\flo@tsya{\flo@trcy-\flo@tre}\flo@calc\flo@tsxb{\flo@trcx+\flo@tre}\flo@calc\flo@tsyb{\flo@trcy+\flo@tre}%
+    \flo@topening{\pgfpathcircle{\flo@P\flo@trcx\flo@trcy}{\flo@t pt}}\flo@tsxa\flo@tsya\flo@tsxb\flo@tsyb
+  \fi
+  % the rim and its orders
+  \ifnum\flo@tladder>1 \def\flo@tworders{1}\else\edef\flo@tworders{\flo@tget{orders}}\fi
+  \flo@loop{trorb}\flo@tcj{0}{\flo@tworders}{%
+    \flo@calc\flo@t{\flo@trR+\the\flo@tcj*1.2*\flo@tbw}\ifnum\flo@tcj=0 \flo@calc\flo@tmp{\flo@tpen*1.4}\else\flo@calc\flo@tmp{\flo@tpen*0.9}\fi
+    \flo@vtone{flo@c}{0.1}\flo@vstroke{flo@c}{\flo@tmp}{0.9}{0}{\pgfpathcircle{\flo@P\flo@trcx\flo@trcy}{\flo@t pt}}}%
+  \edef\flo@t{\flo@tget{accent}}\def\flo@tmp{center}\ifx\flo@t\flo@tmp
+    \flo@calc\flo@t{max(0.25*\flo@trei,\flo@tbw)}\flo@vaccent{flo@c}{-0.05}\flo@vfill{flo@c}{0.95}{0}{\pgfpathcircle{\flo@P\flo@trcx\flo@trcy}{\flo@t pt}}\fi}
+% a foil alone: a foiled circle with its rings
+\def\flo@tfoil{%
+  \flo@calc\flo@tro{\flo@trR-1.5*\flo@tbw}\pgfmathtruncatemacro\flo@trn{\flo@tget{foils}}%
+  \ifnum\flo@tladder>1 \ifnum\flo@trn>4 \def\flo@trn{4}\fi\fi
+  \edef\flo@t{\flo@tget{foilshape}}\def\flo@tmp{pointed}\ifx\flo@t\flo@tmp\def\flo@trpt{1}\else\def\flo@trpt{0}\fi
+  \flo@calc\flo@tsxa{\flo@trcx-\flo@tro}\flo@calc\flo@tsya{\flo@trcy-\flo@tro}\flo@calc\flo@tsxb{\flo@trcx+\flo@tro}\flo@calc\flo@tsyb{\flo@trcy+\flo@tro}%
+  \flo@topening{\flo@foiledpath\flo@trcx\flo@trcy\flo@tro\flo@trn\flo@trpt{1}}\flo@tsxa\flo@tsya\flo@tsxb\flo@tsyb
+  \ifnum\flo@tladder>1 \def\flo@tworders{1}\else\edef\flo@tworders{\flo@tget{orders}}\fi
+  \flo@loop{tforb}\flo@tcj{0}{\flo@tworders-1}{%
+    \flo@calc\flo@t{\flo@trR+\the\flo@tcj*1.2*\flo@tbw}\ifnum\flo@tcj=0 \flo@calc\flo@tmp{\flo@tpen*1.4}\else\flo@calc\flo@tmp{\flo@tpen*0.9}\fi
+    \flo@vtone{flo@c}{0.1}\flo@vstroke{flo@c}{\flo@tmp}{0.9}{0}{\pgfpathcircle{\flo@P\flo@trcx\flo@trcy}{\flo@t pt}}}%
+  \edef\flo@t{\flo@tget{accent}}\def\flo@tmp{center}\ifx\flo@t\flo@tmp
+    \flo@calc\flo@t{max(0.1*\flo@tro,\flo@tbw)}\flo@vaccent{flo@c}{-0.05}\flo@vfill{flo@c}{0.95}{0}{\pgfpathcircle{\flo@P\flo@trcx\flo@trcy}{\flo@t pt}}\fi}
+% a rose or a foil, a hundred units wide, standing on the origin
+\def\flo@trosepic{%
+  \def\flo@trcx{0}\def\flo@trcy{50}\flo@calc\flo@tbw{max(\flo@tget{bar},0.015)*60}\flo@calc\flo@trR{50-\flo@tbw}%
+  \flo@calc\flo@tmm{1000*\flo@tunit}%
+  \pgfmathtruncatemacro\flo@tladder{\flo@tmm<6?3:(\flo@tmm<10?2:(\flo@tmm<16?1:0))}%
+  \ifnum\flo@tladder<2 \def\flo@tdetail{1}\else\def\flo@tdetail{0}\fi
+  \edef\flo@t{\flo@tget{kind}}\def\flo@tmp{rose}\ifx\flo@t\flo@tmp\flo@trose\else\flo@tfoil\fi}
+
+% ---------------------------------------------------------------- regions
+% A region is a list of constraints; a point's signed distance to the region is the least
+% of its signed distances to each (positive inside). \flo@rg@<name>@<j> = {type}{a}{b}{c}{d}:
+% a (an arch: chain, springing or empty, axis, outside 0/1), c (a circle: x y r outside),
+% h (a half-plane: x y nx ny, inside along the normal)
+\def\flo@rgnew#1{\expandafter\def\csname flo@rgn@#1\endcsname{0}}
+\def\flo@rgn#1{\csname flo@rgn@#1\endcsname}
+\def\flo@rgadd#1#2#3#4#5#6{%
+  \expandafter\edef\csname flo@rgn@#1\endcsname{\the\numexpr\flo@rgn{#1}+1\relax}%
+  \expandafter\edef\csname flo@rg@#1@\flo@rgn{#1}\endcsname{{#2}{#3}{#4}{#5}{#6}}}
+\def\flo@rgarch#1#2#3#4#5{\flo@rgadd{#1}{a}{#2}{#3}{#4}{#5}}
+\def\flo@rgcircle#1#2#3#4#5{\flo@rgadd{#1}{c}{#2}{#3}{#4}{#5}}
+\def\flo@rgplane#1#2#3#4#5{\flo@rgadd{#1}{h}{#2}{#3}{#4}{#5}}
+\def\flo@rgcopy#1#2{\flo@rgnew{#2}\flo@loop{trgc}\flo@tcn{1}{\flo@rgn{#1}}{%
+    \expandafter\let\csname flo@rg@#2@\the\flo@tcn\expandafter\endcsname\csname flo@rg@#1@\the\flo@tcn\endcsname}%
+  \expandafter\edef\csname flo@rgn@#2\endcsname{\flo@rgn{#1}}}
+\def\flo@rgget#1#2{\expandafter\expandafter\expandafter\flo@rgget@\csname flo@rg@#1@#2\endcsname}
+\def\flo@rgget@#1#2#3#4#5{\def\flo@rt{#1}\def\flo@ra{#2}\def\flo@rb{#3}\def\flo@rc{#4}\def\flo@rd{#5}}
+\newif\ifflo@sdfound \newif\ifflo@tfgo
+% the signed distance of (\flo@sdx, \flo@sdy) to the piece read last (within its sector)
+% into \flo@sdbest, and to its ends into \flo@sdend
+\def\flo@sdpiece{%
+  \flo@calc\flo@tdx{\flo@sdx-\flo@px}\flo@calc\flo@tdy{\flo@sdy-\flo@py}%
+  \flo@calc\flo@tang{atan2(\flo@tdy,\flo@tdx)}%
+  \flo@calc\flo@tlo{min(\flo@pa,\flo@pb)}\flo@calc\flo@thi{max(\flo@pa,\flo@pb)}%
+  \pgfmathparse{\flo@tang<\flo@tlo-0.0000001}\ifdim\pgfmathresult pt>0pt \flo@calc\flo@tang{\flo@tang+360}\fi
+  \pgfmathparse{and(\flo@tang>=\flo@tlo-0.0000001,\flo@tang<=\flo@thi+0.0000001)}%
+  \ifdim\pgfmathresult pt>0pt
+    \flo@calc\flo@td{\flo@pr-veclen(\flo@tdx,\flo@tdy)}\ifnum\flo@pv=0 \flo@calc\flo@td{-\flo@td}\fi
+    \flo@calc\flo@sdbest{min(\flo@sdbest,\flo@td)}\flo@sdfoundtrue
+  \fi
+  \flo@tat\flo@pa\flo@calc\flo@sdend{min(\flo@sdend,veclen(\flo@sdx-\flo@atx,\flo@sdy-\flo@aty))}%
+  \flo@tat\flo@pb\flo@calc\flo@sdend{min(\flo@sdend,veclen(\flo@sdx-\flo@atx,\flo@sdy-\flo@aty))}}
+% signed distance to the inside of an arch (\flo@ra chain, \flo@rb springing, \flo@rc axis,
+% \flo@rd outside): within a piece's sector, to that piece; outside every sector, to the
+% nearest corner, outside
+\def\flo@sdarch{%
+  \def\flo@sdbest{16000}\def\flo@sdend{16000}\flo@sdfoundfalse
+  \flo@loop{tsda}\flo@tck{1}{\flo@cnum{\flo@ra}}{\flo@cget{\flo@ra}{\the\flo@tck}\flo@sdpiece
+    \flo@calc\flo@px{2*\flo@rc-\flo@px}\flo@calc\flo@ta{180-\flo@pb}\flo@calc\flo@pb{180-\flo@pa}\let\flo@pa\flo@ta\flo@sdpiece}%
+  \ifx\flo@rb\pgfutil@empty\else\flo@calc\flo@sdbest{min(\flo@sdbest,\flo@sdy-\flo@rb)}\fi
+  \ifflo@sdfound\else\flo@calc\flo@sdbest{min(\flo@sdbest,-\flo@sdend)}\fi
+  \ifnum\flo@rd=1 \flo@calc\flo@sdv{-\flo@sdbest}\else\let\flo@sdv\flo@sdbest\fi}
+% the signed distance of (#2, #3) to region #1: \flo@sdv
+\def\flo@sd#1#2#3{\edef\flo@sdx{#2}\edef\flo@sdy{#3}\def\flo@sdr{16000}%
+  \flo@loop{tsd}\flo@tcn{1}{\flo@rgn{#1}}{\flo@rgget{#1}{\the\flo@tcn}%
+    \def\flo@t{a}\ifx\flo@rt\flo@t\flo@sdarch
+    \else\def\flo@t{c}\ifx\flo@rt\flo@t
+      \flo@calc\flo@td{veclen(\flo@sdx-\flo@ra,\flo@sdy-\flo@rb)}%
+      \ifnum\flo@rd=1 \flo@calc\flo@sdv{\flo@td-\flo@rc}\else\flo@calc\flo@sdv{\flo@rc-\flo@td}\fi
+    \else\flo@calc\flo@sdv{\flo@rc*(\flo@sdx-\flo@ra)+\flo@rd*(\flo@sdy-\flo@rb)}\fi\fi
+    \flo@calc\flo@sdr{min(\flo@sdr,\flo@sdv)}}%
+  \let\flo@sdv\flo@sdr}
+% the largest circle inside region #1, searched over the box (#2,#3)-(#4,#5): 25 by 25,
+% then three times 9 by 9 at a quarter of the step; an x in #6 pins the center to it:
+% \flo@bgx \flo@bgy \flo@bgr
+\def\flo@bgtry#1#2{\flo@sd{\flo@bgreg}{#1}{#2}%
+  \pgfmathparse{\flo@sdv>\flo@bgr+\flo@bgeps}\ifdim\pgfmathresult pt>0pt \edef\flo@bgx{#1}\edef\flo@bgy{#2}\let\flo@bgr\flo@sdv\fi}
+\def\flo@biggest#1#2#3#4#5#6{\edef\flo@bgreg{#1}\def\flo@bgr{-16000}\edef\flo@bgaxis{#6}%
+  \flo@calc\flo@bgeps{((#4)-(#2))*0.00001}% a later point wins only by more than rounding (the Lua side does the same)
+  \flo@calc\flo@bgsx{((#4)-(#2))/24}\flo@calc\flo@bgsy{((#5)-(#3))/24}\edef\flo@bgxa{#2}\edef\flo@bgya{#3}%
+  \ifx\flo@bgaxis\pgfutil@empty
+    \flo@loop{tbgi}\flo@tcj{0}{24}{\flo@calc\flo@bgtx{\flo@bgxa+\flo@bgsx*\the\flo@tcj}%
+      \flo@loop{tbgj}\flo@tcl{0}{24}{\flo@calc\flo@bgty{\flo@bgya+\flo@bgsy*\the\flo@tcl}\flo@bgtry\flo@bgtx\flo@bgty}}%
+  \else
+    \flo@loop{tbgja}\flo@tcl{0}{24}{\flo@calc\flo@bgty{\flo@bgya+\flo@bgsy*\the\flo@tcl}\flo@bgtry\flo@bgaxis\flo@bgty}%
+  \fi
+  \flo@loop{tbgr}\flo@tcm{1}{3}{%
+    \let\flo@bgcx\flo@bgx\let\flo@bgcy\flo@bgy
+    \flo@calc\flo@bgsx{\flo@bgsx/4}\flo@calc\flo@bgsy{\flo@bgsy/4}%
+    \flo@loop{tbgri}\flo@tcj{-4}{4}{%
+      \ifx\flo@bgaxis\pgfutil@empty\flo@calc\flo@bgtx{\flo@bgcx+\flo@bgsx*\the\flo@tcj}\flo@yestrue
+      \else\ifnum\flo@tcj=0 \let\flo@bgtx\flo@bgaxis\flo@yestrue\else\flo@yesfalse\fi\fi
+      \ifflo@yes\flo@loop{tbgrj}\flo@tcl{-4}{4}{\flo@calc\flo@bgty{\flo@bgcy+\flo@bgsy*\the\flo@tcl}\flo@bgtry\flo@bgtx\flo@bgty}\fi}}}
+% ---------------------------------------------------------------- figures
+% a foiled circle: #4 lobes inside the circle (#1,#2) of radius #3, tangent to it and to
+% each other (foil radius r sin(a/2) / (1 + sin(a/2)), a = 360/n, after Havemann and
+% Fellner); a lobe stands on the top of the axis. Pointed (#5 1): each lobe is two arcs
+% from circles whose centers are moved out along the lines to the tangent feet; #6 moves first
+\def\flo@foiledpath#1#2#3#4#5#6{%
+  \flo@calc\flo@fpa{360/(#4)}\flo@calc\flo@fps{sin(\flo@fpa/2)}%
+  \flo@calc\flo@fprf{(#3)*\flo@fps/(1+\flo@fps)}\flo@calc\flo@fpd{(#3)-\flo@fprf}%
+  \ifnum#5=1 \def\flo@fpf{1.15}%
+    % the points reach past the circle: scale the foils so they just touch it
+    \flo@calc\flo@fpc{\flo@fpd*cos(\flo@fpa/2)}%
+    \flo@calc\flo@tax{\flo@fpc*cos(-\flo@fpa/2)}\flo@calc\flo@tay{\flo@fpc*sin(-\flo@fpa/2)}%
+    \flo@calc\flo@tcx{\flo@tax+\flo@fpf*(\flo@fpd-\flo@tax)}\flo@calc\flo@tcy{\flo@tay-\flo@fpf*\flo@tay}%
+    \flo@calc\flo@thd{abs(\flo@tcy)}\flo@calc\flo@t{\flo@fpf*\flo@fprf}\flo@sqdiff\flo@t\flo@thd
+    \flo@calc\flo@tk@{(#3)/(\flo@tcx+\flo@sqd)}\flo@calc\flo@fprf{\flo@fprf*\flo@tk@}\flo@calc\flo@fpd{\flo@fpd*\flo@tk@}%
+  \else\def\flo@fpf{1}\fi
+  \flo@calc\flo@fpc{\flo@fpd*cos(\flo@fpa/2)}%
+  \flo@loop{tfp}\flo@tcl{0}{#4-1}{%
+    \flo@calc\flo@fpth{90+\the\flo@tcl*\flo@fpa}%
+    \flo@calc\flo@fplx{(#1)+\flo@fpd*cos(\flo@fpth)}\flo@calc\flo@fply{(#2)+\flo@fpd*sin(\flo@fpth)}%
+    \ifnum#5=0
+      \flo@calc\flo@ta{\flo@fpth-90-\flo@fpa/2}\flo@calc\flo@tb{\flo@fpth+90+\flo@fpa/2}%
+      \flo@arcto\flo@fplx\flo@fply\flo@fprf\flo@ta\flo@tb{\ifnum#6=1 \ifnum\flo@tcl=0 1\else0\fi\else0\fi}%
+    \else
+      \flo@calc\flo@tax{(#1)+\flo@fpc*cos(\flo@fpth-\flo@fpa/2)}\flo@calc\flo@tay{(#2)+\flo@fpc*sin(\flo@fpth-\flo@fpa/2)}%
+      \flo@calc\flo@tbx{(#1)+\flo@fpc*cos(\flo@fpth+\flo@fpa/2)}\flo@calc\flo@tby{(#2)+\flo@fpc*sin(\flo@fpth+\flo@fpa/2)}%
+      % two circles through the feet, tangent to the lobe's there, meeting on the lobe's axis
+      \flo@calc\flo@tcx{\flo@tax+\flo@fpf*(\flo@fplx-\flo@tax)}\flo@calc\flo@tcy{\flo@tay+\flo@fpf*(\flo@fply-\flo@tay)}%
+      \flo@calc\flo@tdx{\flo@tbx+\flo@fpf*(\flo@fplx-\flo@tbx)}\flo@calc\flo@tdy{\flo@tby+\flo@fpf*(\flo@fply-\flo@tby)}%
+      \flo@calc\flo@trr{\flo@fpf*\flo@fprf}%
+      \flo@calc\flo@tmx{(\flo@tcx+\flo@tdx)/2}\flo@calc\flo@tmy{(\flo@tcy+\flo@tdy)/2}%
+      \flo@calc\flo@thd{veclen(\flo@tdx-\flo@tcx,\flo@tdy-\flo@tcy)/2}\flo@sqdiff\flo@trr\flo@thd
+      \flo@calc\flo@tpx{\flo@tmx+\flo@sqd*cos(\flo@fpth)}\flo@calc\flo@tpy{\flo@tmy+\flo@sqd*sin(\flo@fpth)}%
+      \flo@calc\flo@ta{atan2(\flo@tay-\flo@tcy,\flo@tax-\flo@tcx)}\flo@calc\flo@tb{atan2(\flo@tpy-\flo@tcy,\flo@tpx-\flo@tcx)}%
+      \pgfmathparse{\flo@tb<\flo@ta}\ifdim\pgfmathresult pt>0pt \flo@calc\flo@tb{\flo@tb+360}\fi
+      \flo@arcto\flo@tcx\flo@tcy\flo@trr\flo@ta\flo@tb{\ifnum#6=1 \ifnum\flo@tcl=0 1\else0\fi\else0\fi}%
+      \flo@calc\flo@ta{atan2(\flo@tpy-\flo@tdy,\flo@tpx-\flo@tdx)}\flo@calc\flo@tb{atan2(\flo@tby-\flo@tdy,\flo@tbx-\flo@tdx)}%
+      \pgfmathparse{\flo@tb<\flo@ta}\ifdim\pgfmathresult pt>0pt \flo@calc\flo@tb{\flo@tb+360}\fi
+      \flo@arcto\flo@tdx\flo@tdy\flo@trr\flo@ta\flo@tb{0}%
+    \fi}}
+% a dagger standing on the axis: a round head (#1,#2) of radius #3 below, a tail of two
+% arcs tangent to it meeting at the tip (#4,#5); #6 bends the tail to one side (a
+% mouchette); #7 moves first
+\def\flo@daggerside#1{% sign; the tail circle's center \flo@dkx \flo@dky, radius \flo@dkr, tangent point \flo@dtx \flo@dty
+  \flo@calc\flo@dkr{\flo@dgrh*(4+\flo@dgbend*(#1)*1.5)}%
+  \flo@calc\flo@tdx{\flo@dgtx-\flo@dgcx}\flo@calc\flo@tdy{\flo@dgty-\flo@dgcy}\flo@calc\flo@tD{veclen(\flo@tdx,\flo@tdy)}%
+  \flo@calc\flo@tra{\flo@dkr+\flo@dgrh}%
+  \flo@calc\flo@taa{(\flo@tra*\flo@tra-\flo@dkr*\flo@dkr+\flo@tD*\flo@tD)/(2*\flo@tD)}%
+  \flo@sqdiff\flo@tra\flo@taa
+  \flo@calc\flo@tmx{\flo@dgcx+\flo@taa*\flo@tdx/\flo@tD}\flo@calc\flo@tmy{\flo@dgcy+\flo@taa*\flo@tdy/\flo@tD}%
+  \flo@calc\flo@dkx{\flo@tmx+(#1)*\flo@sqd*(-\flo@tdy/\flo@tD)}\flo@calc\flo@dky{\flo@tmy+(#1)*\flo@sqd*(\flo@tdx/\flo@tD)}%
+  \flo@calc\flo@dtx{\flo@dgcx+\flo@dgrh*(\flo@dkx-\flo@dgcx)/\flo@tra}\flo@calc\flo@dty{\flo@dgcy+\flo@dgrh*(\flo@dky-\flo@dgcy)/\flo@tra}}
+\def\flo@fwd#1#2{\flo@calc\flo@tfw{(#2)-(#1)}\pgfmathparse{\flo@tfw<0}\ifdim\pgfmathresult pt>0pt \flo@calc\flo@tfw{\flo@tfw+360}\fi}
+\def\flo@daggerpath#1#2#3#4#5#6#7{%
+  \edef\flo@dgcx{#1}\edef\flo@dgcy{#2}\edef\flo@dgrh{#3}\edef\flo@dgtx{#4}\edef\flo@dgty{#5}\edef\flo@dgbend{#6}%
+  \flo@daggerside{1}\let\flo@dax\flo@dkx\let\flo@day\flo@dky\let\flo@dar\flo@dkr\let\flo@dtax\flo@dtx\let\flo@dtay\flo@dty
+  \flo@daggerside{-1}\let\flo@dbx\flo@dkx\let\flo@dby\flo@dky\let\flo@dbr\flo@dkr\let\flo@dtbx\flo@dtx\let\flo@dtby\flo@dty
+  % from tangent point 1, round the head away from the tip, to tangent point 2
+  \flo@calc\flo@ta{atan2(\flo@dtay-\flo@dgcy,\flo@dtax-\flo@dgcx)}\flo@calc\flo@tb{atan2(\flo@dtby-\flo@dgcy,\flo@dtbx-\flo@dgcx)}%
+  \flo@calc\flo@tat@{atan2(\flo@dgty-\flo@dgcy,\flo@dgtx-\flo@dgcx)}%
+  \flo@fwd\flo@ta\flo@tat@\let\flo@tfa\flo@tfw\flo@fwd\flo@ta\flo@tb\let\flo@tfb\flo@tfw
+  \pgfmathparse{\flo@tfa<\flo@tfb}\ifdim\pgfmathresult pt>0pt
+    \flo@fwd\flo@tb\flo@ta\flo@calc\flo@tb{\flo@ta-\flo@tfw}\flo@arcto\flo@dgcx\flo@dgcy\flo@dgrh\flo@ta\flo@tb{#7}%
+  \else\flo@calc\flo@tb{\flo@ta+\flo@tfb}\flo@arcto\flo@dgcx\flo@dgcy\flo@dgrh\flo@ta\flo@tb{#7}\fi
+  % up side 2 to the tip, then down side 1
+  \flo@calc\flo@ta{atan2(\flo@dtby-\flo@dby,\flo@dtbx-\flo@dbx)}\flo@calc\flo@tb{atan2(\flo@dgty-\flo@dby,\flo@dgtx-\flo@dbx)}%
+  \flo@short\flo@ta\flo@tb\flo@calc\flo@tb{\flo@ta+\flo@tsh}\flo@arcto\flo@dbx\flo@dby\flo@dbr\flo@ta\flo@tb{0}%
+  \flo@calc\flo@ta{atan2(\flo@dgty-\flo@day,\flo@dgtx-\flo@dax)}\flo@calc\flo@tb{atan2(\flo@dtay-\flo@day,\flo@dtax-\flo@dax)}%
+  \flo@short\flo@ta\flo@tb\flo@calc\flo@tb{\flo@ta+\flo@tsh}\flo@arcto\flo@dax\flo@day\flo@dar\flo@ta\flo@tb{0}}
+% a spherical triangle (three arcs bowed out, each struck from the opposite corner),
+% scaled to sit in the circle (#1,#2) of radius #3, a corner up; #4 moves first
+\def\flo@trianglepath#1#2#3#4{%
+  \flo@calc\flo@trR{(#3)/1.12}\flo@calc\flo@trside{\flo@trR*sqrt(3)}%
+  \flo@loop{ttrp}\flo@tcl{0}{2}{\flo@calc\flo@t{90+\the\flo@tcl*120}%
+    \expandafter\edef\csname flo@trpx\the\flo@tcl\endcsname{\flo@calc\flo@tmp{(#1)+\flo@trR*cos(\flo@t)}}%
+    \flo@calc\flo@tmp{(#1)+\flo@trR*cos(\flo@t)}\expandafter\let\csname flo@trpx\the\flo@tcl\endcsname\flo@tmp
+    \flo@calc\flo@tmp{(#2)+\flo@trR*sin(\flo@t)}\expandafter\let\csname flo@trpy\the\flo@tcl\endcsname\flo@tmp}%
+  \flo@loop{ttra}\flo@tcl{0}{2}{%
+    \edef\flo@tax{\csname flo@trpx\the\flo@tcl\endcsname}\edef\flo@tay{\csname flo@trpy\the\flo@tcl\endcsname}%
+    \edef\flo@tbx{\csname flo@trpx\the\numexpr(\flo@tcl+1)-3*((\flo@tcl+1)/3)\relax\endcsname}%
+    \edef\flo@tby{\csname flo@trpy\the\numexpr(\flo@tcl+1)-3*((\flo@tcl+1)/3)\relax\endcsname}%
+    \edef\flo@tox{\csname flo@trpx\the\numexpr(\flo@tcl+2)-3*((\flo@tcl+2)/3)\relax\endcsname}%
+    \edef\flo@toy{\csname flo@trpy\the\numexpr(\flo@tcl+2)-3*((\flo@tcl+2)/3)\relax\endcsname}%
+    \flo@calc\flo@ta{atan2(\flo@tay-\flo@toy,\flo@tax-\flo@tox)}\flo@calc\flo@tb{atan2(\flo@tby-\flo@toy,\flo@tbx-\flo@tox)}%
+    \pgfmathparse{\flo@tb<\flo@ta}\ifdim\pgfmathresult pt>0pt \flo@calc\flo@tb{\flo@tb+360}\fi
+    \pgfmathparse{\flo@tb-\flo@ta>180}\ifdim\pgfmathresult pt>0pt \flo@calc\flo@tb{\flo@tb-360}\fi
+    \flo@arcto\flo@tox\flo@toy\flo@trside\flo@ta\flo@tb{\ifnum#4=1 \ifnum\flo@tcl=0 1\else0\fi\else0\fi}}}
+% a circle's figure in the head: foiled, an oculus, a triangle, a dagger, two mouchettes,
+% a soufflet; (#2,#3,#4) is the construction circle, the opening a bar in; #5 a tip's y
+% for a dagger or mouchettes, or empty; \flo@fg@foils and \flo@fg@shape the foils
+\def\flo@tfigure#1#2#3#4#5{%
+  \flo@calc\flo@fgro{(#4)-\flo@tbw}%
+  \ifdim\flo@fgro pt>0pt
+    \edef\flo@fgcx{#2}\edef\flo@fgcy{#3}\edef\flo@fgup{#5}\edef\flo@fgkind{#1}%
+    \edef\flo@fgn{\flo@fg@foils}\ifnum\flo@tladder>1 \ifnum\flo@fgn>4 \def\flo@fgn{4}\fi\fi
+    \def\flo@tmp{pointed}\ifx\flo@fg@shape\flo@tmp\def\flo@fgpt{1}\else\def\flo@fgpt{0}\fi
+    \flo@calc\flo@fgxa{\flo@fgcx-\flo@fgro}\flo@calc\flo@fgya{\flo@fgcy-\flo@fgro}\flo@calc\flo@fgxb{\flo@fgcx+\flo@fgro}\flo@calc\flo@fgyb{\flo@fgcy+\flo@fgro}%
+    \def\flo@tmp{foiled}\ifx\flo@fgkind\flo@tmp\ifnum\flo@fgn<3 \def\flo@fgkind{oculus}\fi\fi
+    \def\flo@tmp{foiled}\ifx\flo@fgkind\flo@tmp
+      \flo@topening{\flo@foiledpath\flo@fgcx\flo@fgcy\flo@fgro\flo@fgn\flo@fgpt{1}}\flo@fgxa\flo@fgya\flo@fgxb\flo@fgyb
+    \else\def\flo@tmp{soufflet}\ifx\flo@fgkind\flo@tmp
+      \flo@topening{\flo@foiledpath\flo@fgcx\flo@fgcy\flo@fgro{4}{1}{1}}\flo@fgxa\flo@fgya\flo@fgxb\flo@fgyb
+    \else\def\flo@tmp{triangle}\ifx\flo@fgkind\flo@tmp
+      \flo@topening{\flo@trianglepath\flo@fgcx\flo@fgcy\flo@fgro{1}}\flo@fgxa\flo@fgya\flo@fgxb\flo@fgyb
+      \ifnum\flo@fgn=3 \ifnum\flo@tladder<2
+        \flo@calc\flo@fgri{\flo@fgro*0.62}\flo@calc\flo@fgcyb{\flo@fgcy-0.03*\flo@fgro}%
+        \flo@calc\flo@fgxa{\flo@fgcx-\flo@fgri}\flo@calc\flo@fgya{\flo@fgcy-\flo@fgri}\flo@calc\flo@fgxb{\flo@fgcx+\flo@fgri}\flo@calc\flo@fgyb{\flo@fgcy+\flo@fgri}%
+        \flo@topening{\flo@foiledpath\flo@fgcx\flo@fgcyb\flo@fgri{3}{0}{1}}\flo@fgxa\flo@fgya\flo@fgxb\flo@fgyb\fi\fi
+    \else\def\flo@tmp{dagger}\ifx\flo@fgkind\flo@tmp
+      \flo@calc\flo@fgrh{\flo@fgro*0.55}\flo@calc\flo@fghy{\flo@fgcy-(\flo@fgro-\flo@fgrh)}%
+      \ifx\flo@fgup\pgfutil@empty\flo@calc\flo@fgty{\flo@fgcy+\flo@fgro}\else\let\flo@fgty\flo@fgup\fi
+      \flo@calc\flo@fgxa{\flo@fgcx-\flo@fgrh}\flo@calc\flo@fgya{\flo@fghy-\flo@fgrh}\flo@calc\flo@fgxb{\flo@fgcx+\flo@fgrh}%
+      \flo@topening{\flo@daggerpath\flo@fgcx\flo@fghy\flo@fgrh\flo@fgcx\flo@fgty{0}{1}}\flo@fgxa\flo@fgya\flo@fgxb\flo@fgty
+    \else\def\flo@tmp{mouchettes}\ifx\flo@fgkind\flo@tmp
+      \flo@calc\flo@fgrh{\flo@fgro*0.42}%
+      \flo@loop{tfgm}\flo@tcm{-1}{1}{\ifnum\flo@tcm=0 \else
+        \flo@calc\flo@fghx{\flo@fgcx+\the\flo@tcm*(\flo@fgro-\flo@fgrh)*0.9}\flo@calc\flo@fghy{\flo@fgcy-(\flo@fgro-\flo@fgrh)*0.35}%
+        \flo@calc\flo@fgtx{\flo@fgcx+\the\flo@tcm*0.12*\flo@fgro}%
+        \ifx\flo@fgup\pgfutil@empty\flo@calc\flo@fgty{\flo@fgcy+\flo@fgro}\else\let\flo@fgty\flo@fgup\fi
+        \flo@calc\flo@fgbend{\the\flo@tcm*0.8}%
+        \flo@calc\flo@fgxa{min(\flo@fghx,\flo@fgtx)-\flo@fgrh}\flo@calc\flo@fgya{\flo@fghy-\flo@fgrh}\flo@calc\flo@fgxb{max(\flo@fghx,\flo@fgtx)+\flo@fgrh}%
+        \edef\flo@tsave{\the\flo@tcm}%
+        \flo@topening{\flo@daggerpath\flo@fghx\flo@fghy\flo@fgrh\flo@fgtx\flo@fgty\flo@fgbend{1}}\flo@fgxa\flo@fgya\flo@fgxb\flo@fgty
+        \flo@tcm=\flo@tsave\relax\fi}%
+    \else
+      \flo@topening{\pgfpathcircle{\flo@P\flo@fgcx\flo@fgcy}{\flo@fgro pt}}\flo@fgxa\flo@fgya\flo@fgxb\flo@fgyb
+    \fi\fi\fi\fi\fi
+  \fi}
+% the figure's foils from the traits, or a trefoil's, or flowing tracery's pointed quatrefoil
+\def\flo@fgtraits{\edef\flo@fg@foils{\flo@tget{foils}}\edef\flo@fg@shape{\flo@tget{foilshape}}}
+\def\flo@fgtrefoil{\def\flo@fg@foils{3}\def\flo@fg@shape{round}}
+\def\flo@fgflowing{\def\flo@fg@foils{4}\def\flo@fg@shape{pointed}}
+% a figure placed: the first gets the copper boss
+\def\flo@placed#1#2#3{\edef\flo@placedn{\the\numexpr\flo@placedn+1\relax}%
+  \expandafter\edef\csname flo@tpl@\flo@placedn @x\endcsname{#1}\expandafter\edef\csname flo@tpl@\flo@placedn @y\endcsname{#2}%
+  \expandafter\edef\csname flo@tpl@\flo@placedn @r\endcsname{#3}}
+% foliage carved in the stone where a figure would go: a sprig of three leaflets rising
+% from the foot of the circle (#1,#2,#3), one up and one leaning out each side
+\def\flo@tfoliage#1#2#3{%
+  \let\flo@vl@W\pgfutil@empty\let\flo@vl@tone\pgfutil@empty
+  \flo@calc\flo@tfy{(#2)-0.85*(#3)}%
+  \begin{pgfscope}\pgftransformshift{\flo@P{#1}{\flo@tfy}}%
+    \flo@loop{tfol}\flo@tcm{-1}{1}{\ifnum\flo@tcm=0 \else
+      \flo@range\flo@t{30}{45}\flo@calc\flo@tfa{\the\flo@tcm*\flo@t}\flo@calc\flo@tfs{1.15*(#3)}\flo@calc\flo@vl@u{\flo@tfs*\flo@tunit}%
+      \edef\flo@tsave{\the\flo@tcm}%
+      \begin{pgfscope}\pgftransformrotate{\flo@tfa}\pgftransformscale{\flo@tfs}\flo@vleaflet\end{pgfscope}%
+      \flo@tcm=\flo@tsave\relax\fi}%
+    \flo@sym\flo@tfa{6}\flo@calc\flo@tfs{1.5*(#3)}\flo@calc\flo@vl@u{\flo@tfs*\flo@tunit}%
+    \begin{pgfscope}\pgftransformrotate{\flo@tfa}\pgftransformscale{\flo@tfs}\flo@vleaflet\end{pgfscope}%
+  \end{pgfscope}}
+% the figures of a group of lights without sub-arches: a screen's small figure, or the
+% spandrels' trefoil or foliage, in the stone between each two heads; flowing tracery's
+% pair of mouchettes curling up to the apex, then a soufflet, more mouchettes, a dagger
+% and pointed quatrefoils in what room is left
+\def\flo@tgroupfigures{%
+  \flo@rgnew{g\flo@lvl r}\flo@rgarch{g\flo@lvl r}{\flo@gget{rch}}{\flo@gget{rys}}{\flo@gget{rxm}}{0}%
+  \flo@loop{tgfr}\flo@tcn{0}{\flo@gget{n}-1}{\flo@calc\flo@t{\flo@gget{x0}+(\the\flo@tcn+0.5)*\flo@gget{lw}}%
+    \flo@rgarch{g\flo@lvl r}{g\flo@lvl h\the\flo@tcn}{\flo@gget{ysl}}{\flo@t}{1}}%
+  \flo@apex{\flo@gget{rch}}\flo@gset{top}{\flo@apy}%
+  \ifnum\flo@gget{screen}=1
+    \edef\flo@t{\flo@tget{figure}}\def\flo@tmp{none}\edef\flo@tmpb{\flo@tget{spandrel}}\def\flo@tmpc{blank}%
+    \flo@yesfalse\ifx\flo@t\flo@tmp\else\flo@yestrue\fi\ifx\flo@tmpb\flo@tmpc\else\flo@yestrue\fi
+    \ifnum\flo@tladder>2 \flo@yesfalse\fi
+    \ifflo@yes
+      \flo@loop{tgsf}\flo@tci{1}{\flo@gget{n}-1}{%
+        \flo@calc\flo@tfxa{\flo@gget{x0}+(\the\flo@tci-0.5)*\flo@gget{lw}}\flo@calc\flo@tfxb{\flo@gget{x0}+(\the\flo@tci+0.5)*\flo@gget{lw}}%
+        \edef\flo@tsave{\the\flo@tci}%
+        \flo@biggest{g\flo@lvl r}{\flo@tfxa}{\flo@gget{ys}}{\flo@tfxb}{\flo@gget{top}}{}%
+        \pgfmathparse{\flo@bgr>2.5*\flo@tbw}\ifdim\pgfmathresult pt>0pt
+          \edef\flo@t{\flo@tget{figure}}\def\flo@tmp{none}\ifx\flo@t\flo@tmp
+            \edef\flo@t{\flo@tget{spandrel}}\def\flo@tmp{foliage}\ifx\flo@t\flo@tmp\flo@tfoliage\flo@bgx\flo@bgy\flo@bgr
+            \else\flo@fgtrefoil\flo@tfigure{foiled}\flo@bgx\flo@bgy\flo@bgr{}\fi
+          \else\flo@fgtraits\flo@tfigure{\flo@t}\flo@bgx\flo@bgy\flo@bgr{}\fi
+          \flo@placed\flo@bgx\flo@bgy\flo@bgr\flo@rgcircle{g\flo@lvl r}{\flo@bgx}{\flo@bgy}{\flo@bgr}{1}%
+        \fi
+        \flo@tci=\flo@tsave\relax}%
+    \fi
+  \fi
+  \ifnum\flo@gget{flowing}=1 \ifnum\flo@tladder<2
+    \flo@fgflowing\def\flo@tfkinds{mouchettes,soufflet,mouchettes,dagger,foiled,foiled}\def\flo@tfk{0}\flo@tfgotrue
+    \pgfutil@for\flo@tfkind:=\flo@tfkinds\do{\ifflo@tfgo
+      \edef\flo@tfk{\the\numexpr\flo@tfk+1\relax}%
+      \ifnum\flo@tfk=1 \edef\flo@tfaxis{\flo@gget{xm}}\flo@calc\flo@tfup{\flo@gget{top}-\flo@tbw}\else\def\flo@tfaxis{}\def\flo@tfup{}\fi
+      \edef\flo@tfkindk{\flo@tfkind}%
+      \flo@biggest{g\flo@lvl r}{\flo@gget{x0}}{\flo@gget{ys}}{\flo@gget{x1}}{\flo@gget{top}}{\flo@tfaxis}%
+      \pgfmathparse{\flo@bgr<3*\flo@tbw}\ifdim\pgfmathresult pt>0pt \flo@tfgofalse\else
+        \flo@fgflowing\flo@tfigure{\flo@tfkindk}\flo@bgx\flo@bgy\flo@bgr{\flo@tfup}%
+        \flo@placed\flo@bgx\flo@bgy\flo@bgr\flo@rgcircle{g\flo@lvl r}{\flo@bgx}{\flo@bgy}{\flo@bgr}{1}\fi\fi}%
+  \fi\fi}
+% the figure in the head above a group's sub-arches, and the spandrels each side:
+% trefoils, daggers or foliage where there is room (level 0 only)
+\def\flo@tgroupheadfigure{%
+  \flo@rgnew{g\flo@lvl r}\flo@rgarch{g\flo@lvl r}{\flo@gget{rch}}{\flo@gget{rys}}{\flo@gget{rxm}}{0}%
+  \flo@loop{tghr}\flo@tcn{1}{\flo@gget{np}}{\flo@calc\flo@t{(\flo@gget{p\the\flo@tcn a}+\flo@gget{p\the\flo@tcn b})/2}%
+    \flo@rgarch{g\flo@lvl r}{g\flo@lvl s\the\flo@tcn}{\flo@gget{ys1}}{\flo@t}{1}}%
+  \flo@apex{\flo@gget{rch}}\flo@gset{top}{\flo@apy}%
+  \edef\flo@t{\flo@tget{figure}}\def\flo@tmp{none}\ifx\flo@t\flo@tmp\flo@yesfalse\else\flo@yestrue\fi
+  \ifnum\flo@lvl=0 \else\ifnum\flo@tladder=0 \else\flo@yesfalse\fi\fi
+  \ifflo@yes
+    \flo@biggest{g\flo@lvl r}{\flo@gget{x0}}{\flo@gget{ys1}}{\flo@gget{x1}}{\flo@gget{top}}{\flo@gget{xm}}%
+    \pgfmathparse{\flo@bgr>2.5*\flo@tbw}\ifdim\pgfmathresult pt>0pt
+      \edef\flo@tfkindk{\flo@tget{figure}}%
+      \ifnum\flo@tladder>2 \def\flo@tmp{foiled}\ifx\flo@tfkindk\flo@tmp\else\def\flo@tfkindk{oculus}\fi\fi
+      \def\flo@tfup{}\def\flo@tmp{dagger}\ifx\flo@tfkindk\flo@tmp\flo@calc\flo@tfup{\flo@gget{top}-\flo@tbw}\fi
+      \def\flo@tmp{mouchettes}\ifx\flo@tfkindk\flo@tmp\flo@calc\flo@tfup{\flo@gget{top}-\flo@tbw}\fi
+      \flo@fgtraits\flo@tfigure{\flo@tfkindk}\flo@bgx\flo@bgy\flo@bgr{\flo@tfup}%
+      \flo@placed\flo@bgx\flo@bgy\flo@bgr\flo@rgcircle{g\flo@lvl r}{\flo@bgx}{\flo@bgy}{\flo@bgr}{1}%
+    \fi
+  \fi
+  \ifnum\flo@lvl=0 \ifnum\flo@tladder<2 \ifnum\flo@gget{np}>1
+    \edef\flo@t{\flo@tget{spandrel}}\def\flo@tmp{blank}\ifx\flo@t\flo@tmp\else
+      \flo@loop{tgsp}\flo@tcm{-1}{1}{\ifnum\flo@tcm=0 \else
+        \edef\flo@tsave{\the\flo@tcm}%
+        \ifnum\flo@tcm<0 \edef\flo@tsxa{\flo@gget{x0}}\edef\flo@tsxb{\flo@gget{xm}}\else\edef\flo@tsxa{\flo@gget{xm}}\edef\flo@tsxb{\flo@gget{x1}}\fi
+        \flo@rgcopy{g\flo@lvl r}{g\flo@lvl rs}\flo@rgplane{g\flo@lvl rs}{\flo@gget{xm}}{0}{\the\flo@tcm}{0}%
+        \flo@biggest{g\flo@lvl rs}{\flo@tsxa}{\flo@gget{ys1}}{\flo@tsxb}{\flo@gget{top}}{}%
+        \pgfmathparse{\flo@bgr>3*\flo@tbw}\ifdim\pgfmathresult pt>0pt
+          \edef\flo@t{\flo@tget{spandrel}}\def\flo@tmp{trefoil}\def\flo@tmpb{foliage}%
+          \ifx\flo@t\flo@tmp\flo@fgtrefoil\flo@tfigure{foiled}\flo@bgx\flo@bgy\flo@bgr{}%
+          \else\ifx\flo@t\flo@tmpb\flo@tfoliage\flo@bgx\flo@bgy\flo@bgr
+          \else\flo@calc\flo@tfup{\flo@bgy+1.5*\flo@bgr}\flo@fgtraits\flo@tfigure{dagger}\flo@bgx\flo@bgy\flo@bgr{\flo@tfup}\fi\fi
+        \fi
+        \flo@tcm=\flo@tsave\relax\fi}%
+    \fi
+  \fi\fi\fi}
+% ---------------------------------------------------------------- nets, reticulation, panels
+% the net of Y and intersecting tracery: from each mullion's top two arcs of the main
+% arch's radius, their centers shifted by one light either way, clipped to the head
+\def\flo@tnet{%
+  \flo@calc\flo@tnR{(\flo@tget{excess}>0?\flo@tget{excess}:1)*\flo@tws}%
+  \edef\flo@t{\flo@tget{branch}}\def\flo@tmp{Y}%
+  \ifx\flo@t\flo@tmp
+    \ifodd\flo@twn\def\flo@tnn{2}\flo@calc\flo@tnfa{\flo@twxm-\flo@twlw/2}\flo@calc\flo@tnfb{\flo@twxm+\flo@twlw/2}%
+    \else\def\flo@tnn{1}\edef\flo@tnfa{\flo@twxm}\fi
+  \else
+    \edef\flo@tnn{\the\numexpr\flo@twn-1\relax}%
+    \flo@loop{tnfk}\flo@tcl{1}{\flo@tnn}{\flo@calc\flo@t{\flo@twxl+\the\flo@tcl*\flo@twlw}\expandafter\let\csname flo@tnf\the\flo@tcl\endcsname\flo@t}%
+    \let\flo@tnfa\relax
+  \fi
+  \ifx\flo@tnfa\relax\else\expandafter\let\csname flo@tnf1\endcsname\flo@tnfa
+    \ifnum\flo@tnn=2 \expandafter\let\csname flo@tnf2\endcsname\flo@tnfb\fi\fi
+  \flo@loop{tnet}\flo@tck{1}{\flo@tnn}{\edef\flo@tnfx{\csname flo@tnf\the\flo@tck\endcsname}%
+    % rising to the right: center at fx + R, the arc from angle 180 upward; and to the left
+    \flo@calc\flo@tncx{\flo@tnfx+\flo@tnR}\flo@angleatx\flo@tncx\flo@twys\flo@tnR\flo@twxr{0}%
+    \ifflo@yes\flo@calc\flo@tna{max(\flo@axa,90)}\else\def\flo@tna{90}\fi
+    \flo@tbars{\flo@arcto\flo@tncx\flo@twys\flo@tnR{180}\flo@tna{1}}{\flo@tbw}%
+    \flo@calc\flo@tncx{\flo@tnfx-\flo@tnR}\flo@angleatx\flo@tncx\flo@twys\flo@tnR\flo@twxl{0}%
+    \ifflo@yes\flo@calc\flo@tna{min(\flo@axa,90)}\else\def\flo@tna{90}\fi
+    \flo@tbars{\flo@arcto\flo@tncx\flo@twys\flo@tnR{0}\flo@tna{1}}{\flo@tbw}}}
+% reticulated tracery: the lights' ogee heads repeated up the head in rows, each row
+% staggered by half a light and springing where the row below reaches its apexes, so
+% that the heads of one row bound the meshes of the next from below; clipped to the head
+\def\flo@tretarch{\flo@haset{ogee}{0.85}{0.5}{0}{0}\flo@calc\flo@t{\flo@trcx+\flo@twlw}\flo@harch{tret}\flo@trcx\flo@t\flo@trys
+  \flo@cget{tret}{1}\flo@tat\flo@pa\pgfpathmoveto{\flo@P\flo@atx\flo@aty}\flo@calc\flo@t{\flo@trcx+\flo@twlw/2}\flo@headpath{tret}{\flo@t}{0}}
+\def\flo@treticulation{%
+  \flo@haset{ogee}{0.85}{0.5}{0}{0}\flo@harch{tret}{0}\flo@twlw{0}\flo@apex{tret}\let\flo@trh\flo@apy
+  \def\flo@trk{0}\flo@tfgotrue
+  \loop
+    \flo@calc\flo@trys{\flo@twys+\flo@trk*\flo@trh}%
+    \pgfmathparse{\flo@trys<\flo@tway}\ifdim\pgfmathresult pt>0pt \else\flo@tfgofalse\fi
+    \ifnum\flo@trk<12 \else\flo@tfgofalse\fi
+  \ifflo@tfgo
+    \ifodd\flo@trk\flo@calc\flo@trsh{\flo@twlw/2}\else\def\flo@trsh{0}\fi
+    \flo@loop{tretr}\flo@tcj{-1}{\flo@twn}{%
+      \flo@calc\flo@trcx{\flo@twxl+\the\flo@tcj*\flo@twlw+\flo@trsh}%
+      \pgfmathparse{and(\flo@trcx+\flo@twlw>\flo@twxl,\flo@trcx<\flo@twxr)}\ifdim\pgfmathresult pt>0pt
+        \flo@tbars{\flo@tretarch}{\flo@tbw}\fi}%
+    \edef\flo@trk{\the\numexpr\flo@trk+1\relax}%
+  \repeat}
+% the head as one opening, the lights below it as rectangles, the bars over them
+\def\flo@twheadpath{\pgfpathmoveto{\flo@P\flo@twhxa\flo@twys}\pgfpathlineto{\flo@P\flo@twlx\flo@twly}\flo@headpath{inner}{\flo@twxm}{0}\pgfpathlineto{\flo@P\flo@twhxb\flo@twys}}
+\def\flo@twnet{%
+  \flo@cget{inner}{1}\flo@tat\flo@pa\let\flo@twlx\flo@atx\let\flo@twly\flo@aty
+  \flo@calc\flo@twhxa{\flo@twxl+\flo@tBw}\flo@calc\flo@twhxb{\flo@twxr-\flo@tBw}%
+  \flo@topening{\flo@twheadpath}\flo@twhxa\flo@twys\flo@twhxb\flo@tway
+  % the lights: rectangles up to the springing (transoms split them)
+  \edef\flo@twrows{\the\numexpr\flo@tget{transoms}+1\relax}%
+  \flo@loop{twli}\flo@tcj{0}{\flo@twn-1}{%
+    \flo@calc\flo@twra{\flo@twxl+\the\flo@tcj*\flo@twlw+\flo@tbw}\flo@calc\flo@twrb{\flo@twxl+(\the\flo@tcj+1)*\flo@twlw-\flo@tbw}%
+    \ifnum\flo@tcj=0 \let\flo@twra\flo@twhxa\fi\ifnum\flo@tcj=\numexpr\flo@twn-1\relax\let\flo@twrb\flo@twhxb\fi
+    \flo@loop{twlk}\flo@tcl{0}{\flo@twrows-1}{%
+      \flo@calc\flo@twrc{\flo@twya+(\flo@twys-\flo@twya)*\the\flo@tcl/\flo@twrows+\ifnum\flo@tcl>0 \flo@tbw\else0\fi}%
+      \flo@calc\flo@twrd{\flo@twya+(\flo@twys-\flo@twya)*(\the\flo@tcl+1)/\flo@twrows-\ifnum\flo@tcl<\numexpr\flo@twrows-1\relax\flo@tbw\else0\fi+\ifnum\flo@tcl=\numexpr\flo@twrows-1\relax\flo@tbw\else0\fi}%
+      \flo@topening{\pgfpathrectanglecorners{\flo@P\flo@twra\flo@twrc}{\flo@P\flo@twrb\flo@twrd}}\flo@twra\flo@twrc\flo@twrb\flo@twrd}}%
+  % the mullions through the head, within it; the springing: a bar across under the net
+  \begin{pgfscope}\flo@twheadpath\pgfpathclose\pgfusepath{clip}%
+    \edef\flo@t{\flo@tget{branch}}\def\flo@tmp{reticulated}\ifx\flo@t\flo@tmp\flo@treticulation\else\flo@tnet\fi
+    \flo@tbars{\pgfpathmoveto{\flo@P\flo@twxl\flo@twys}\pgfpathlineto{\flo@P\flo@twxr\flo@twys}}{\flo@tbw}%
+  \end{pgfscope}%
+  % the head's edge again over the bars' ends
+  \flo@vtone{flo@c}{0.08}\flo@vstroke{flo@c}{\flo@tpen}{0.9}{0}{\pgfpathmoveto{\flo@P\flo@twlx\flo@twly}\flo@headpath{inner}{\flo@twxm}{0}}}
+% Perpendicular panels: every light has a cusped four-centered head reaching the
+% springing, and the mullions run on through the head, which is cut into a row of panels
+% with heads of their own fitted under the arch; the stone is left where the arch leaves
+% a panel too little room
+\def\flo@twpanels{%
+  \ifnum\flo@tladder>0 \def\flo@tpcusps{0}\else\edef\flo@tpcusps{\flo@tget{cusps}}\fi
+  \flo@calc\flo@tpdepth{\flo@tget{cuspdepth}*\flo@twlw}%
+  \edef\flo@tprows{\the\numexpr\flo@tget{transoms}+1\relax}%
+  \pgfmathparse{\flo@tget{rise}>0?\flo@tget{rise}:0.3}\let\flo@tprise\pgfmathresult
+  \pgfmathparse{\flo@tget{shoulder}>0?\flo@tget{shoulder}:0.18}\let\flo@tpshoulder\pgfmathresult
+  \flo@haset{fourcentered}{0}{0}{\flo@tprise}{\flo@tpshoulder}\flo@harch{tpan}{0}\flo@twlw{0}\flo@apex{tpan}%
+  \flo@calc\flo@tpysl{\flo@twys-2*\flo@tbw-\flo@apy}%
+  \flo@loop{tpan}\flo@tcj{0}{\flo@twn-1}{%
+    \flo@calc\flo@lt@xa{\flo@twxl+\the\flo@tcj*\flo@twlw}\flo@calc\flo@lt@xb{\flo@twxl+(\the\flo@tcj+1)*\flo@twlw}%
+    \ifnum\flo@tcj=0 \edef\flo@lt@bl{\flo@tBw}\else\edef\flo@lt@bl{\flo@tbw}\fi
+    \ifnum\flo@tcj=\numexpr\flo@twn-1\relax\edef\flo@lt@br{\flo@tBw}\else\edef\flo@lt@br{\flo@tbw}\fi
+    \edef\flo@lt@off{\flo@tbw}\edef\flo@lt@cusps{\flo@tpcusps}\edef\flo@lt@depth{\flo@tpdepth}%
+    \edef\flo@lt@ya{\flo@twya}\edef\flo@lt@ys{\flo@tpysl}\edef\flo@lt@rows{\flo@tprows}\let\flo@lt@lim\pgfutil@empty
+    \flo@haset{fourcentered}{0}{0}{\flo@tprise}{\flo@tpshoulder}\flo@harch{tphead}\flo@lt@xa\flo@lt@xb\flo@tpysl
+    \def\flo@lt@head{tphead}\edef\flo@tsave{\the\flo@tcj}%
+    \flo@tlight{tpl}%
+    % the panel above, if the arch leaves it room at its outer edge
+    \flo@calc\flo@t{\flo@lt@xa+\flo@lt@bl}\flo@chainy{inner}{\flo@twxm}{\flo@t}\ifflo@yes\let\flo@tpla\flo@cyv\else\def\flo@tpla{0}\fi
+    \flo@calc\flo@t{\flo@lt@xb-\flo@lt@br}\flo@chainy{inner}{\flo@twxm}{\flo@t}\ifflo@yes\let\flo@tplb\flo@cyv\else\def\flo@tplb{0}\fi
+    \flo@calc\flo@tplo{min(\flo@tpla,\flo@tplb)-2*\flo@tbw}%
+    \pgfmathparse{\flo@tplo-\flo@twys>0.3*\flo@twlw}\ifdim\pgfmathresult pt>0pt
+      \flo@calc\flo@lt@ys{max(\flo@twys+0.1*\flo@twlw,\flo@tplo-0.45*\flo@twlw)}\edef\flo@lt@ya{\flo@twys}\def\flo@lt@rows{1}%
+      \def\flo@lt@lim{inner}\edef\flo@lt@limxm{\flo@twxm}\let\flo@lt@head\pgfutil@empty
+      \flo@tlight{tpu}\fi
+    \flo@tcj=\flo@tsave\relax}}

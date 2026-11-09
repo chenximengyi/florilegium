@@ -249,7 +249,7 @@ function M.ornament(name, size, inkhex, acchex, angle, seed)
     local species = require("florilegium-species")
     local w = species.tsample(s % 2147483646 + 1, tr[1], nil, tr[2] and species.fixes(tr[2], "tracery") or nil)
     ink.translate(0, -S * p[3])
-    require("florilegium-tracery").draw(w, ink.rng(s), 2 * S * p[3])
+    require("florilegium-tracery").draw(w, s, 2 * S * p[3])
   elseif scaled[name] then ink.scale(S * p[3]) fn(ink.rng(s), p[5] or {})
   else fn(ink.rng(s), S * p[3], p[5] or {}) end
   ink.flush()
@@ -265,7 +265,7 @@ function M.tracery(seed, role, width, traits)
   local species = require("florilegium-species")
   local fix = traits and traits ~= "" and species.fixes(traits, "tracery") or nil
   local w = species.tsample(seed, role, nil, fix)
-  local h = require("florilegium-tracery").draw(w, ink.rng(seed * 7919 + 601), width)
+  local h = require("florilegium-tracery").draw(w, seed * 7919 + 601, width)
   ink.flush()
   -- under the package's catcodes, since the document's would split the name at the @
   tex.sprint(luatexbase.registernumber("catcodetable@atletter"),
@@ -292,7 +292,7 @@ function M.headpiece(seed, role, width, traits, vine, margin)
   local S = width * SP_CM
   ink.set_transform({ ink.CM, 0, 0, ink.CM, 0, 0 })
   ink.translate(S / 2, 0)
-  local h = require("florilegium-tracery").draw(w, ink.rng(s * 7919 + 601), S)
+  local h = require("florilegium-tracery").draw(w, s * 7919 + 601, S)
   if margin then
     ink.drop()
     M.mark("headpiece", { w = w, s = s, S = S, vine = vine, h = h })
@@ -314,7 +314,7 @@ local function headpiece_at(mk, g, leaf)
   ink.push()
   ink.set_transform(ink.page_transform())
   ink.translate(mk.x + a.S / 2, mk.y)
-  local _, fx, fy = require("florilegium-tracery").draw(a.w, ink.rng(a.s * 7919 + 601), a.S, side, leaf)
+  local _, fx, fy = require("florilegium-tracery").draw(a.w, a.s * 7919 + 601, a.S, side, leaf)
   ink.pop()
   if fx then return mk.x + a.S / 2 + fx, mk.y + fy end
 end

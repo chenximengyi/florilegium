@@ -75,6 +75,27 @@ local function offset(chain, off, xj, xm, ys)
     if i == #chain then q[5] = angle_at_x(p[1], p[2], r, xm, not p[6]) or p[5] end
     out[i] = q
   end
+  -- a ring outside a reversed apex (an ogee's): parallel arcs would meet in a spire, or
+  -- not meet at all, so the reversed arc is struck again from the ring's inflection,
+  -- tangent there, to an apex `off` above the arch's own
+  local last, prev = chain[#chain], out[#chain - 1]
+  if off < 0 and not last[6] and prev then
+    local ix, iy = at(prev, prev[5])
+    local ux, uy = cos(prev[5]), sin(prev[5])
+    local _, ay = at(last, last[5])
+    local dx, dy = xm - ix, ay - off - iy
+    local dot = dx * ux + dy * uy
+    if dot > 1e-9 then
+      local dd = sqrt(dx * dx + dy * dy)
+      local t = min(20 * dd, dd * dd / (2 * dot))           -- the TikZ library caps it the same
+      local cx, cy = ix + t * ux, iy + t * uy
+      local a0, a1 = atan(iy - cy, ix - cx), atan(ay - off - cy, xm - cx)
+      local d = a1 - a0
+      while d > pi do d = d - 2 * pi end
+      while d < -pi do d = d + 2 * pi end
+      out[#chain] = { cx, cy, t, a0, a0 + d, false }
+    end
+  end
   return out
 end
 -- the right half: the chain mirrored about the axis xm, walked from the apex down
@@ -153,9 +174,12 @@ local function half_arch(w, xl, xr, ys, kind)
     local ex, ey = c1x + r1 * cos(ae), ys + r1 * sin(ae)
     local ux, uy = cos(ae), sin(ae)
     local dx, dy = xm - ex, ys + h - ey
-    local Ru = (dx * dx + dy * dy) / (2 * (dx * ux + dy * uy))
+    -- the crown's radius at most forty spans (pgfmath's range in the TikZ library, which
+    -- caps it the same); then its end where the circle meets the axis
+    local Ru = min(40 * s, (dx * dx + dy * dy) / (2 * (dx * ux + dy * uy)))
     local cux, cuy = ex + Ru * ux, ey + Ru * uy
-    return { { c1x, ys, r1, pi, ae, true }, { cux, cuy, Ru, atan(ey - cuy, ex - cux), atan(ys + h - cuy, xm - cux), false } }
+    local ae2 = angle_at_x(cux, cuy, Ru, xm, true) or atan(ys + h - cuy, xm - cux)
+    return { { c1x, ys, r1, pi, ae, true }, { cux, cuy, Ru, atan(ey - cuy, ex - cux), ae2, false } }
   end
   -- two-centered: drop, equilateral, lancet
   local R = w.excess * s
@@ -222,22 +246,27 @@ end
 -- ones around the best; a point `axis` (an x) pins the center to it
 local function biggest(region, x0, y0, x1, y1, axis)
   local bx, by, br = nil, nil, -huge
+  -- a later point replaces the best only by a margin above rounding, so that a head's
+  -- two symmetric spots fall to the one scanned first in both engines
+  local eps = (x1 - x0) * 1e-5
   local function try(x, y)
     local d = sd(region, x, y)
-    if d > br then bx, by, br = x, y, d end
+    if d > br + eps then bx, by, br = x, y, d end
   end
-  local n = 36
+  -- 25 by 25, then three times 9 by 9 at a quarter of the step: under 900 distances, so
+  -- that the TikZ library, which runs the same search in pgfmath, can afford it
+  local n = 24
   if axis then
     for j = 0, n do try(axis, y0 + (y1 - y0) * j / n) end
   else
     for i = 0, n do for j = 0, n do try(x0 + (x1 - x0) * i / n, y0 + (y1 - y0) * j / n) end end
   end
   local sx, sy = (x1 - x0) / n, (y1 - y0) / n
-  for _ = 1, 4 do
+  for _ = 1, 3 do
     local cx, cy = bx, by
     sx, sy = sx / 4, sy / 4
-    for i = -6, 6 do
-      for j = -6, 6 do
+    for i = -4, 4 do
+      for j = -4, 4 do
         if not axis or i == 0 then try(cx + i * sx, cy + j * sy) end
       end
     end
@@ -322,8 +351,11 @@ local function cusped_head(chain, xm, cusps, depth, first)
   local function lobe(ch, vt, qx, qy)
     local tx, ty, nx, ny = chain_point(ch, vt)
     local vx, vy = qx - tx, qy - ty          -- from the tangent point
-    -- its center lies along the inward normal at the tangent point, at rho: |q - c| = rho
-    local rho = (vx * vx + vy * vy) / (2 * (vx * nx + vy * ny))
+    -- its center lies along the inward normal at the tangent point, at rho: |q - c| = rho;
+    -- the radius at most fifty times the reach (pgfmath's range: the TikZ library caps it the same)
+    local dot, dd = vx * nx + vy * ny, sqrt(vx * vx + vy * vy)
+    if abs(dot) < dd / 100 then dot = dot < 0 and -dd / 100 or dd / 100 end
+    local rho = (dd * dd) / (2 * dot)
     return tx + nx * rho, ty + ny * rho, abs(rho), tx, ty
   end
   local function short(a, b) local d = b - a while d > pi do d = d - 2 * pi end while d < -pi do d = d + 2 * pi end return d end
@@ -383,14 +415,22 @@ local function wash(x0, y0, x1, y1)
     end
   end
   if W.detail > 0 then
+    -- blotches as the library's \flo@vblob draws them (one draw a line, as there)
     local rng = W.rng
+    rng.native.use(rng.G)
     local n = max(2, floor((x1 - x0) * (y1 - y0) / (W.cell * W.cell) / 2))
     for _ = 1, min(n, 40) do
       local x, y = rng.range(x0, x1), rng.range(y0, y1)
       local r = W.cell * rng.range(0.5, 1.3)
-      ink.smooth(ink.blob(rng, x, y, r, r * rng.range(0.5, 1), 0.4, 7), true)
-      if rng.chance(0.6) then ink.fill(tone(t + rng.sym(0.06)), rng.range(0.08, 0.16), true)
-      else ink.fill(tone(t + 0.4 + rng.sym(0.06)), rng.range(0.1, 0.2)) end
+      local ry = r * rng.range(0.5, 1)
+      ink.smooth(rng.native.blob(x, y, r, ry, 0.4, 7), true)
+      if rng.chance(0.6) then
+        local tq = t + rng.sym(0.06)
+        ink.fill(tone(tq), rng.range(0.08, 0.16), true)
+      else
+        local tq = t + 0.4 + rng.sym(0.06)
+        ink.fill(tone(tq), rng.range(0.1, 0.2))
+      end
     end
   end
   ink.unclip()
@@ -403,6 +443,7 @@ end
 local function opening(build, x0, y0, x1, y1)
   build(true)
   ink.close()
+  if rawget(_G, "florilegium_tracery_debug") then texio.write_nl(string.format("OPEN %d box %.3f %.3f %.3f %.3f", W.rng.G.save(), x0, y0, x1, y1)) end
   wash(x0, y0, x1, y1)
   build(true)
   ink.close()
@@ -621,14 +662,17 @@ end
 -- foliage carved in the stone where a figure would go: a sprig of flora's leaflets
 -- rising from the foot of the circle (cx, cy, r), one up and one leaning out each side
 local function foliage(cx, cy, r)
-  local flora = require("florilegium-flora")
   local rng = W.rng
+  local native = rng.native
+  native.use(rng.G)
+  native.fresh() native.pen.lift, native.pen.accent = 0, false
   ink.push() ink.translate(cx, cy - 0.85 * r)
   for side = -1, 1, 2 do
-    ink.push() ink.rotate(side * rng.range(30, 45)) ink.scale(1.15 * r)
-    flora.leaflet(rng.fork(), { bend = -side * 0.15 }) ink.pop()
+    local a = rng.range(30, 45)
+    ink.push() ink.rotate(side * a) ink.scale(1.15 * r) native.leaflet({ u = 1.15 * r * W.unit }) ink.pop()
   end
-  ink.push() ink.rotate(rng.sym(6)) ink.scale(1.5 * r) flora.leaflet(rng.fork()) ink.pop()
+  local a = rng.sym(6)
+  ink.push() ink.rotate(a) ink.scale(1.5 * r) native.leaflet({ u = 1.5 * r * W.unit }) ink.pop()
   ink.pop()
 end
 -- the group of lights [x0, x1] holding n lights under a sub-arch (lvl > 0) or the main
@@ -1228,8 +1272,26 @@ function M.arch_frame(w, S, m)
 end
 
 -- ---------------------------------------------------------------- entry
+-- the drawing's random draws come from pgf's generator (florilegium-pgfmath.lua), seeded
+-- as the TikZ library seeds a pic's drawing (\flo@drawseed), and every draw is one of the
+-- library's (\flo@range, \flo@sym, \flo@chance), so that both engines wash the same
+-- blotches; fork() seeds an ink.rng for flora's parts of the margin's vine, which no pic draws
+local function pgfdraws(seed)
+  if seed < 1 or seed > 2147483646 then seed = (seed - 1) % 2147483646 + 1 end   -- an ornament's large number
+  local G = ink.pgfrng(seed)
+  G.step() G.step()
+  local native = require("florilegium-native")
+  return {
+    G = G, native = native,
+    range = function(a, b) return a + (b - a) * G.rnd() end,
+    sym = function(a) return a * G.rand() end,
+    chance = function(p) return G.rnd() * 65536 < floor(p * 65536 + 0.5) end,
+    u = G.rnd,
+    fork = function() return ink.rng(G.random(1, 2147483646)) end,
+  }
+end
 -- Draw the window `w` (M.tsample's table) with its base at the origin, `width` wide in
--- the local unit (the outermost molding included), `rng` an ink.rng for the wash.
+-- the local unit (the outermost molding included), `seed` the drawing's (pgf's generator).
 -- Returns the drawing's height. The level of detail follows the width of one light
 -- on the page: below 8 mm no cusps (ladder 1), below 5 mm plain figures and one order
 -- (2), below 3 mm the arch and its main figure alone (3).
@@ -1237,9 +1299,9 @@ end
 -- `leaf(rng, L)`, if given, draws a leaf L units long along +y on the vine instead of
 -- flora's leaflet (the margin hands over the nearest plant's).
 -- Returns the height and, with a vine, the foot of the vine (local units)
-function M.draw(w, rng, width, vine, leaf)
+function M.draw(w, seed, width, vine, leaf)
   local unit = ink.unit()                           -- cm per local unit
-  W.rng = rng
+  W.rng = pgfdraws(seed)
   W.unit = unit
   W.vine = vine
   W.leaf = leaf
