@@ -39,6 +39,7 @@ hand-designed shapes.
 | `theme=geometric`, `theme=math` | another drawing, or another composition (see [themes](themes.md)) |
 | `density=0.4` | less in the margin, down to a single vine at `0.05` (grown only) |
 | `intensity=0.6` | a paler margin, from `1` as painted to `0.3` faint |
+| `headpieces` | a headpiece of Gothic tracery over every `\section`, a vine up its jamb from the margin (standard classes; see [tracery](tracery.md)) |
 | `nomargin` | no garden in the margin; ornaments, initials and `\florilegiumdraw` still work |
 
 ## Commands
@@ -48,6 +49,8 @@ hand-designed shapes.
 | `\florilegiumtextend` | at the very end of the text, so that the garden also fills the space below it, in the same run |
 | `\florilegiuminitial[5]{E}` | at the start of a paragraph, the letter as a decorated initial in a tile five lines tall (default 4) |
 | `\florilegiuminitialfont{file.otf}` | the OpenType font the initial's outline is read from (default Latin Modern Bold) |
+| `\florilegiuminitialframe{arch}` | the initials from here on open as a cusped arch of tracery, with stone round it (`plain` for the square) |
+| `\florilegiumheadpiece`, `\florilegiumheadpiece[seed=7, width=10cm, vine=none]` | a headpiece of Gothic tracery across the line, its sill on the baseline; with the margin on, a vine up the jamb on the margin's side and a branch to it (see [tracery](tracery.md)) |
 | `\florilegiumbloom`, `\florilegiumbloom[lily]` | a flower in the margin beside this line, or a bud, a leaf, a tendril, a role or a body plan on the page (grown only) |
 | `\florilegiumage{0.8}` | the age of the pages from here on, from 0 (spring) through 0.5 (summer) to 1 (autumn) (grown only) |
 | `\florilegiumtheme{geometric}` | another theme from the page this stands on (`flora` for none) |
@@ -154,7 +157,8 @@ from one build to the next; `seed=random` draws a new one every time the PDF is 
 
 Any of v1.3's primitives works (`leaf`, `leaflet`, `flower`, `blossom`, `bud`, `bell`, `lily`,
 `cyme`, `umbel`, `butterfly`, `bee`, `bird`, `hedera`, `sparkle`, ...), and so do the current
-theme's (`crystal` with `geometric`; `knot`, `polyhedron`, `koch`, ... with `math`).
+theme's (`crystal` with `geometric`; `knot`, `polyhedron`, `koch`, ... with `math`) and the
+tracery's (`trefoil`, `quatrefoil`, `cinquefoil`, `sexfoil`, `rose`).
 
 ## Primitives in a TikZ picture
 

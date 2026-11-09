@@ -7,10 +7,11 @@
 [![license](https://img.shields.io/github/license/kevinraymond/florilegium?color=2456c4)](LICENSE)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/kevinraymond/florilegium/badge)](https://scorecard.dev/viewer/?uri=github.com/kevinraymond/florilegium)
 
-Procedurally generated Delft-blue floral page margins for LaTeX. No images, no imported paths,
-no external assets: every petal, leaf and stem is a curve computed while the page is being
-written, painted like a watercolor, and written straight into the PDF. Every page grows a
-garden of its own, and each document's seed its own plants, each sampled from a genome.
+Procedurally generated Delft-blue page margins for LaTeX, their plants, visitors and Gothic
+tracery sampled from genomes. No images, no imported paths, no external assets: every petal,
+leaf, stem and arch is a curve computed while the page is being written, painted like a
+watercolor, and written straight into the PDF. Every page grows a garden of its own, and each
+document's seed its own plants.
 
 ![six seeds](gallery/seeds.gif)
 
@@ -144,11 +145,31 @@ get a flower beside it in copper, the way headings were once picked out in red, 
 buds on the first page to fruit and seed heads on the last.
 [Using the package](docs/usage.md#the-margin-reads-the-text) has the details.
 
+## Gothic tracery
+
+| a headpiece over a section, the margin's vine up its jamb | windows of every period, in TikZ |
+|---|---|
+| <img src="gallery/tracery.png" alt="a headpiece of Gothic tracery over a section heading, with a vine from the margin twining its jamb" width="400"> | <img src="gallery/tracery-windows.png" alt="ten windows of Gothic tracery of different periods" width="400"> |
+
+A window of Gothic tracery is sampled from a genome of its own, the way a plant is. Its
+period comes first and sets the arch, how the head branches, the figures and their foils, the
+cusps, the orders and the hood. With the option `headpieces` every section gets one, a screen
+of lights under a flat arch. The garden sends a branch to it, and a vine twines up the jamb
+with the leaves of the nearest plant. The same windows are TikZ pics. An initial can open
+under a cusped arch, and an ornament can be a trefoil, a quatrefoil or a rose.
+
+```latex
+\usepackage[grown,headpieces]{florilegium}
+\pic {florilegium tracery={seed=3, role=window, size=4cm, traits={period=curvilinear}}};
+```
+
+[Gothic tracery](docs/tracery.md) describes the genome, the headpiece and how a window is drawn.
+
 ## In pure TikZ
 
-The species don't need Lua. Under pdfLaTeX, `\usetikzlibrary{florilegium}` samples each plant
-and visitor from its genome, grows it and paints it with pgfmath and TikZ alone, and each of
-the strips above is one `\pic`. It takes a minute and a half for a strip of three plants 21 cm
+The species don't need Lua. Under pdfLaTeX, `\usetikzlibrary{florilegium}` samples each plant,
+visitor and window of tracery from its genome, grows it and paints it with pgfmath and TikZ
+alone, and each of the strips above is one `\pic`. It takes a minute and a half for a strip of three plants 21 cm
 tall, and pdfTeX needs more memory than it has by default. Under LuaLaTeX, the same pics are drawn by
 florilegium's Lua in under a second, within a fraction of a point of pure TikZ's drawing. Only
 the margin itself, laid out around a page's text, is the package's and needs LuaLaTeX.
@@ -269,6 +290,8 @@ text without one (option `nomargin`), per page. `make bench` measures every row 
   chooses its plants, and the visitors.
 - [The TikZ library](docs/tikz.md) lists the pics and their keys, and explains the two engines
   and pdfLaTeX's memory; [the traits](docs/traits.md) lists every trait a pic can fix.
+- [Gothic tracery](docs/tracery.md) describes the windows' genome, the headpieces over the
+  sections and their vine, the initial's arch, and how a window is drawn.
 - [Themes](docs/themes.md) shows geometric and math, and how to write a theme.
 - [How it works](docs/how-it-works.md) follows the painting, the growth loop, the reading of the
   page, the initials and the animation.
@@ -318,6 +341,10 @@ make playground             # the browser playground at http://localhost:8000/we
   Biosciences, 1979), and a butterfly's pattern follows the nymphalid groundplan of Schwanwitsch
   (1924) and Süffert (1927). A snail's shell is Raup's coiled tube (Journal of Paleontology,
   1966), its ring placed as Okabe and Yoshimura reparameterize it (Scientific Reports, 2017).
+- The tracery's periods are Thomas Rickman's names (*An Attempt to Discriminate the Styles
+  of English Architecture*, 1817), and its cusped heads and foiled circles follow Sven
+  Havemann and Dieter W. Fellner, [*Generative Parametric Design of Gothic Window
+  Tracery*](https://diglib.eg.org/items/607768b5-11b0-4e72-9869-5d5df169f3f1) (VAST 2004).
 - The TikZ library draws with [PGF/TikZ](https://github.com/pgf-tikz/pgf) (Till Tantau and
   others; LPPL 1.3c or GPL 2), and its random numbers and arithmetic are pgfmath's, by Mark
   Wibrow, whose ln follows an algorithm due to Rouben Rostamian with coefficients by Alain

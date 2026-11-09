@@ -135,7 +135,7 @@ local function half_arch(w, xl, xr, ys, kind)
     local cy = ys - sqrt(R * R - s * s / 4)
     return { { xm, cy, R, angle_at_x(xm, cy, R, xl), pi / 2, true } }
   elseif kind == "fourcentered" then
-    -- Rickman's four-centered arch: shoulders of radius r1 at the springing, the crown
+    -- the four-centered arch: shoulders of radius r1 at the springing, the crown
     -- arcs centered on the axis below them, tangent, meeting at the apex
     local r1 = w.shoulder * s
     local h = w.rise * s
