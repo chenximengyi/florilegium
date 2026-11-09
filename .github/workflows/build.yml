@@ -86,6 +86,38 @@ jobs:
             showcase.pdf
             spread.pdf
 
+  # Whether a pull request changes anything but Markdown. The tikz job reads no .md file, so a
+  # pull request that changes only Markdown skips it. pdfs and zip still run, since the manual
+  # and the zip take the README and docs/. A skipped job counts as passed, so this never holds
+  # up a merge.
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      code: ${{ steps.files.outputs.code }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+      # A pull request checks out its merge commit, whose first parent is the base branch, so
+      # the diff between the two is what the pull request changes. A push, a tag or a manual
+      # run always runs tikz.
+      - name: whether anything but Markdown changed
+        id: files
+        env:
+          EVENT: ${{ github.event_name }}
+        run: |
+          code=true
+          if [ "$EVENT" = pull_request ]; then
+            files=$(git diff --no-renames --name-only HEAD^1 HEAD)
+            if [ -n "$files" ] && ! printf '%s\n' "$files" | grep -qv '\.md$'; then
+              code=false
+            fi
+            printf '%s\n' "$files"
+          fi
+          echo "code=$code" | tee -a "$GITHUB_OUTPUT"
+
   # The species in pure TikZ, which promise pdfLaTeX too, on every core of the runner
   # (tools/tikzcheck-ci.sh, which latex-action runs as its compiler, in its TeX Live). Every
   # page of the specimen sheet is typeset under pdflatex in a run of its own, all at once, with
@@ -97,8 +129,10 @@ jobs:
   # cluster, leaf, fern and visitor, a plant in three seasons. Pure TikZ is slow: in one run it
   # took 70 minutes here. The pages, the pics' shards and the comparison (of the inked part of
   # each page only) now share the runner's cores, about 12 minutes on four threads of a fast
-  # desktop, beside pdfs.
+  # desktop, beside pdfs. A pull request that changes only Markdown skips it.
   tikz:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
