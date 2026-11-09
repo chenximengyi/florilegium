@@ -225,6 +225,7 @@ its own repository, and follows the release named beside it; questions about one
 | [wilsybubs/florilegium](https://github.com/wilsybubs/florilegium) | a fork that compiles with XeLaTeX as well | 1.1 |
 | [jfoboss/florilegium](https://github.com/jfoboss/florilegium) | a JavaScript port that regrows the garden on an e-book's part-title pages, and a Claude skill (in Russian) that builds ePub, FB2 and MOBI books with it | 1.3 |
 | [amberwhitehead/florilegium](https://github.com/amberwhitehead/florilegium) | a single web page, in plain JavaScript and SVG, that grows a garden around a poem you write | 1.1 |
+| [funkhouserw/florilegium](https://github.com/funkhouserw/florilegium) | a fork with a cat gym theme and an oak theme, and [Felilegium](https://felilegium.corporateshill.com/), a web editor that grows them, a kelp forest or the flowers around text boxes you draw and exports PNG, PDF or HTML | 2.0 |
 
 [tikz-flora](https://github.com/wn-mitch/tikz-flora) by wn-mitch is a LuaLaTeX package of its
 own that grows watercolor flora in the margin, drawn through PGF, and names florilegium among
