@@ -22,6 +22,7 @@ M.CHAPTERS = {
   { file = "docs/species.md" },
   { file = "docs/traits.md" },
   { file = "docs/tracery.md" },
+  { file = "docs/shells.md" },
   { file = "docs/themes.md" },
   { file = "docs/how-it-works.md" },
   { file = "docs/svg-and-web.md" },

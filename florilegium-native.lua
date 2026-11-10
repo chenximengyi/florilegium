@@ -5314,6 +5314,12 @@ local pic = (function()
       local fix = o.traits and species.fixes(o.traits, "tracery") or nil
       local w = species.tsample(o.seed, o.role or "any", nil, fix)
       require("florilegium-tracery").draw(w, o.draw or (o.seed == 2147483646 and 1 or o.seed + 1), o.size / 65536)
+    elseif kind == "shell" then
+      -- a shell (florilegium-shell.lua) `size` across at most, centered on the y axis with
+      -- its base on the x axis; sampled as \florilegiumshell samples it
+      local fix = o.traits and species.fixes(o.traits, "shell") or nil
+      local s = species.shsample(o.seed, o.role or "any", nil, fix)
+      require("florilegium-shell").draw(s, o.draw or (o.seed == 2147483646 and 1 or o.seed + 1), o.size / 65536)
     else
       error("florilegium-native: no pic " .. tostring(kind))
     end
@@ -5362,7 +5368,8 @@ local function rgb(s)
   local r, g, b = s:match("^%s*([%d.]+)%s*,%s*([%d.]+)%s*,%s*([%d.]+)")
   return tonumber(r), tonumber(g), tonumber(b)
 end
--- kind: flower, leaf, v13 flower, v13 leaf, inflorescence, plant, plants, fern, visitor;
+-- kind: flower, leaf, v13 flower, v13 leaf, inflorescence, plant, plants, fern, visitor,
+-- tracery, shell;
 -- seed and draw (or "") whole numbers, size and width in sp, season and scale decimals,
 -- plants "seed/role,seed/role,", ghost "true" or "false"; inkrgb, accrgb "r,g,b"; lib the
 -- library's \ProvidesFile line
@@ -5379,10 +5386,10 @@ function M.tikz(kind, seed, role, draw, size, width, season, plants, ghost, scal
     -- a trait the genome lacks, a value it cannot draw, or one the plant's kind cannot (a
     -- fern's on a flowering plant, M.refused, which sampling raises): TeX's error, once,
     -- and the pic as sampled, as the library's \flo@fixset and \flo@planfixcheck do
-    local ok, fix = pcall(species.fixes, traits, kind == "tracery" and "tracery" or kind == "visitor")
+    local ok, fix = pcall(species.fixes, traits, (kind == "tracery" or kind == "shell") and kind or kind == "visitor")
     local err = not ok and fix or nil
-    if ok and kind == "tracery" then
-      local drawn, e = pcall(species.tsample, o.seed, role, nil, fix)
+    if ok and (kind == "tracery" or kind == "shell") then
+      local drawn, e = pcall(kind == "shell" and species.shsample or species.tsample, o.seed, role, nil, fix)
       if not drawn then ok, err = false, e end
     elseif ok and kind ~= "visitor" then
       for _, p in ipairs(o.plants or { { o.seed, role } }) do

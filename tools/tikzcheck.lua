@@ -19,7 +19,7 @@
 -- of a point, so only a choice that went the other way shows), and while its ink is within 3.5%
 -- as dark in both (a fill drawn lighter or not at all: each of its pixels is still near a gray
 -- of the other drawing, but the whole is lighter).
---   texlua tools/tikzcheck.lua draw [quick|full|fern|visitors] [compare] (compare: the last
+--   texlua tools/tikzcheck.lua draw [quick|full|fern|visitors|tracery|shells] [compare] (compare: the last
 --   builds' PDFs again, without building them; quick: fronds of every division,
 --   outline and edge, fern crowns in three seasons, then one flower, one leaf and one
 --   inflorescence of every body plan, one inflorescence of every kind and of every view
@@ -31,7 +31,8 @@
 --   ladybirds of every ground, pose, tint and pattern, caterpillars, snails and birds of
 --   every pose, ground, shell and bill; full:
 --   also two strips of three plants, as specimen-tikz.tex draws them, several minutes in
---   pure TikZ; fern: the ferns alone; visitors: the visitors alone; tracery: the windows alone)
+--   pure TikZ; fern: the ferns alone; visitors: the visitors alone; tracery: the windows alone;
+--   shells: the shells alone, every kind, view, sculpture and pattern, and small ones)
 package.path = "./?.lua;" .. package.path
 local fmt = string.format
 os.execute("mkdir -p build")
@@ -48,7 +49,8 @@ end
 if arg[1] == "draw" then
   local reuse = arg[3] == "compare"           -- draw quick compare: the last builds' PDFs again
   local full, fernonly, visonly, traconly = arg[2] == "full", arg[2] == "fern", arg[2] == "visitors", arg[2] == "tracery"
-  if traconly then fernonly, visonly = true, true end
+  local shellonly = arg[2] == "shells"
+  if traconly or shellonly then fernonly, visonly = true, true end
   local species = require("florilegium-species")
   local pics = {}
   local function pic(spec) pics[#pics + 1] = spec end
@@ -262,6 +264,43 @@ if arg[1] == "draw" then
   pic("florilegium tracery={seed=2, role=window, size=1.6cm, traits={period=geometric, lights=2, figure=foiled, foils=4}}")
   pic("florilegium tracery={seed=2, role=window, size=0.9cm, traits={period=geometric, lights=2, figure=foiled, foils=4}}")
   pic("florilegium tracery={seed=2, role=headpiece, size=4cm}")
+  end
+  if not fernonly and not visonly or shellonly then
+  -- shells (#5339): ammonites of every sculpture, keel and preservation, with each kind of
+  -- suture line, broken and worn to the nacre, a nautilus; each bivalve outside and inside,
+  -- with each pattern, ears, ridges and layers; whelks of either hand with canal, lip,
+  -- folds and sculpture, a turret shell, topshells from the front and the back, cowries
+  -- from above and beneath; and small ones of each group (the levels of detail)
+  for _, t in ipairs({
+      "ammonite size=3cm traits={sculpture=ribs, keel=keel}",
+      "ammonite size=3cm traits={preservation=mold, septa=ammonitic, sculpture=branching}",
+      "ammonite size=3cm traits={preservation=mold, septa=goniatitic, sculpture=smooth}",
+      "ammonite size=3cm traits={preservation=mold, septa=ceratitic, sculpture=tubercles}",
+      "ammonite size=3cm traits={sculpture=branching, keel=grooved, preservation=pyrite, broken=1}",
+      "ammonite size=3cm traits={preservation=nacre, sculpture=ribs}",
+      "nautilus size=3cm traits={}",
+      "scallop size=3cm traits={ears=unequal, pattern=rays, view=outside}",
+      "scallop size=3cm traits={pattern=dots, view=inside}",
+      "cockle size=3cm traits={pattern=bands}",
+      "mussel size=3cm traits={view=inside}",
+      "clam size=3cm traits={pattern=zigzags, sculpture=ridges}",
+      "oyster size=3cm traits={view=outside}",
+      "oyster size=3cm traits={view=inside}",
+      "whelk size=3.5cm traits={view=mouth, canal=long, lip=flared, sculpture=nodes, shoulder=angular, pattern=flammules}",
+      "whelk size=3.5cm traits={hand=sinistral, view=mouth, pattern=bands, sculpture=cancellate, lip=thick, folds=3}",
+      "turret size=3.5cm traits={view=mouth, sculpture=cords, pattern=flammules}",
+      "topshell size=3cm traits={view=back, preservation=nacre, sculpture=nodes, pattern=dots}",
+      "topshell size=3cm traits={view=mouth, sculpture=cords, pattern=bands}",
+      "cowrie size=3cm traits={view=back, pattern=dots}",
+      "cowrie size=3cm traits={view=back, pattern=bands}",
+      "cowrie size=3cm traits={view=mouth}",
+      "ammonite size=1cm traits={}",
+      "clam size=1cm traits={}",
+      "turret size=1cm traits={}",
+      "scallop size=0.4cm traits={}" }) do
+    local role, size, traits = t:match("^(%a+) size=(%S+) traits=(.*)$")
+    pic(fmt("florilegium shell={seed=3, role=%s, size=%s, traits=%s}", role, size, traits))
+  end
   end
   if not fernonly then
   -- visitors: a butterfly or moth with each wing tip, edge and tail, each pattern system

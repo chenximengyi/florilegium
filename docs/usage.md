@@ -36,6 +36,7 @@ hand-designed shapes.
 | `sections` | a flower beside every numbered section and subsection, in the copper of the accents (standard classes and KOMA-Script's; grown only) |
 | `aging` | the garden ages from spring on the first page to autumn on the last (grown only; two runs, for the page count) |
 | `novisitors` | no butterflies, bees, beetles, dragonflies, caterpillars, snails or birds |
+| `noshells` | no shells on the margin's ground (see [shells](shells.md)) |
 | `theme=geometric`, `theme=math`, `theme=shells` | another drawing, or another composition (see [themes](themes.md)) |
 | `density=0.4` | less in the margin, down to a single vine at `0.05` (grown only) |
 | `intensity=0.6` | a paler margin, from `1` as painted to `0.3` faint |
@@ -177,8 +178,9 @@ from one build to the next; `seed=random` draws a new one every time the PDF is 
 
 Any of v1.3's primitives works (`leaf`, `leaflet`, `flower`, `blossom`, `bud`, `bell`, `lily`,
 `cyme`, `umbel`, `butterfly`, `bee`, `bird`, `hedera`, `sparkle`, ...), and so do the current
-theme's (`crystal` with `geometric`; `knot`, `polyhedron`, `koch`, ... with `math`) and the
-tracery's (`trefoil`, `quatrefoil`, `cinquefoil`, `sexfoil`, `rose`).
+theme's (`crystal` with `geometric`; `knot`, `polyhedron`, `koch`, ... with `math`), the
+tracery's (`trefoil`, `quatrefoil`, `cinquefoil`, `sexfoil`, `rose`) and the shells' (`scallop`,
+`ammonite`, `nautilus`, `whelk`, `cowrie`).
 
 ## Primitives in a TikZ picture
 

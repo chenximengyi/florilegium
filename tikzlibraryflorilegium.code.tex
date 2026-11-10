@@ -2071,14 +2071,16 @@
   \flo@intof\flo@luaseed\flo@o@seed
   \ifnum\flo@luaseed<1 \flo@badseed\flo@luaseed\else\ifnum\flo@luaseed>2147483646 \flo@badseed\flo@luaseed\fi\fi
   \flo@luanum\flo@luaseed
-  \def\flo@luakind{#1}\def\flo@t{visitor}\def\flo@tmp{tracery}%
+  \def\flo@luakind{#1}\def\flo@t{visitor}\def\flo@tmp{tracery}\def\flo@tmpb{shell}%
   \ifx\flo@luakind\flo@t
     \flo@isrole{flo@vrole@}{\flo@o@role}\ifflo@roleok\else\flo@vroleerror{\flo@o@role}\def\flo@o@role{any}\fi
   \else\ifx\flo@luakind\flo@tmp
     \flo@isrole{flo@trole@}{\flo@o@role}\ifflo@roleok\else\flo@troleerror{\flo@o@role}\def\flo@o@role{any}\fi
+  \else\ifx\flo@luakind\flo@tmpb
+    \flo@isrole{flo@krole@}{\flo@o@role}\ifflo@roleok\else\flo@kroleerror{\flo@o@role}\def\flo@o@role{any}\fi
   \else
     \flo@isrole{flo@role@}{\flo@o@role}\ifflo@roleok\else\flo@roleerror{\flo@o@role}\def\flo@o@role{any}\fi
-  \fi\fi
+  \fi\fi\fi
   \ifx\flo@o@draw\pgfutil@empty\let\flo@luadraw\pgfutil@empty\else\flo@intof\flo@luadraw\flo@o@draw\flo@luanum\flo@luadraw\fi
   \flo@luadim\flo@luaseason\flo@o@season
   \flo@luadim\flo@luascale\flo@o@scale
@@ -2118,6 +2120,10 @@
 % centered on the origin with its sill on the x axis, size its width (the outermost molding
 % included); role headpiece, window, frame, rose, ornament, any, or a kind
 \tikzset{pics/florilegium tracery/.style={code={\flo@engine{#1}{tracery}{\flo@tracerypic{#1}}}}}
+% \pic {florilegium shell={seed=3, role=margin, size=2cm}}: a shell size across at most,
+% centered on the y axis with its base on the x axis; role margin, ornament, planispiral,
+% bivalve, gastropod, any, or a kind
+\tikzset{pics/florilegium shell/.style={code={\flo@engine{#1}{shell}{\flo@shellpic{#1}}}}}
 % \pic {florilegium leaf={seed=7, size=4cm}}: one leaf from its base along +y, size its length
 \tikzset{pics/florilegium leaf/.style={code={\flo@engine{#1}{leaf}{%
   \flo@picsetup{#1}%
@@ -7352,3 +7358,1135 @@
       \def\flo@lt@lim{inner}\edef\flo@lt@limxm{\flo@twxm}\let\flo@lt@head\pgfutil@empty
       \flo@tlight{tpu}\fi
     \flo@tcj=\flo@tsave\relax}}
+
+% ================================================================ shells, drawn
+% florilegium-shell.lua's drawing, step for step and draw for draw (board #5339): a shell
+% sampled by \florilegiumshell, in the local unit of its own frame (a few units across,
+% scaled to its size on the page), from \flo@drawseed's stream, with the library's tones,
+% mottle, streaks, tapers and blobs, as the Lua side draws with florilegium-native.lua's
+% twins of them. Points are kept in named lists, \flo@kdput{list}{i}{x}{y} with
+% \flo@kdN@<list> of them; line widths are absolute, in bp. The macros are \flo@kd...
+% (k is the shells' namespace, d their drawing); a name never ends in a digit.
+\newcount\flo@kdi \newcount\flo@kdj \newcount\flo@kdk \newcount\flo@kdl \newcount\flo@kdm \newcount\flo@kdq
+% ---------------------------------------------------------------- lists of points
+\def\flo@kdput#1#2#3#4{\expandafter\edef\csname flo@kdX@#1@#2\endcsname{#3}\expandafter\edef\csname flo@kdY@#1@#2\endcsname{#4}}
+\def\flo@kdx#1#2{\csname flo@kdX@#1@#2\endcsname}
+\def\flo@kdy#1#2{\csname flo@kdY@#1@#2\endcsname}
+\def\flo@kdsetn#1#2{\expandafter\edef\csname flo@kdN@#1\endcsname{\the\numexpr#2\relax}}
+\def\flo@kdn#1{\csname flo@kdN@#1\endcsname}
+% a value kept by name and index (a band's angles, widths, light)
+\def\flo@kdvset#1#2#3{\expandafter\edef\csname flo@kdV@#1@#2\endcsname{#3}}
+\def\flo@kdv#1#2{\csname flo@kdV@#1@#2\endcsname}
+% list #1 into flo@X/Y 1..n, where the library's curves, streaks and normals read
+\def\flo@kdtoxy#1{\edef\flo@kdtn{\flo@kdn{#1}}%
+  \flo@loop{kdxy}\flo@kdm{1}{\flo@kdtn}{\flo@put{\the\flo@kdm}{\flo@kdx{#1}{\the\flo@kdm}}{\flo@kdy{#1}{\the\flo@kdm}}}}
+% list #2 is list #1 reversed; points #2 to #3 of list #1 as list #4; list #4 the points #3
+% of the way from list #1 to list #2, pointwise; a copy
+\def\flo@kdrev#1#2{\edef\flo@kdtn{\flo@kdn{#1}}\flo@kdsetn{#2}{\flo@kdtn}%
+  \flo@loop{kdrv}\flo@kdm{1}{\flo@kdtn}{%
+    \edef\flo@t{\the\numexpr\flo@kdtn+1-\flo@kdm\relax}\flo@kdput{#2}{\the\flo@kdm}{\flo@kdx{#1}\flo@t}{\flo@kdy{#1}\flo@t}}}
+\def\flo@kdslice#1#2#3#4{\flo@kdsetn{#4}{(#3)-(#2)+1}%
+  \flo@loop{kdsl}\flo@kdm{1}{\flo@kdn{#4}}{%
+    \edef\flo@t{\the\numexpr\flo@kdm+(#2)-1\relax}\flo@kdput{#4}{\the\flo@kdm}{\flo@kdx{#1}\flo@t}{\flo@kdy{#1}\flo@t}}}
+\def\flo@kdacross#1#2#3#4{\flo@kdsetn{#4}{\flo@kdn{#1}}\flo@calc\flo@kdf{#3}%
+  \flo@loop{kdac}\flo@kdm{1}{\flo@kdn{#1}}{%
+    \flo@calc\flo@kdax{\flo@kdx{#1}{\the\flo@kdm}+\flo@kdf*(\flo@kdx{#2}{\the\flo@kdm}-(\flo@kdx{#1}{\the\flo@kdm}))}%
+    \flo@calc\flo@kday{\flo@kdy{#1}{\the\flo@kdm}+\flo@kdf*(\flo@kdy{#2}{\the\flo@kdm}-(\flo@kdy{#1}{\the\flo@kdm}))}%
+    \flo@kdput{#4}{\the\flo@kdm}{\flo@kdax}{\flo@kday}}}
+% ---------------------------------------------------------------- paths
+% curve: an open Catmull-Rom curve through list #1, its ends held; #2 1 starts it with a
+% moveto, 0 joins it to the path with a line (florilegium-shell.lua: curve)
+\def\flo@kdcurve#1#2{\edef\flo@kdcn{\flo@kdn{#1}}%
+  \ifnum#2=1 \pgfpathmoveto{\flo@P{\flo@kdx{#1}1}{\flo@kdy{#1}1}}\else\pgfpathlineto{\flo@P{\flo@kdx{#1}1}{\flo@kdy{#1}1}}\fi
+  \flo@loop{kdcv}\flo@kdm{1}{\flo@kdcn-1}{%
+    \edef\flo@ia{\the\numexpr\ifnum\flo@kdm=1 1\else\flo@kdm-1\fi\relax}\edef\flo@ib{\the\numexpr\flo@kdm+1\relax}%
+    \edef\flo@ic{\the\numexpr\ifnum\flo@kdm=\numexpr\flo@kdcn-1\relax\flo@kdcn\else\flo@kdm+2\fi\relax}%
+    \edef\flo@t{\the\flo@kdm}%
+    \flo@calc\flo@kdca{\flo@kdx{#1}\flo@t+(\flo@kdx{#1}\flo@ib-(\flo@kdx{#1}\flo@ia))/6}%
+    \flo@calc\flo@kdcb{\flo@kdy{#1}\flo@t+(\flo@kdy{#1}\flo@ib-(\flo@kdy{#1}\flo@ia))/6}%
+    \flo@calc\flo@kdcc{\flo@kdx{#1}\flo@ib-(\flo@kdx{#1}\flo@ic-(\flo@kdx{#1}\flo@t))/6}%
+    \flo@calc\flo@kdcd{\flo@kdy{#1}\flo@ib-(\flo@kdy{#1}\flo@ic-(\flo@kdy{#1}\flo@t))/6}%
+    \pgfpathcurveto{\flo@P\flo@kdca\flo@kdcb}{\flo@P\flo@kdcc\flo@kdcd}{\flo@P{\flo@kdx{#1}\flo@ib}{\flo@kdy{#1}\flo@ib}}}}
+% a closed Catmull-Rom curve through list #1 (ink.smooth), or a polygon (ink.poly), #2 1 closed
+\def\flo@kdsmooth#1{\flo@kdtoxy{#1}\flo@smoothprep{\flo@kdtn}\flo@smoothpath}
+\def\flo@kdpoly#1#2{\pgfpathmoveto{\flo@P{\flo@kdx{#1}1}{\flo@kdy{#1}1}}%
+  \flo@loop{kdpl}\flo@kdm{2}{\flo@kdn{#1}}{\pgfpathlineto{\flo@P{\flo@kdx{#1}{\the\flo@kdm}}{\flo@kdy{#1}{\the\flo@kdm}}}}%
+  \ifnum#2=1 \pgfpathclose\fi}
+% fill and stroke in tone #1 of the current ramp (\flo@rampname: the ink's or the accent's),
+% #2 the opacity, #3 1 to multiply; #4 the path. A stroke's width #2 in bp
+\def\flo@kdfill#1#2#3#4{\flo@vtone{flo@kdc}{#1}\flo@vfill{flo@kdc}{#2}{#3}{#4}}
+\def\flo@kdstroke#1#2#3#4#5{\flo@vtone{flo@kdc}{#1}\flo@calc\flo@kdlw{#2}\flo@vstroke{flo@kdc}{\flo@kdlw}{#3}{#4}{#5}}
+\def\flo@kdwstroke#1#2#3{\flo@calc\flo@kdlw{#1}\flo@vstroke{white}{\flo@kdlw}{#2}{0}{#3}}
+% a rectangle (ink.flood's), as the corners #1 #2 #3 #4
+\def\flo@kdrect#1#2#3#4{\pgfpathrectanglecorners{\flo@P{#1}{#2}}{\flo@P{#3}{#4}}}
+% a streak along list #1 (native's streak, \flo@vstreak): widths #2 to #3, color #4, opacity #5
+\def\flo@kdstreak#1#2#3#4#5{\flo@calc\flo@kdswa{#2}\flo@calc\flo@kdswb{#3}\flo@calc\flo@kdsop{#5}%
+  \flo@kdtoxy{#1}\flo@vstreak{\flo@kdtn}{\flo@kdswa}{\flo@kdswb}{#4}{\flo@kdsop}}
+% swell: a streak along list #1 thin at both ends and #2 wide in the middle, color #3, opacity #4
+\def\flo@kdswell#1#2#3#4{\flo@calc\flo@kdsww{#2}\flo@calc\flo@kdsop{#4}\flo@kdtoxy{#1}\edef\flo@kdsn{\flo@kdtn}%
+  \flo@normals{\flo@kdsn}%
+  \def\flo@acc{0}\expandafter\def\csname flo@S1\endcsname{0}%
+  \flo@loop{kdsw}\flo@kdm{2}{\flo@kdsn}{%
+    \edef\flo@ia{\the\numexpr\flo@kdm-1\relax}%
+    \flo@calc\flo@acc{\flo@acc+veclen(\flo@x{\the\flo@kdm}-(\flo@x\flo@ia),\flo@y{\the\flo@kdm}-(\flo@y\flo@ia))}%
+    \expandafter\let\csname flo@S\the\flo@kdm\endcsname\flo@acc}%
+  \ifdim\flo@acc pt=0pt \def\flo@acc{1}\fi
+  \flo@loop{kdsx}\flo@kdm{1}{\flo@kdsn}{%
+    \flo@calc\flo@w{\flo@kdsww*sin(180*\csname flo@S\the\flo@kdm\endcsname/\flo@acc)/2}%
+    \flo@calc\flo@xl{\flo@x{\the\flo@kdm}+\csname flo@NX\the\flo@kdm\endcsname*\flo@w}%
+    \flo@calc\flo@yl{\flo@y{\the\flo@kdm}+\csname flo@NY\the\flo@kdm\endcsname*\flo@w}%
+    \flo@calc\flo@xr{\flo@x{\the\flo@kdm}-\csname flo@NX\the\flo@kdm\endcsname*\flo@w}%
+    \flo@calc\flo@yr{\flo@y{\the\flo@kdm}-\csname flo@NY\the\flo@kdm\endcsname*\flo@w}%
+    \expandafter\let\csname flo@RX\the\flo@kdm\endcsname\flo@xl\expandafter\let\csname flo@RY\the\flo@kdm\endcsname\flo@yl
+    \expandafter\let\csname flo@QX\the\flo@kdm\endcsname\flo@xr\expandafter\let\csname flo@QY\the\flo@kdm\endcsname\flo@yr}%
+  \flo@loop{kdsy}\flo@kdm{1}{\flo@kdsn}{%
+    \flo@put{\the\flo@kdm}{\csname flo@RX\the\flo@kdm\endcsname}{\csname flo@RY\the\flo@kdm\endcsname}%
+    \flo@put{\the\numexpr2*\flo@kdsn+1-\flo@kdm\relax}{\csname flo@QX\the\flo@kdm\endcsname}{\csname flo@QY\the\flo@kdm\endcsname}}%
+  \flo@smoothprep{\the\numexpr2*\flo@kdsn\relax}\flo@vfill{#3}{\flo@kdsop}{0}{\flo@smoothpath}}
+% taperpts: native's taper along the four points of list #1, widths #2 #3, multiplied in
+% color #4 at opacity #5
+\def\flo@kdtaper#1#2#3#4#5{\flo@calc\flo@twa{#2}\flo@calc\flo@twb{#3}%
+  \flo@vfill{#4}{#5}{1}{\flo@vtaper{\flo@kdx{#1}1}{\flo@kdy{#1}1}{\flo@kdx{#1}2}{\flo@kdy{#1}2}%
+    {\flo@kdx{#1}3}{\flo@kdy{#1}3}{\flo@kdx{#1}4}{\flo@kdy{#1}4}}}
+% the bounding box of list #1 into \flo@kdbxa \flo@kdbxb \flo@kdbya \flo@kdbyb (x0 x1 y0 y1)
+\def\flo@kdbox#1{\def\flo@kdbxa{16000}\def\flo@kdbxb{-16000}\def\flo@kdbya{16000}\def\flo@kdbyb{-16000}\flo@kdboxadd{#1}}
+\def\flo@kdboxadd#1{\flo@loop{kdbx}\flo@kdm{1}{\flo@kdn{#1}}{%
+    \flo@calc\flo@kdbxa{min(\flo@kdbxa,\flo@kdx{#1}{\the\flo@kdm})}\flo@calc\flo@kdbxb{max(\flo@kdbxb,\flo@kdx{#1}{\the\flo@kdm})}%
+    \flo@calc\flo@kdbya{min(\flo@kdbya,\flo@kdy{#1}{\the\flo@kdm})}\flo@calc\flo@kdbyb{max(\flo@kdbyb,\flo@kdy{#1}{\the\flo@kdm})}}}
+% run: the longest run of indexes 1..#1 where the test #2 holds of \flo@kdri (each index in
+% turn, as \flo@kdri), as \flo@kdra and \flo@kdrb (0 if none); the first of equal runs
+\newif\ifflo@kdok
+\def\flo@kdrun#1#2{\def\flo@kdra{0}\def\flo@kdrb{0}\def\flo@kdrc{0}%
+  \flo@loop{kdrn}\flo@kdq{1}{#1}{\edef\flo@kdri{\the\flo@kdq}#2%
+    \ifflo@kdok
+      \ifnum\flo@kdrc=0 \edef\flo@kdrc{\the\flo@kdq}\fi
+      \ifnum\flo@kdra=0 \edef\flo@kdra{\flo@kdrc}\edef\flo@kdrb{\the\flo@kdq}%
+      \else\ifnum\numexpr\flo@kdq-\flo@kdrc\relax>\numexpr\flo@kdrb-\flo@kdra\relax
+        \edef\flo@kdra{\flo@kdrc}\edef\flo@kdrb{\the\flo@kdq}\fi\fi
+    \else\def\flo@kdrc{0}\fi}}
+% the frame: shift and scale so the shell's box (\flo@kdbx..) is \flo@sizept across at most,
+% centered on the y axis, its base on the x axis; then its cm and bp per unit, its level of
+% detail (2 under 5 mm across, 1 under 12 mm) and its pen
+\def\flo@kdframe{%
+  \flo@calc\flo@kdsc{\flo@sizept/max(\flo@kdbxb-\flo@kdbxa,\flo@kdbyb-\flo@kdbya)}%
+  \flo@calc\flo@kdtx{-(\flo@kdbxa+\flo@kdbxb)/2*\flo@kdsc}\flo@calc\flo@kdty{-\flo@kdbya*\flo@kdsc}%
+  \pgftransformshift{\flo@P\flo@kdtx\flo@kdty}\pgftransformscale{\flo@kdsc}%
+  \flo@calc\flo@kdcm{\flo@kdsc/28.45276}%
+  \ifdim\flo@kdacm pt<0.5pt \def\flo@kdlod{2}\else\ifdim\flo@kdacm pt<1.2pt \def\flo@kdlod{1}\else\def\flo@kdlod{0}\fi\fi
+  \flo@calc\flo@kdpen{max(0.3,min(0.85,0.028*\flo@kdacm*28.3465))}}
+% the base tone from the genome's tone and ground (into \flo@kdt)
+\def\flo@kdtone{\flo@calc\flo@kdt{\flo@kget{tone}-0.04}%
+  \edef\flo@t{\flo@kget{ground}}\def\flo@tmp{pale}\def\flo@tmpb{dark}%
+  \ifx\flo@t\flo@tmp\flo@calc\flo@kdt{min(0.72,\flo@kdt+0.25)}\else\ifx\flo@t\flo@tmpb\flo@calc\flo@kdt{\flo@kdt-0.12}\fi\fi}
+\def\flo@kdaccent#1{\ifnum#1=1 \def\flo@rampname{flo@aramp}\else\def\flo@rampname{flo@ramp}\fi}
+
+% ---------------------------------------------------------------- planispirals
+% Seen from the side, down the axis: whorl k's band runs from its inner edge to the edge it
+% shows to (its own outer edge on the last turn, the next whorl's inner edge before), the
+% bands tiling the disc. rad(th, f) into \flo@kdr; pt(th, r) into \flo@kdpx \flo@kdpy;
+% vout(th, k) into \flo@kdro
+\def\flo@kdrad#1#2{\flo@calc\flo@kdr{pow(\flo@kdPW,(#1)/360)*(\flo@kdPy-1+2*(#2))}}
+\def\flo@kdpt#1#2{\flo@calc\flo@kdpr{#2}\flo@calc\flo@kdpa{\flo@kdPph+\flo@kdPs*(#1)}%
+  \flo@calc\flo@kdpx{\flo@kdpr*cos(\flo@kdpa)}\flo@calc\flo@kdpy{\flo@kdpr*sin(\flo@kdpa)}}
+\def\flo@kdvout#1#2{\ifnum#2=0 \flo@kdrad{#1}{1}\else\flo@kdrad{(#1)+360}{0}\fi\let\flo@kdro\flo@kdr}
+% band(k): lists I<k> and O<k>, values TH<k>, W<k>, L<k> at each point, t0 t1 into
+% \flo@kdV@T<k>@0, @1
+\def\flo@kdband#1{%
+  \flo@calc\flo@kdtb{\flo@kdPtm-360*#1}\flo@calc\flo@kdta{max(\flo@kdPtmin,\flo@kdtb-360)}%
+  \flo@kdvset{T#1}{0}{\flo@kdta}\flo@kdvset{T#1}{1}{\flo@kdtb}%
+  \pgfmathtruncatemacro\flo@kdbn{max(2,ceil((\flo@kdtb-\flo@kdta)/10))}%
+  \flo@loop{kdbd}\flo@kdm{0}{\flo@kdbn}{%
+    \edef\flo@kdbi{\the\numexpr\flo@kdm+1\relax}%
+    \flo@calc\flo@kdth{\flo@kdta+(\flo@kdtb-\flo@kdta)*\the\flo@kdm/\flo@kdbn}%
+    \flo@kdrad\flo@kdth{0}\let\flo@kdri\flo@kdr\flo@kdvout\flo@kdth{#1}%
+    \flo@kdvset{TH#1}{\flo@kdbi}{\flo@kdth}%
+    \flo@kdpt\flo@kdth\flo@kdri\flo@kdput{I#1}{\flo@kdbi}{\flo@kdpx}{\flo@kdpy}%
+    \flo@kdpt\flo@kdth\flo@kdro\flo@kdput{O#1}{\flo@kdbi}{\flo@kdpx}{\flo@kdpy}%
+    \flo@calc\flo@t{\flo@kdro-(\flo@kdri)}\flo@kdvset{W#1}{\flo@kdbi}{\flo@t}%
+    \flo@calc\flo@t{cos(\flo@kdPph+\flo@kdPs*\flo@kdth-135)}\flo@kdvset{L#1}{\flo@kdbi}{\flo@t}}%
+  \flo@kdsetn{I#1}{\flo@kdbn+1}\flo@kdsetn{O#1}{\flo@kdbn+1}}
+\def\flo@kdbandpath#1{\flo@kdcurve{O#1}1\flo@kdrev{I#1}{kdtmp}\flo@kdcurve{kdtmp}0\pgfpathclose}
+% ribpts(B, th, u0, u1, lean, turn) as list #7: a rib across band #1 at growth angle #2 from
+% u #3 to #4, leaning #5 toward the mouth, turned #6 degrees at its outer end
+\def\flo@kdribpts#1#2#3#4#5#6#7{\flo@kdsetn{#7}{4}%
+  \flo@calc\flo@kdua{#3}\flo@calc\flo@kdub{#4}\flo@calc\flo@kdul{#5}\flo@calc\flo@kdut{#6}\flo@calc\flo@kdrth{#2}%
+  \flo@loop{kdrp}\flo@kdm{0}{3}{%
+    \flo@calc\flo@kdu{\flo@kdua+(\flo@kdub-\flo@kdua)*\the\flo@kdm/3}%
+    \flo@calc\flo@kdra{\flo@kdrth+\flo@kdul*(pow(\flo@kdu,1.6)-0.25*sin(180*\flo@kdu))+\flo@kdut*pow((\flo@kdu-\flo@kdua)/max(0.00002,\flo@kdub-\flo@kdua),1.5)}%
+    \flo@kdrad\flo@kdra{0}\let\flo@kdri\flo@kdr\flo@kdvout\flo@kdra{#1}%
+    \flo@kdpt\flo@kdra{\flo@kdri+\flo@kdu*(\flo@kdro-(\flo@kdri))}%
+    \flo@kdput{#7}{\the\numexpr\flo@kdm+1\relax}{\flo@kdpx}{\flo@kdpy}}}
+% the ribs on band #1 (\flo@kdbk its index k): simple, forking or knobbed, where they stand
+% at least half a millimeter apart on the page; a mold's softer
+\def\flo@kdribs#1{%
+  \edef\flo@kdrn{\flo@kget{ribs}}\flo@calc\flo@kdd{360/\flo@kdrn}%
+  \pgfmathtruncatemacro\flo@kdmid{floor(\flo@kdn{O#1}/2)+1}%
+  \flo@calc\flo@kdrout{veclen(\flo@kdx{O#1}\flo@kdmid,\flo@kdy{O#1}\flo@kdmid)}%
+  \flo@calc\flo@kdgap{\flo@kdrout*\flo@kdd*0.0174533}%
+  \flo@calc\flo@t{\flo@kdgap*\flo@kdcm}%
+  \ifdim\flo@t pt<0.05pt\else
+    \edef\flo@t{\flo@kget{preservation}}\def\flo@tmp{mold}%
+    \ifx\flo@t\flo@tmp\def\flo@kdmold{1}\def\flo@kdrop{0.3}\else\def\flo@kdmold{0}\def\flo@kdrop{0.42}\fi
+    \flo@calc\flo@kdlean{0.45*\flo@kdd}%
+    \ifnum\flo@kdlod=0 \ifnum\flo@kdmold=0 \def\flo@kdlight{1}\else\def\flo@kdlight{0}\fi\else\def\flo@kdlight{0}\fi
+    \flo@range\flo@t{0}{0.4}\flo@calc\flo@kdrth{\flo@kdv{T#1}{1}-\flo@kdd*(0.5+\flo@t)}%
+    \edef\flo@kdsc@{\flo@kget{sculpture}}\def\flo@kdbr{branching}\def\flo@kdtu{tubercles}%
+    \flo@kdribloop{#1}\fi}
+% one rib after another, toward the older whorls, while the angle stays in the band
+\def\flo@kdribloop#1{%
+  \flo@calc\flo@t{\flo@kdv{T#1}{0}+0.2*\flo@kdd}%
+  \ifdim\flo@kdrth pt>\flo@t pt \flo@kdribstep{#1}\def\flo@kdnext{\flo@kdribloop{#1}}\else\let\flo@kdnext\relax\fi
+  \flo@kdnext}
+\def\flo@kdribstep#1{%
+    \flo@range\flo@t{0.12}{0.17}\flo@calc\flo@kdwb{\flo@kdgap*\flo@t}%
+    \edef\flo@kdthr{\flo@kdrth}%
+    \ifx\flo@kdsc@\flo@kdbr
+      \flo@kdribpts{#1}{\flo@kdthr}{0}{0.5}{\flo@kdlean}{0}{kdrb}%
+      \flo@vtone{flo@kdc}{\flo@kdt-0.18}\flo@kdtaper{kdrb}{0.03*\flo@kdgap}{0.9*\flo@kdwb}{flo@kdc}{\flo@kdrop}%
+      \ifnum\flo@kdlight=1 \flo@kdribpts{#1}{\flo@kdthr-0.22*\flo@kdd}{0.05}{0.5}{\flo@kdlean}{0}{kdrb}%
+        \flo@kdtaper{kdrb}{0.01*\flo@kdgap}{0.5*\flo@kdwb}{white}{0.4}\fi
+      \flo@calc\flo@kdfa{\flo@kdthr+\flo@kdlean*(pow(0.5,1.6)-0.25)}%
+      \flo@kdforkside{#1}{-1}\flo@kdforkside{#1}{1}%
+    \else
+      \flo@kdribpts{#1}{\flo@kdthr}{0}{1}{\flo@kdlean}{0}{kdrb}%
+      \flo@vtone{flo@kdc}{\flo@kdt-0.18}\flo@kdtaper{kdrb}{0.03*\flo@kdgap}{\flo@kdwb}{flo@kdc}{\flo@kdrop}%
+      \ifnum\flo@kdlight=1 \flo@kdribpts{#1}{\flo@kdthr-0.25*\flo@kdd}{0.05}{1}{\flo@kdlean}{0}{kdrb}%
+        \flo@kdtaper{kdrb}{0.01*\flo@kdgap}{0.6*\flo@kdwb}{white}{0.45}\fi
+      \ifx\flo@kdsc@\flo@kdtu
+        \flo@kdknob{#1}{0.3}%
+        \ifnum\flo@kdbk=0 \flo@kdknob{#1}{0.85}\fi
+      \fi
+    \fi
+    \flo@range\flo@t{0.85}{1.15}\flo@calc\flo@kdrth{\flo@kdthr-\flo@kdd*\flo@t}}
+\def\flo@kdforkside#1#2{%
+  \flo@kdribpts{#1}{\flo@kdfa}{0.5}{1}{\flo@kdlean*0.5}{(#2)*0.2*\flo@kdd}{kdrb}%
+  \flo@vtone{flo@kdc}{\flo@kdt-0.18}\flo@kdtaper{kdrb}{0.6*\flo@kdwb}{\flo@kdwb}{flo@kdc}{\flo@kdrop}%
+  \ifnum\flo@kdlight=1 \flo@kdribpts{#1}{\flo@kdfa-0.18*\flo@kdd}{0.5}{1}{\flo@kdlean*0.5}{(#2)*0.2*\flo@kdd}{kdrb}%
+    \flo@kdtaper{kdrb}{0.3*\flo@kdwb}{0.55*\flo@kdwb}{white}{0.4}\fi}
+% a tubercle on a rib at u #2
+\def\flo@kdknob#1#2{%
+  \flo@calc\flo@kdka{\flo@kdthr+\flo@kdlean*pow(#2,1.3)}%
+  \flo@kdrad\flo@kdka{0}\let\flo@kdri\flo@kdr\flo@kdvout\flo@kdka{#1}%
+  \flo@kdpt\flo@kdka{\flo@kdri+(#2)*(\flo@kdro-(\flo@kdri))}\let\flo@kdkx\flo@kdpx\let\flo@kdky\flo@kdpy
+  \flo@range\flo@t{0.26}{0.36}\flo@calc\flo@kdkr{\flo@kdgap*\flo@t}%
+  \flo@vblob\flo@kdkx\flo@kdky\flo@kdkr{0.85*\flo@kdkr}{0.2}{7}%
+  \flo@kdfill{\flo@kdt-0.2}{\flo@kdrop+0.1}{1}{\flo@smoothpath}%
+  \flo@calc\flo@t{\flo@kdkx-0.35*\flo@kdkr}\flo@calc\flo@tmp{\flo@kdky+0.35*\flo@kdkr}\flo@calc\flo@tmpb{0.22*\flo@kdkr}%
+  \ifnum\flo@kdmold=1 \def\flo@tmpc{0.25}\else\def\flo@tmpc{0.45}\fi
+  \flo@vfill{white}{\flo@tmpc}{0}{\pgfpathcircle{\flo@P\flo@t\flo@tmp}{\flo@tmpb pt}}}
+% the shading of band #1: a shadow along the edge it shows to and along its inner edge, the
+% venter darker toward the lower right, the light on the flank toward the upper left
+\def\flo@kdshade#1{%
+  \edef\flo@kdsn{\flo@kdn{I#1}}%
+  \edef\flo@kdwa{\flo@kdv{W#1}{1}}\edef\flo@kdwz{\flo@kdv{W#1}{\flo@kdsn}}%
+  \flo@vtone{flo@kdc}{0.08}\flo@kdstreak{O#1}{0.34*\flo@kdwa}{0.34*\flo@kdwz}{flo@kdc}{0.28}%
+  \flo@vtone{flo@kdc}{0.1}\flo@kdstreak{I#1}{0.16*\flo@kdwa}{0.16*\flo@kdwz}{flo@kdc}{0.16}%
+  \ifnum#1=0
+    \flo@kdrun{\flo@kdsn}{\ifdim\flo@kdv{L#1}{\flo@kdri}pt<-0.2pt \flo@kdoktrue\else\flo@kdokfalse\fi}%
+    \ifnum\flo@kdra>0 \ifnum\numexpr\flo@kdrb-\flo@kdra\relax>2
+      \flo@kdslice{O#1}{\flo@kdra}{\flo@kdrb}{kdsh}%
+      \flo@vtone{flo@kdc}{0.06}\flo@kdstreak{kdsh}{0.2*\flo@kdv{W#1}{\flo@kdra}}{0.5*\flo@kdv{W#1}{\flo@kdrb}}{flo@kdc}{0.24}\fi\fi
+  \fi
+  \ifnum#1<3 \ifnum\flo@kdmold=0
+    \flo@kdrun{\flo@kdsn}{\ifdim\flo@kdv{L#1}{\flo@kdri}pt>0.15pt \flo@kdoktrue\else\flo@kdokfalse\fi}%
+    \ifnum\flo@kdra>0 \ifnum\numexpr\flo@kdrb-\flo@kdra\relax>2
+      \flo@kdacross{I#1}{O#1}{0.42}{kdmid}\flo@kdslice{kdmid}{\flo@kdra}{\flo@kdrb}{kdsh}%
+      \pgfmathtruncatemacro\flo@kdsi{floor((\flo@kdra+\flo@kdrb)/2)}%
+      \ifnum#1=0 \def\flo@tmp{0.5}\else\def\flo@tmp{0.35}\fi
+      \flo@kdswell{kdsh}{0.17*\flo@kdv{W#1}{\flo@kdsi}}{white}{\flo@tmp}\fi\fi
+  \fi\fi}
+% a mold's suture lines across band #1, up to the body chamber: saddles forward and lobes
+% back, zigzag (goniatitic), the lobes toothed (ceratitic), or frilled all over (ammonitic)
+\def\flo@kdsepta#1{%
+  \flo@range\flo@t{0.2}{0.8}\flo@calc\flo@kdsth{min(\flo@kdv{T#1}{1},\flo@kdPtm-\flo@kdchamber)-30*\flo@t}%
+  \ifnum\flo@kdlod=0 \def\flo@kdnp{64}\else\def\flo@kdnp{32}\fi
+  \flo@range\flo@kdsfa{0}{360}\flo@range\flo@kdsfb{0}{360}%
+  \edef\flo@kdst{\flo@kget{septa}}\def\flo@kdgo{goniatitic}\def\flo@kdce{ceratitic}%
+  \flo@kdseptaloop{#1}}
+\def\flo@kdseptaloop#1{\flo@calc\flo@t{\flo@kdv{T#1}{0}+9}%
+  \ifdim\flo@kdsth pt>\flo@t pt \flo@kdseptum{#1}\def\flo@kdnext{\flo@kdseptaloop{#1}}\else\let\flo@kdnext\relax\fi\flo@kdnext}
+\def\flo@kdseptum#1{%
+  \flo@kdvout\flo@kdsth{#1}\flo@kdrad\flo@kdsth{0}\flo@calc\flo@kdhw{\flo@kdro-(\flo@kdr)}\let\flo@kdrio\flo@kdr
+  \flo@loop{kdsp}\flo@kdl{0}{\flo@kdnp}{%
+    \flo@calc\flo@kdu{\the\flo@kdl/\flo@kdnp}\flo@calc\flo@kdbase{sin(900*\flo@kdu)}%
+    \ifdim\flo@kdbase pt>0pt \flo@calc\flo@kdw{0.75*pow(\flo@kdbase,0.7)}\else\flo@calc\flo@kdw{-1.15*pow(abs(\flo@kdbase),1.3)}\fi
+    \ifx\flo@kdst\flo@kdgo
+      \ifdim\flo@kdbase pt>0pt\else\flo@calc\flo@kdw{-1.2*(1-acos(-(\flo@kdbase))/90)}\fi
+    \else\ifx\flo@kdst\flo@kdce
+      \ifdim\flo@kdbase pt<0pt \flo@calc\flo@kdw{\flo@kdw+0.25*sin(4500*\flo@kdu+\flo@kdsfa)*abs(\flo@kdbase)}\fi
+    \else
+      \flo@calc\flo@kdfr{0.3*sin(3600*\flo@kdu+\flo@kdsfa)}%
+      \ifnum\flo@kdlod=0 \flo@calc\flo@kdfr{\flo@kdfr+0.14*sin(9900*\flo@kdu+\flo@kdsfb)}\fi
+      \flo@calc\flo@kdw{\flo@kdw+\flo@kdfr*(0.35+0.65*abs(\flo@kdbase))}%
+    \fi\fi
+    \flo@calc\flo@kda{\flo@kdsth+0.16*\flo@kdhw*\flo@kdw/(\flo@kdrio+\flo@kdu*\flo@kdhw)*57.29578}%
+    \flo@kdrad\flo@kda{0}\let\flo@kdri\flo@kdr\flo@kdvout\flo@kda{#1}%
+    \flo@kdpt\flo@kda{\flo@kdri+\flo@kdu*(\flo@kdro-(\flo@kdri))}\flo@kdput{kdsp}{\the\numexpr\flo@kdl+1\relax}{\flo@kdpx}{\flo@kdpy}}%
+  \flo@kdsetn{kdsp}{\flo@kdnp+1}%
+  \flo@kdstroke{0.06}{0.4*\flo@kdpen}{0.55}{1}{\flo@kdcurve{kdsp}1}%
+  \flo@range\flo@t{0.85}{1.15}\flo@calc\flo@kdsth{\flo@kdsth-30*\flo@t}}
+% a nautilus's flame stripes across the older part of band #1, fading toward the mouth
+\def\flo@kdflames#1{%
+  \flo@range\flo@t{10}{15}\pgfmathtruncatemacro\flo@kdfn{floor(\flo@t)}%
+  \flo@loop{kdfl}\flo@kdl{1}{\flo@kdfn}{%
+    \flo@range\flo@t{0.3}{0.7}\flo@calc\flo@kdfth{\flo@kdv{T#1}{0}+223.2*(\the\flo@kdl-\flo@t)/\flo@kdfn}%
+    \flo@calc\flo@kdfade{1-(\flo@kdfth-(\flo@kdv{T#1}{0}))/223.2}%
+    \flo@loop{kdfp}\flo@kdq{0}{5}{%
+      \flo@calc\flo@kdu{0.04+0.92*\the\flo@kdq/5}\flo@sym\flo@t{2.5}\flo@calc\flo@kda{\flo@kdfth+4*\flo@kdu+\flo@t}%
+      \flo@kdrad\flo@kda{0}\let\flo@kdri\flo@kdr\flo@kdvout\flo@kda{0}%
+      \flo@kdpt\flo@kda{\flo@kdri+\flo@kdu*(\flo@kdro-(\flo@kdri))}\flo@kdput{kdfl}{\the\numexpr\flo@kdq+1\relax}{\flo@kdpx}{\flo@kdpy}}%
+    \flo@kdsetn{kdfl}{6}%
+    \flo@kdrad\flo@kdfth{1}\flo@calc\flo@kdgap{\flo@kdr*(223.2/\flo@kdfn)*0.0174533}%
+    \flo@range\flo@t{0.4}{0.65}\flo@calc\flo@kdfw{\flo@kdgap*\flo@t}%
+    \flo@vtone{flo@kdc}{\flo@kdt-0.36}%
+    \flo@kdstreak{kdfl}{0.1*\flo@kdgap}{\flo@kdfw}{flo@kdc}{(0.35+0.5*\flo@kget{contrast})*(0.3+0.7*\flo@kdfade)}}}
+% worn through to the nacre on the last whorl (band 0): a copper patch out to a ragged edge,
+% and a glint
+\def\flo@kdnacre{%
+  \flo@kdaccent1\edef\flo@kdsn{\flo@kdn{I0}}%
+  \flo@range\flo@t{0.45}{0.6}\pgfmathtruncatemacro\flo@kdia{floor(\flo@kdsn*\flo@t)}%
+  \flo@range\flo@t{0.35}{0.5}\flo@kdacross{I0}{O0}{\flo@t}{kdedge}%
+  \flo@kdsetn{kdpatch}{2*\flo@kdia}%
+  \flo@loop{kdna}\flo@kdl{1}{\flo@kdia}{%
+    \flo@calc\flo@kdw{0.05*\flo@kdv{W0}{\the\flo@kdl}}%
+    \flo@sym\flo@t{\flo@kdw}\flo@calc\flo@kdax{\flo@kdx{kdedge}{\the\flo@kdl}+\flo@t}%
+    \flo@sym\flo@t{\flo@kdw}\flo@calc\flo@kday{\flo@kdy{kdedge}{\the\flo@kdl}+\flo@t}%
+    \flo@kdput{kdpatch}{\the\flo@kdl}{\flo@kdax}{\flo@kday}}%
+  \flo@loop{kdnb}\flo@kdl{1}{\flo@kdia}{\edef\flo@t{\the\numexpr\flo@kdia+1-\flo@kdl\relax}%
+    \flo@kdput{kdpatch}{\the\numexpr\flo@kdia+\flo@kdl\relax}{\flo@kdx{I0}\flo@t}{\flo@kdy{I0}\flo@t}}%
+  \flo@kdfill{\flo@kdt+0.18}{0.4}{0}{\flo@kdsmooth{kdpatch}}%
+  \flo@kdacross{I0}{O0}{0.18}{kdedge}\flo@kdslice{kdedge}{2}{\flo@kdia-1}{kdsh}%
+  \pgfmathtruncatemacro\flo@kdsi{floor(\flo@kdia/2)}%
+  \flo@kdswell{kdsh}{0.08*\flo@kdv{W0}{\flo@kdsi}}{white}{0.45}%
+  \flo@kdaccent0}
+% a whorl's band #1: its wash, then in its clip the shading, the grain or mottle, the
+% stripes, ribs and suture lines; too small, a flat wash
+\def\flo@kdwhorl#1{%
+  \ifnum\flo@kdacc=1 \flo@kdaccent1\else\ifnum\flo@kdnac=1 \ifnum#1>0 \flo@kdaccent1\else\flo@kdaccent0\fi\else\flo@kdaccent0\fi\fi
+  \flo@sym\flo@t{0.03}\flo@calc\flo@kdtk{\flo@kdt+\flo@t}%
+  \flo@calc\flo@kdbw{\flo@kdv{W#1}{\flo@kdn{O#1}}*\flo@kdcm}%
+  \flo@kdbox{O#1}\let\flo@kdba\flo@kdbxa\let\flo@kdbb\flo@kdbxb\let\flo@kdbc\flo@kdbya\let\flo@kdbd\flo@kdbyb
+  \def\flo@kddet{0}\ifnum\flo@kdlod<2 \ifdim\flo@kdbw pt>0.03pt \def\flo@kddet{1}\fi\fi
+  \ifnum\flo@kddet=1
+    \begin{pgfscope}\flo@kdbandpath{#1}\pgfusepath{clip}%
+      \flo@kdfill{\flo@kdtk}{1}{0}{\flo@kdrect\flo@kdba\flo@kdbc\flo@kdbb\flo@kdbd}%
+      \flo@kdshade{#1}%
+      \ifnum\flo@kdlod=0 \ifdim\flo@kdbw pt>0.12pt
+        \flo@calc\flo@kdms{0.12*(\flo@kdbb-(\flo@kdba))}%
+        \ifnum\flo@kdmold=1 \flo@vmottle\flo@kdba\flo@kdbc\flo@kdbb\flo@kdbd{7}\flo@kdms{\flo@kdtk-0.14}{\flo@kdtk+0.18}{14}%
+        \else\flo@vmottle\flo@kdba\flo@kdbc\flo@kdbb\flo@kdbd{4}\flo@kdms{\flo@kdtk-0.14}{\flo@kdtk+0.18}{4}\fi
+      \fi\fi
+      \edef\flo@t{\flo@kget{kind}}\def\flo@tmp{nautilus}%
+      \ifx\flo@t\flo@tmp\ifnum#1=0 \flo@kdflames{#1}\else\ifdim\flo@kdbw pt>0.1pt \flo@kdflames{#1}\fi\fi\fi
+      \ifnum\flo@kget{ribs}>0 \flo@kdribs{#1}\fi
+      \ifnum\flo@kdmold=1 \ifnum\flo@kdlod=0 \ifdim\flo@kdbw pt>0.1pt \flo@kdsepta{#1}\fi\fi\fi
+      \ifnum#1=0 \ifnum\flo@kdnac=1 \flo@kdnacre\fi\fi
+    \end{pgfscope}%
+  \else
+    \flo@kdfill{\flo@kdtk}{1}{0}{\flo@kdbandpath{#1}}%
+  \fi}
+% a planispiral: an ammonite or a nautilus
+\def\flo@kdplanispiral{%
+  \edef\flo@kdPW{\flo@kget{expansion}}%
+  \flo@calc\flo@kdPy{(1+\flo@kget{umbilicus})/(1-\flo@kget{umbilicus})}%
+  \flo@chance{0.5}\ifflo@yes\def\flo@kdPs{1}\else\def\flo@kdPs{-1}\fi
+  \flo@range\flo@kdPph{20}{80}%
+  \ifnum\flo@kget{broken}=1 \flo@range\flo@t{40}{110}\flo@calc\flo@kdPtm{-\flo@t}\else\def\flo@kdPtm{0}\fi
+  \flo@calc\flo@kdPtmin{\flo@kdPtm-360*\flo@kget{whorls}}%
+  \pgfmathtruncatemacro\flo@kdJ{ceil(\flo@kget{whorls})}%
+  \flo@loop{kdbs}\flo@kdk{0}{\flo@kdJ-1}{\expandafter\flo@kdband\expandafter{\the\flo@kdk}}%
+  \flo@kdbox{O0}\flo@kdframe
+  \edef\flo@kdpres{\flo@kget{preservation}}%
+  \def\flo@tmp{mold}\ifx\flo@kdpres\flo@tmp\def\flo@kdmold{1}\else\def\flo@kdmold{0}\fi
+  \def\flo@tmp{nacre}\ifx\flo@kdpres\flo@tmp\def\flo@kdnac{1}\else\def\flo@kdnac{0}\fi
+  \flo@kdtone
+  \ifnum\flo@kdmold=1 \flo@calc\flo@kdt{min(0.74,\flo@kdt+0.16)}\fi
+  \def\flo@tmp{pyrite}\ifx\flo@kdpres\flo@tmp\def\flo@kdacc{1}\flo@calc\flo@kdt{\flo@kdt+0.04}\else\def\flo@kdacc{0}\fi
+  \flo@range\flo@kdchamber{180}{260}%
+  \flo@loop{kdwh}\flo@kdk{1}{\flo@kdJ}{%
+    \edef\flo@kdbk{\the\numexpr\flo@kdJ-\flo@kdk\relax}\expandafter\flo@kdwhorl\expandafter{\flo@kdbk}}%
+  \flo@kdaccent\flo@kdacc
+  % the lines: each whorl's inner edge (the suture on the whorl before it), the last whorl's
+  % outer edge, a keel inside it, and the mouth
+  \flo@loop{kdln}\flo@kdk{1}{\flo@kdJ}{%
+    \edef\flo@kdbk{\the\numexpr\flo@kdJ-\flo@kdk\relax}%
+    \def\flo@t{0}\ifnum\flo@kdlod<2 \def\flo@t{1}\fi\ifnum\flo@kdbk<2 \def\flo@t{1}\fi
+    \ifnum\flo@t=1 \ifnum\flo@kdbk=0 \def\flo@tmp{0.75}\else\def\flo@tmp{0.6}\fi
+      \flo@kdstroke{0.06}{\flo@tmp*\flo@kdpen}{0.75}{1}{\flo@kdcurve{I\flo@kdbk}1}\fi}%
+  \edef\flo@t{\flo@kget{keel}}\def\flo@tmp{none}%
+  \ifx\flo@t\flo@tmp\else\ifnum\flo@kdlod<2
+    \flo@kdacross{I0}{O0}{0.94}{kdkeel}\flo@kdstroke{0.08}{0.45*\flo@kdpen}{0.6}{1}{\flo@kdcurve{kdkeel}1}%
+    \def\flo@tmp{grooved}\ifx\flo@t\flo@tmp
+      \flo@kdacross{I0}{O0}{0.88}{kdkeel}\flo@kdstroke{0.06}{0.4*\flo@kdpen}{0.55}{1}{\flo@kdcurve{kdkeel}1}\fi
+  \fi\fi
+  \flo@kdstroke{0.05}{\flo@kdpen}{0.85}{1}{\flo@kdcurve{O0}1}%
+  % the mouth across the tube at its last ring, bowed toward the mouth (a nautilus's back at
+  % its outer edge), a pale lip behind it; a broken shell's edge jagged
+  \edef\flo@kdkind{\flo@kget{kind}}\def\flo@kdnau{nautilus}\edef\flo@kdbroken{\flo@kget{broken}}%
+  \flo@loop{kdmo}\flo@kdl{0}{6}{%
+    \flo@calc\flo@kdu{\the\flo@kdl/6}\edef\flo@kda{\flo@kdPtm}%
+    \ifnum\flo@kdbroken=1 \ifnum\flo@kdl>0 \ifnum\flo@kdl<6 \flo@sym\flo@t{5}\flo@calc\flo@kda{\flo@kda+\flo@t}\fi\fi
+    \else\ifx\flo@kdkind\flo@kdnau\flo@calc\flo@kda{\flo@kda-9*\flo@kdu*\flo@kdu}%
+    \else\flo@calc\flo@kda{\flo@kda+3.5*sin(180*\flo@kdu)}\fi\fi
+    \flo@kdrad\flo@kda{0}\let\flo@kdri\flo@kdr\flo@kdrad\flo@kda{1}%
+    \flo@kdpt\flo@kda{\flo@kdri+\flo@kdu*(\flo@kdr-(\flo@kdri))}\flo@kdput{kdmouth}{\the\numexpr\flo@kdl+1\relax}{\flo@kdpx}{\flo@kdpy}}%
+  \flo@kdsetn{kdmouth}{7}%
+  % the opening, seen a little from the front past the mouth's line
+  \flo@kdrad\flo@kdPtm{1}\let\flo@kdrb@\flo@kdr\flo@kdrad\flo@kdPtm{0}\flo@calc\flo@kdhw{\flo@kdrb@-(\flo@kdr)}%
+  \flo@calc\flo@kda{\flo@kdPph+\flo@kdPs*\flo@kdPtm}%
+  \flo@calc\flo@kdmx{-sin(\flo@kda)*\flo@kdPs}\flo@calc\flo@kdmy{cos(\flo@kda)*\flo@kdPs}%
+  \ifnum\flo@kdbroken=1 \def\flo@kdmk{0.05}\else\def\flo@kdmk{0.1}\fi
+  \flo@loop{kdin}\flo@kdl{0}{6}{%
+    \edef\flo@kdmi{\the\numexpr7-\flo@kdl\relax}\flo@calc\flo@kdu{(6-\the\flo@kdl)/6}%
+    \flo@calc\flo@kdh{\flo@kdhw*\flo@kdmk*sin(180*\flo@kdu)*(0.35+0.65*\flo@kdu)}%
+    \flo@calc\flo@kdax{\flo@kdx{kdmouth}\flo@kdmi+\flo@kdh*\flo@kdmx}\flo@calc\flo@kday{\flo@kdy{kdmouth}\flo@kdmi+\flo@kdh*\flo@kdmy}%
+    \flo@kdput{kdinside}{\the\numexpr\flo@kdl+1\relax}{\flo@kdax}{\flo@kday}}%
+  \flo@kdsetn{kdinside}{7}%
+  \ifnum\flo@kdbroken=0 \flo@kdfill{0.16}{0.8}{0}{\flo@kdcurve{kdmouth}1\flo@kdcurve{kdinside}0\pgfpathclose}\fi
+  \ifnum\flo@kdbroken=1
+    \flo@kdstroke{0.05}{0.9*\flo@kdpen}{0.85}{1}{\flo@kdpoly{kdmouth}0}%
+  \else
+    \flo@kdstroke{0.05}{1.1*\flo@kdpen}{0.85}{1}{\flo@kdcurve{kdmouth}1}%
+    \ifnum\flo@kdlod<2
+      \flo@loop{kdlp}\flo@kdl{0}{6}{%
+        \flo@calc\flo@kdu{\the\flo@kdl/6}%
+        \ifx\flo@kdkind\flo@kdnau\flo@calc\flo@kda{\flo@kdPtm-2.5-9*\flo@kdu*\flo@kdu}\else\flo@calc\flo@kda{\flo@kdPtm-2.5+3.5*sin(180*\flo@kdu)}\fi
+        \flo@kdrad\flo@kda{0}\let\flo@kdri\flo@kdr\flo@kdrad\flo@kda{1}%
+        \flo@kdpt\flo@kda{\flo@kdri+\flo@kdu*(\flo@kdr-(\flo@kdri))}\flo@kdput{kdlip}{\the\numexpr\flo@kdl+1\relax}{\flo@kdpx}{\flo@kdpy}}%
+      \flo@kdsetn{kdlip}{7}\flo@kdswell{kdlip}{0.025*\flo@kdhw}{white}{0.45}%
+    \fi
+  \fi
+  % the center: the first whorl, or a nautilus's dark callus where it would be
+  \ifx\flo@kdkind\flo@kdnau
+    \flo@kdrad{\flo@kdPtm-360}{0.04}\let\flo@kdcr\flo@kdr
+    \flo@vblob{0}{0}\flo@kdcr{0.9*\flo@kdcr}{0.2}{9}\flo@kdfill{0.1}{0.6}{1}{\flo@smoothpath}%
+  \else
+    \flo@kdrad\flo@kdPtmin{1}\let\flo@kdcr\flo@kdr
+    \flo@kdfill{\flo@kdt-0.1}{1}{0}{\pgfpathcircle{\flo@P00}{\flo@kdcr pt}}%
+  \fi}
+% \pic {florilegium shell={...}}: sample the shell, reseed for the drawing (draw=, or the
+% seed + 1), and draw it by its group (florilegium-shell.lua: M.draw)
+\def\flo@shellpic#1{%
+  \pgfkeys{/florilegium,#1}\flo@colors\flo@intof\flo@o@seed\flo@o@seed
+  \edef\flo@tmp{\noexpand\florilegiumshell[{\flo@o@traits}]{\flo@o@seed}{\flo@o@role}}\flo@tmp
+  \edef\flo@o@seed{\flo@kget{seed}}%
+  \ifx\flo@o@draw\pgfutil@empty
+    \edef\flo@o@draw{\the\numexpr\ifnum\flo@o@seed=2147483646 1\else\flo@o@seed+1\fi\relax}\fi
+  \flo@drawseed\flo@o@draw
+  \pgfmathsetlength\pgf@x{\flo@o@size}\edef\flo@sizept{\pgf@sys@tonumber\pgf@x}%
+  \pgfsetroundcap\pgfsetroundjoin\def\flo@lift{0}\def\flo@rampname{flo@ramp}%
+  \flo@calc\flo@kdacm{\flo@sizept/28.45276}%    the shell across on the page, in cm
+  \edef\flo@t{\flo@kget{group}}\def\flo@tmp{planispiral}\def\flo@tmpb{bivalve}%
+  \edef\flo@tmpc{\flo@kget{kind}}\def\flo@tmpd{cowrie}%
+  \ifx\flo@t\flo@tmp\flo@kdplanispiral
+  \else\ifx\flo@t\flo@tmpb\flo@kdbivalve
+  \else\ifx\flo@tmpc\flo@tmpd\flo@kdcowrie
+  \else\flo@kdgastropod\fi\fi\fi}
+
+% ---------------------------------------------------------------- bivalves
+% One valve from its outline, its beak up (florilegium-shell.lua: valve_shape): an ellipse
+% and the beak joined by the two lines from the beak that just touch it. The beak is
+% (\flo@kdVbx, \flo@kdVby), the ellipse's half-axes \flo@kdVa \flo@kdVb, the valve \flo@kdVH
+% high; the margin between the touching points is list kdarc, its light \flo@kdV@VL@<i>.
+% tobeak(p, t) into \flo@kdox \flo@kdoy: the point t of the way from the beak to p
+\def\flo@kdtobeak#1#2#3{\flo@calc\flo@kdtt{#3}%
+  \flo@calc\flo@kdox{\flo@kdVbx+\flo@kdtt*((#1)-(\flo@kdVbx))}\flo@calc\flo@kdoy{\flo@kdVby+\flo@kdtt*((#2)-(\flo@kdVby))}}
+% shrink: list #3 is list #1 drawn #2 of the way toward the beak
+\def\flo@kdshrink#1#2#3{\flo@calc\flo@kdst{#2}\flo@kdsetn{#3}{\flo@kdn{#1}}%
+  \flo@loop{kdsk}\flo@kdm{1}{\flo@kdn{#1}}{%
+    \flo@kdtobeak{\flo@kdx{#1}{\the\flo@kdm}}{\flo@kdy{#1}{\the\flo@kdm}}\flo@kdst
+    \flo@kdput{#3}{\the\flo@kdm}{\flo@kdox}{\flo@kdoy}}}
+% the lengths along list #1 into values #2 (lengths), the last into \flo@kdtotal
+\def\flo@kdlengths#1#2{\flo@kdvset{#2}{1}{0}\def\flo@kdtotal{0}%
+  \flo@loop{kdlg}\flo@kdm{2}{\flo@kdn{#1}}{%
+    \edef\flo@ia{\the\numexpr\flo@kdm-1\relax}%
+    \flo@calc\flo@kdtotal{\flo@kdtotal+veclen(\flo@kdx{#1}{\the\flo@kdm}-(\flo@kdx{#1}\flo@ia),\flo@kdy{#1}{\the\flo@kdm}-(\flo@kdy{#1}\flo@ia))}%
+    \flo@kdvset{#2}{\the\flo@kdm}{\flo@kdtotal}}}
+% along: the point #3 along list #1 (its lengths the values #2) into \flo@kdox \flo@kdoy
+\def\flo@kdalong#1#2#3{\flo@calc\flo@kdad{#3}\def\flo@kddone{0}%
+  \flo@loop{kdal}\flo@kdm{2}{\flo@kdn{#1}}{%
+    \ifnum\flo@kddone=0
+      \def\flo@kdhit{0}\ifdim\flo@kdv{#2}{\the\flo@kdm}pt<\flo@kdad pt\else\def\flo@kdhit{1}\fi
+      \ifnum\flo@kdm=\flo@kdn{#1} \def\flo@kdhit{1}\fi
+      \ifnum\flo@kdhit=1 \def\flo@kddone{1}%
+        \edef\flo@ia{\the\numexpr\flo@kdm-1\relax}%
+        \flo@calc\flo@kdaf{max(0,min(1,(\flo@kdad-(\flo@kdv{#2}\flo@ia))/max(0.00002,\flo@kdv{#2}{\the\flo@kdm}-(\flo@kdv{#2}\flo@ia))))}%
+        \flo@calc\flo@kdox{\flo@kdx{#1}\flo@ia+\flo@kdaf*(\flo@kdx{#1}{\the\flo@kdm}-(\flo@kdx{#1}\flo@ia))}%
+        \flo@calc\flo@kdoy{\flo@kdy{#1}\flo@ia+\flo@kdaf*(\flo@kdy{#1}{\the\flo@kdm}-(\flo@kdy{#1}\flo@ia))}%
+      \fi
+    \fi}}
+% outward: the point (#1,#2) moved #3 away from the beak, into \flo@kdox \flo@kdoy
+\def\flo@kdoutward#1#2#3{\flo@calc\flo@kddx{(#1)-(\flo@kdVbx)}\flo@calc\flo@kddy{(#2)-(\flo@kdVby)}%
+  \flo@calc\flo@kdol{max(0.00002,veclen(\flo@kddx,\flo@kddy))}\flo@calc\flo@kdod{#3}%
+  \flo@calc\flo@kdox{(#1)+\flo@kdod*\flo@kddx/\flo@kdol}\flo@calc\flo@kdoy{(#2)+\flo@kdod*\flo@kddy/\flo@kdol}}
+% line: #3 + 1 points from (#4,#5) to (#6,#7) appended to list #1 after its point #2
+\def\flo@kdline#1#2#3#4#5#6#7{\flo@loop{kdli}\flo@kdq{0}{#3}{%
+    \flo@calc\flo@kdax{(#4)+((#6)-(#4))*\the\flo@kdq/(#3)}\flo@calc\flo@kday{(#5)+((#7)-(#5))*\the\flo@kdq/(#3)}%
+    \flo@kdput{#1}{\the\numexpr#2+\flo@kdq+1\relax}{\flo@kdax}{\flo@kday}}}
+% valve_outline: list #2 from the beak along list #1's margin and back
+\def\flo@kdvalveoutline#1#2{%
+  \ifnum\flo@kdVround=1 \def\flo@kdvk{2}\else\def\flo@kdvk{6}\fi
+  \edef\flo@kdvn{\flo@kdn{#1}}%
+  \edef\flo@kdva{\flo@kdx{#1}1}\edef\flo@kdvb{\flo@kdy{#1}1}%
+  \flo@kdline{#2}{0}{\flo@kdvk}\flo@kdVbx\flo@kdVby\flo@kdva\flo@kdvb
+  \flo@loop{kdvo}\flo@kdm{2}{\flo@kdvn-1}{%
+    \flo@kdput{#2}{\the\numexpr\flo@kdvk+\flo@kdm\relax}{\flo@kdx{#1}{\the\flo@kdm}}{\flo@kdy{#1}{\the\flo@kdm}}}%
+  \edef\flo@kdva{\flo@kdx{#1}\flo@kdvn}\edef\flo@kdvb{\flo@kdy{#1}\flo@kdvn}%
+  \flo@kdline{#2}{\flo@kdvk+\flo@kdvn-1}{\flo@kdvk}\flo@kdva\flo@kdvb\flo@kdVbx\flo@kdVby
+  \flo@kdsetn{#2}{2*\flo@kdvk+\flo@kdvn}}
+% outlinepath: a point at the beak (a scallop's, a mussel's), or an umbo rounded through it
+\def\flo@kdoutlinepath#1{\ifnum\flo@kdVround=1 \flo@kdslice{#1}{1}{\flo@kdn{#1}-1}{kdop}\flo@kdsmooth{kdop}%
+  \else\flo@kdcurve{#1}1\pgfpathclose\fi}
+% the valve's shape for its kind; #1 1 or -1, the side its front is on
+\def\flo@kdvalveshape#1{%
+  \edef\flo@kdH{\flo@kget{aspect}}\edef\flo@kdkind{\flo@kget{kind}}\def\flo@kdVa{0.5}%
+  \def\flo@tmp{mussel}%
+  \ifx\flo@kdkind\flo@tmp
+    \flo@calc\flo@kdVb{\flo@kdH/2}\flo@calc\flo@kdVbx{-0.64+\flo@kget{beak}}\flo@calc\flo@kdVby{-0.7*\flo@kdVb}%
+  \else
+    \def\flo@tmp{scallop}\def\flo@tmpb{oyster}\def\flo@tmpc{clam}\def\flo@tmpd{cockle}%
+    \ifx\flo@kdkind\flo@tmp\flo@calc\flo@kdu{0.2*\flo@kdH}\else\ifx\flo@kdkind\flo@tmpb\def\flo@kdu{0.12}\else
+      \ifx\flo@kdkind\flo@tmpc\def\flo@kdu{0.06}\else\def\flo@kdu{0.035}\fi\fi\fi
+    \ifx\flo@kdkind\flo@tmp\def\flo@kdlean{0}\else\ifx\flo@kdkind\flo@tmpd\def\flo@kdlean{0.6}\else\def\flo@kdlean{0.9}\fi\fi
+    \flo@calc\flo@kdVb{(\flo@kdH-\flo@kdu)/2}%
+    \flo@calc\flo@kdVbx{(\flo@kget{beak}-0.5)*\flo@kdlean}\flo@calc\flo@kdVby{\flo@kdVb+\flo@kdu}%
+  \fi
+  \flo@calc\flo@kdVbx{\flo@kdVbx*(#1)}\flo@calc\flo@kdVH{max(\flo@kdH,2*\flo@kdVb)}%
+  \flo@calc\flo@kduu{\flo@kdVbx/\flo@kdVa}\flo@calc\flo@kdvv{\flo@kdVby/\flo@kdVb}%
+  \flo@calc\flo@kdph{atan2(\flo@kdvv,\flo@kduu)}\flo@calc\flo@kdde{acos(1/sqrt(\flo@kduu*\flo@kduu+\flo@kdvv*\flo@kdvv))}%
+  \flo@calc\flo@kdta{\flo@kdph+\flo@kdde}\flo@calc\flo@kdtb{\flo@kdph-\flo@kdde+360}%
+  \pgfmathtruncatemacro\flo@kdvn{ceil((\flo@kdtb-\flo@kdta)/4)}%
+  % an oyster's edge is lumpy and ragged
+  \flo@range\flo@kdpa{0}{360}\flo@range\flo@kdpb{0}{360}\flo@range\flo@kdpc{0}{360}\flo@range\flo@kdpd{0}{360}%
+  \def\flo@tmp{oyster}%
+  \flo@loop{kdvs}\flo@kdm{0}{\flo@kdvn}{%
+    \flo@calc\flo@kdth{\flo@kdta+(\flo@kdtb-\flo@kdta)*(\the\flo@kdm/\flo@kdvn)}%   (in pgfmath's range)
+    \flo@calc\flo@kdax{\flo@kdVa*cos(\flo@kdth)}\flo@calc\flo@kday{\flo@kdVb*sin(\flo@kdth)}%
+    \ifx\flo@kdkind\flo@tmp
+      \flo@calc\flo@kdok{1+0.06*sin(3*\flo@kdth+\flo@kdpa)+0.04*sin(5*\flo@kdth+\flo@kdpb)+0.02*sin(11*\flo@kdth+\flo@kdpc)+0.012*sin(23*\flo@kdth+\flo@kdpd)}%
+      \flo@calc\flo@kdax{\flo@kdax*\flo@kdok}\flo@calc\flo@kday{\flo@kday*\flo@kdok}%
+    \fi
+    \flo@kdput{kdarc}{\the\numexpr\flo@kdm+1\relax}{\flo@kdax}{\flo@kday}%
+    \flo@calc\flo@t{cos(atan2(sin(\flo@kdth)/\flo@kdVb,cos(\flo@kdth)/\flo@kdVa)-135)}\flo@kdvset{VL}{\the\numexpr\flo@kdm+1\relax}{\flo@t}}%
+  \flo@kdsetn{kdarc}{\flo@kdvn+1}%
+  \def\flo@kdVround{1}\def\flo@tmp{scallop}\def\flo@tmpb{mussel}%
+  \ifx\flo@kdkind\flo@tmp\def\flo@kdVround{0}\fi\ifx\flo@kdkind\flo@tmpb\def\flo@kdVround{0}\fi}
+% a scallop's ears: flat wings on the straight hinge either side of the beak, the front one
+% the larger when they are unequal, with the notch for the byssus under it; side #2, lists
+% kdear<side> (side a or b), their size \flo@kdV@e@<side>
+\def\flo@kdear#1#2{%
+  \edef\flo@t{\flo@kget{ears}}\def\flo@tmp{unequal}%
+  \ifx\flo@t\flo@tmp\def\flo@kdfront{0.3}\def\flo@kdback{0.2}\def\flo@kdunq{1}\else\def\flo@kdfront{0.25}\def\flo@kdback{0.25}\def\flo@kdunq{0}\fi
+  \ifnum#2=\numexpr-\flo@kdmm\relax\let\flo@kde\flo@kdfront\else\let\flo@kde\flo@kdback\fi
+  \flo@kdvset{e}{#1}{\flo@kde}\flo@kdvset{side}{#1}{#2}%
+  \ifnum#2<0 \def\flo@kdti{1}\else\edef\flo@kdti{\flo@kdn{kdarc}}\fi
+  \flo@calc\flo@t{(\flo@kdx{kdarc}\flo@kdti-(\flo@kdVbx))*(#2)}%
+  \ifdim\flo@t pt<0pt \ifnum#2<0 \edef\flo@kdti{\flo@kdn{kdarc}}\else\def\flo@kdti{1}\fi\fi
+  \edef\flo@kdtx{\flo@kdx{kdarc}\flo@kdti}\edef\flo@kdty{\flo@kdy{kdarc}\flo@kdti}%
+  \flo@calc\flo@kdf{min(0.9,0.17*\flo@kdVH/max(0.00002,\flo@kdVby-(\flo@kdty)))}%
+  \flo@kdput{kdear#1}{1}{\flo@kdVbx}{\flo@kdVby}%
+  \flo@calc\flo@kdax{\flo@kdVbx+(#2)*\flo@kde}\flo@calc\flo@kday{\flo@kdVby+0.01*\flo@kdVH}\flo@kdput{kdear#1}{2}{\flo@kdax}{\flo@kday}%
+  \flo@calc\flo@kdax{\flo@kdVbx+(#2)*\flo@kde*0.9}\flo@calc\flo@kday{\flo@kdVby-0.1*\flo@kdVH}\flo@kdput{kdear#1}{3}{\flo@kdax}{\flo@kday}%
+  \def\flo@kdne{3}%
+  \ifnum\flo@kdunq=1 \ifnum#2=\numexpr-\flo@kdmm\relax
+    \flo@calc\flo@kdax{\flo@kdVbx+(#2)*\flo@kde*0.62}\flo@calc\flo@kday{\flo@kdVby-0.075*\flo@kdVH}\flo@kdput{kdear#1}{4}{\flo@kdax}{\flo@kday}%
+    \flo@calc\flo@kdax{\flo@kdVbx+(#2)*\flo@kde*0.5}\flo@calc\flo@kday{\flo@kdVby-0.11*\flo@kdVH}\flo@kdput{kdear#1}{5}{\flo@kdax}{\flo@kday}%
+    \def\flo@kdne{5}\fi\fi
+  \flo@calc\flo@kdax{\flo@kdVbx+\flo@kdf*(\flo@kdtx-(\flo@kdVbx))}\flo@calc\flo@kday{\flo@kdVby+\flo@kdf*(\flo@kdty-(\flo@kdVby))}%
+  \flo@kdput{kdear#1}{\the\numexpr\flo@kdne+1\relax}{\flo@kdax}{\flo@kday}\flo@kdsetn{kdear#1}{\flo@kdne+1}}
+% an ear (list kdear#1) drawn behind the valve: its wash, the hinge's lines and the ribs
+% fanning on it, its outline
+\def\flo@kdeardraw#1{%
+  \edef\flo@kde{\flo@kdv{e}{#1}}\edef\flo@kdside{\flo@kdv{side}{#1}}%
+  \flo@sym\flo@t{0.02}\flo@kdfill{\flo@kdt+\flo@t}{1}{0}{\flo@kdpoly{kdear#1}1}%
+  \ifnum\flo@kdlod<2
+    \begin{pgfscope}\flo@kdpoly{kdear#1}1\pgfusepath{clip}%
+      \flo@loop{kdeh}\flo@kdq{1}{2}{%
+        \flo@calc\flo@kday{\flo@kdVby-0.045*\flo@kdVH*\the\flo@kdq}\flo@calc\flo@kdax{\flo@kdVbx+\flo@kdside*\flo@kde*1.1}%
+        \flo@kdstroke{0.08}{0.3*\flo@kdpen}{0.28}{1}{\pgfpathmoveto{\flo@P\flo@kdVbx\flo@kday}\pgfpathlineto{\flo@P\flo@kdax\flo@kday}}}%
+      \ifnum\flo@kdlod=0
+        \flo@calc\flo@kday{\flo@kdVby-0.14*\flo@kdVH}%
+        \flo@loop{kder}\flo@kdq{1}{4}{%
+          \flo@calc\flo@kdax{\flo@kdVbx+\flo@kdside*\flo@kde*\the\flo@kdq/4.5}%
+          \flo@kdstroke{0.1}{0.3*\flo@kdpen}{0.25}{1}{\pgfpathmoveto{\flo@P\flo@kdVbx\flo@kdVby}\pgfpathlineto{\flo@P\flo@kdax\flo@kday}}}%
+      \fi
+    \end{pgfscope}%
+  \fi
+  \flo@kdstroke{0.05}{0.8*\flo@kdpen}{0.85}{1}{\flo@kdpoly{kdear#1}1}}
+% the valve's pattern, outside: concentric bands, rays from the beak, zigzag lines, or spots
+\def\flo@kdpattern{%
+  \edef\flo@t{\flo@kget{pattern}}\edef\flo@kdct{\flo@kget{contrast}}%
+  \def\flo@tmp{bands}\def\flo@tmpb{rays}\def\flo@tmpc{zigzags}%
+  \ifx\flo@t\flo@tmp
+    \flo@range\flo@t{2}{4.99}\pgfmathtruncatemacro\flo@kdnb{floor(\flo@t)}%
+    \flo@loop{kdpb}\flo@kdl{1}{\flo@kdnb}{%
+      \flo@calc\flo@kdpta{0.3+0.65*(\the\flo@kdl-0.5)/\flo@kdnb}\flo@range\flo@t{0.04}{0.09}\flo@calc\flo@kdptb{\flo@kdpta+\flo@t}%
+      \flo@kdshrink{kdmarc}{min(1,\flo@kdptb)}{kdsa}\flo@kdshrink{kdmarc}{\flo@kdpta}{kdsb}\flo@kdrev{kdsb}{kdsc}%
+      \flo@kdfill{\flo@kdt-0.22}{0.3+0.35*\flo@kdct}{0}{\flo@kdcurve{kdsa}1\flo@kdcurve{kdsc}0\pgfpathclose}}%
+  \else\ifx\flo@t\flo@tmpb
+    \flo@range\flo@t{3}{6.99}\pgfmathtruncatemacro\flo@kdnb{floor(\flo@t)}%
+    \flo@loop{kdpr}\flo@kdl{1}{\flo@kdnb}{%
+      \flo@range\flo@t{0.75}{0.95}\flo@calc\flo@kdda{\flo@kdtotal*(\the\flo@kdl-\flo@t)/\flo@kdnb}%
+      \flo@range\flo@t{0.05}{0.1}\flo@calc\flo@kddb{\flo@kdda+\flo@kdtotal*\flo@t}%
+      \flo@kdput{kdray}{1}{\flo@kdVbx}{\flo@kdVby}%
+      \flo@loop{kdpq}\flo@kdq{0}{4}{%
+        \flo@kdalong{kdmarc}{acc}{\flo@kdda+(\flo@kddb-\flo@kdda)*\the\flo@kdq/4}%
+        \flo@kdput{kdray}{\the\numexpr\flo@kdq+2\relax}{\flo@kdox}{\flo@kdoy}}%
+      \flo@kdsetn{kdray}{6}%
+      \flo@kdfill{\flo@kdt-0.2}{0.2+0.3*\flo@kdct}{1}{\flo@kdpoly{kdray}1}}%
+  \else\ifx\flo@t\flo@tmpc
+    \flo@loop{kdpz}\flo@kdl{1}{4}{%
+      \flo@calc\flo@kdtj{0.35+0.6*\the\flo@kdl/4.5}\def\flo@kdzn{0}%
+      \flo@loop{kdpy}\flo@kdq{1}{\flo@kdn{kdmarc}}{%
+        \ifodd\flo@kdq
+          \ifodd\numexpr(\flo@kdq-1)/2\relax\def\flo@t{-0.035}\else\def\flo@t{0.035}\fi
+          \flo@kdtobeak{\flo@kdx{kdmarc}{\the\flo@kdq}}{\flo@kdy{kdmarc}{\the\flo@kdq}}{\flo@kdtj+\flo@t}%
+          \edef\flo@kdzn{\the\numexpr\flo@kdzn+1\relax}\flo@kdput{kdzig}{\flo@kdzn}{\flo@kdox}{\flo@kdoy}%
+        \fi}%
+      \flo@kdsetn{kdzig}{\flo@kdzn}%
+      \flo@kdstroke{\flo@kdt-0.26}{0.6*\flo@kdpen}{0.3+0.4*\flo@kdct}{1}{\flo@kdpoly{kdzig}0}}%
+  \else
+    \flo@range\flo@t{14}{30}\pgfmathtruncatemacro\flo@kdnb{floor(\flo@t)}%
+    \flo@loop{kdpd}\flo@kdl{1}{\flo@kdnb}{%
+      \flo@range\flo@t{0}{\flo@kdtotal}\flo@kdalong{kdmarc}{acc}{\flo@t}%
+      \let\flo@kdpx\flo@kdox\let\flo@kdpy\flo@kdoy
+      \flo@range\flo@t{0.3}{0.95}\flo@kdtobeak\flo@kdpx\flo@kdpy\flo@t
+      \flo@range\flo@t{0.018}{0.035}\flo@calc\flo@kdr{\flo@kdVH*\flo@t}%
+      \flo@vblob\flo@kdox\flo@kdoy\flo@kdr{\flo@kdr*0.8}{0.25}{7}%
+      \flo@kdfill{\flo@kdt-0.24}{0.35+0.4*\flo@kdct}{1}{\flo@smoothpath}}%
+  \fi\fi\fi}
+% a bivalve: a scallop, a cockle, a mussel, a clam or an oyster
+\def\flo@kdbivalve{%
+  \flo@chance{0.5}\ifflo@yes\def\flo@kdmm{1}\else\def\flo@kdmm{-1}\fi
+  \flo@kdvalveshape\flo@kdmm
+  \edef\flo@kdribn{\flo@kget{ribs}}%
+  \flo@kdlengths{kdarc}{acc}%
+  \ifnum\flo@kdribn>0 \flo@calc\flo@kdgap{\flo@kdtotal/\flo@kdribn}\else\def\flo@kdgap{0}\fi
+  \def\flo@tmp{scallop}\ifx\flo@kdkind\flo@tmp\def\flo@kdsk{0.1}\def\flo@kdscal{1}\else\def\flo@kdsk{0.08}\def\flo@kdscal{0}\fi
+  \ifnum\flo@kdribn>0
+    \flo@kdsetn{kdmarc}{\flo@kdn{kdarc}}%
+    \flo@loop{kdmr}\flo@kdl{1}{\flo@kdn{kdarc}}{%
+      \flo@calc\flo@t{cos(360*(\flo@kdv{acc}{\the\flo@kdl}-0.5*\flo@kdgap)/\flo@kdgap)}%
+      \flo@kdoutward{\flo@kdx{kdarc}{\the\flo@kdl}}{\flo@kdy{kdarc}{\the\flo@kdl}}{\flo@kdsk*\flo@kdgap*\flo@t}%
+      \flo@kdput{kdmarc}{\the\flo@kdl}{\flo@kdox}{\flo@kdoy}}%
+  \else\flo@kdslice{kdarc}{1}{\flo@kdn{kdarc}}{kdmarc}\fi
+  \flo@kdvalveoutline{kdmarc}{kdoutline}%
+  \flo@kdbox{kdoutline}%
+  \ifnum\flo@kdscal=1 \flo@kdear{a}{-1}\flo@kdear{b}{1}\flo@kdboxadd{kdeara}\flo@kdboxadd{kdearb}\fi
+  \let\flo@kdfxa\flo@kdbxa\let\flo@kdfxb\flo@kdbxb\let\flo@kdfya\flo@kdbya\let\flo@kdfyb\flo@kdbyb
+  \flo@kdframe
+  \edef\flo@t{\flo@kget{view}}\def\flo@tmpb{inside}\ifx\flo@t\flo@tmpb\def\flo@kdin{1}\else\def\flo@kdin{0}\fi
+  \flo@kdtone\ifnum\flo@kdin=1 \flo@calc\flo@kdt{min(0.8,\flo@kdt+0.26)}\fi
+  \def\flo@kdshowribs{0}%
+  \ifnum\flo@kdribn>0 \ifnum\flo@kdlod<2 \flo@calc\flo@t{\flo@kdgap*\flo@kdcm}\ifdim\flo@t pt>0.05pt \def\flo@kdshowribs{1}\fi\fi\fi
+  % the ears, behind the valve
+  \ifnum\flo@kdscal=1 \flo@kdeardraw{a}\flo@kdeardraw{b}\fi
+  % the valve: its wash, then in its clip the light, the grain, the pattern, the ribs or
+  % ridges, the growth lines; inside up, the pale nacre or porcelain, the rim, the scars
+  \def\flo@kdnac{0}\ifnum\flo@kdin=1 \def\flo@tmpc{oyster}\def\flo@tmpd{mussel}%
+    \ifx\flo@kdkind\flo@tmpc\def\flo@kdnac{1}\fi\ifx\flo@kdkind\flo@tmpd\def\flo@kdnac{1}\fi\fi
+  \begin{pgfscope}\flo@kdoutlinepath{kdoutline}\pgfusepath{clip}%
+    \flo@kdfill{\flo@kdt}{1}{0}{\flo@kdrect\flo@kdfxa\flo@kdfya\flo@kdfxb\flo@kdfyb}%
+    \edef\flo@kdvn{\flo@kdn{kdmarc}}%
+    \def\flo@tmpc{oyster}\ifx\flo@kdkind\flo@tmpc\flo@kdlayers\fi
+    \ifnum\flo@kdnac=1
+      \flo@kdaccent1\flo@kdshrink{kdmarc}{0.86}{kdsa}\flo@kdvalveoutline{kdsa}{kdsb}%
+      \flo@kdfill{\flo@kdt+0.1}{0.6}{0}{\flo@kdoutlinepath{kdsb}}\flo@kdaccent0%
+    \fi
+    \ifnum\flo@kdlod<2 \flo@kdvalvedetail\fi
+  \end{pgfscope}%
+  % the outline, and the beak's tip
+  \flo@kdstroke{0.05}{\flo@kdpen}{0.85}{1}{\flo@kdoutlinepath{kdoutline}}%
+  \def\flo@tmpd{mussel}%
+  \ifnum\flo@kdlod<2 \ifx\flo@kdkind\flo@tmpd\else
+    \flo@calc\flo@kdr{0.035*\flo@kdVH}%
+    \flo@calc\flo@kdxa{\flo@kdVbx-\flo@kdmm*\flo@kdr}\flo@calc\flo@kdya{\flo@kdVby-0.6*\flo@kdr}%
+    \flo@calc\flo@kdxb{\flo@kdVbx-\flo@kdmm*0.3*\flo@kdr}\flo@calc\flo@kdyb{\flo@kdVby+0.4*\flo@kdr}%
+    \flo@calc\flo@kdxc{\flo@kdVbx+\flo@kdmm*0.5*\flo@kdr}\flo@calc\flo@kdyc{\flo@kdVby+0.3*\flo@kdr}%
+    \flo@kdstroke{0.05}{0.7*\flo@kdpen}{0.7}{1}{\pgfpathmoveto{\flo@P\flo@kdxa\flo@kdya}%
+      \pgfpathcurveto{\flo@P\flo@kdxb\flo@kdyb}{\flo@P\flo@kdxc\flo@kdyc}{\flo@P\flo@kdVbx\flo@kdVby}}%
+  \fi\fi}
+% an oyster's layers, stacked toward the beak, each edge ragged
+\def\flo@kdlayers{%
+  \edef\flo@kdnl{\flo@kget{ridges}}%
+  \flo@loop{kdly}\flo@kdl{1}{\flo@kdnl}{%
+    \flo@calc\flo@kdtj{1-0.62*\the\flo@kdl/(\flo@kdnl+1)}%
+    \flo@kdshrink{kdmarc}{\flo@kdtj}{kdsa}%
+    \flo@kdsetn{kdsb}{\flo@kdn{kdsa}}%
+    \flo@loop{kdlz}\flo@kdq{1}{\flo@kdn{kdsa}}{%
+      \flo@sym\flo@t{0.012*\flo@kdVH}\flo@calc\flo@kdax{\flo@kdx{kdsa}{\the\flo@kdq}+\flo@t}%
+      \flo@sym\flo@t{0.012*\flo@kdVH}\flo@calc\flo@kday{\flo@kdy{kdsa}{\the\flo@kdq}+\flo@t}%
+      \flo@kdput{kdsb}{\the\flo@kdq}{\flo@kdax}{\flo@kday}}%
+    \flo@kdvalveoutline{kdsb}{kdsc}%
+    \ifodd\flo@kdl\def\flo@t{-0.03}\else\def\flo@t{0.05}\fi
+    \flo@kdfill{\flo@kdt+\flo@t}{0.5}{0}{\flo@kdoutlinepath{kdsc}}%
+    \ifnum\flo@kdlod<2 \flo@kdstroke{0.08}{0.4*\flo@kdpen}{0.5}{1}{\flo@kdcurve{kdsb}1}\fi}}
+% the valve's shading, grain, pattern, ribs, ridges and growth lines, and inside, the rim,
+% the pallial line, the muscle scars and the hinge (levels of detail 0 and 1)
+\def\flo@kdvalvedetail{%
+  % the dome: shadow along the margin toward the lower right (inside: the upper left)
+  \ifnum\flo@kdin=1
+    \flo@kdrun{\flo@kdvn}{\ifdim\flo@kdv{VL}{\flo@kdri}pt>0.2pt \flo@kdoktrue\else\flo@kdokfalse\fi}%
+  \else
+    \flo@kdrun{\flo@kdvn}{\ifdim\flo@kdv{VL}{\flo@kdri}pt<-0.2pt \flo@kdoktrue\else\flo@kdokfalse\fi}%
+  \fi
+  \ifnum\flo@kdra>0 \ifnum\numexpr\flo@kdrb-\flo@kdra\relax>2
+    \ifnum\flo@kdin=1 \flo@calc\flo@kdw{\flo@kdVH*0.14}\def\flo@kdop{0.28}%
+    \else\flo@calc\flo@kdw{\flo@kdVH*(0.08+0.18*\flo@kget{inflation})}\flo@calc\flo@kdop{0.18+0.3*\flo@kget{inflation}}\fi
+    \flo@kdslice{kdmarc}{\flo@kdra}{\flo@kdrb}{kdsh}%
+    \flo@vtone{flo@kdc}{0.08}\flo@kdstreak{kdsh}{0.4*\flo@kdw}{\flo@kdw}{flo@kdc}{\flo@kdop}%
+  \fi\fi
+  % where the margin faces the light most (inside: least), toward the beak
+  \def\flo@kdli{1}%
+  \flo@loop{kdlt}\flo@kdq{2}{\flo@kdvn}{%
+    \ifnum\flo@kdin=1
+      \ifdim\flo@kdv{VL}{\the\flo@kdq}pt<\flo@kdv{VL}{\flo@kdli}pt \edef\flo@kdli{\the\flo@kdq}\fi
+    \else
+      \ifdim\flo@kdv{VL}{\the\flo@kdq}pt>\flo@kdv{VL}{\flo@kdli}pt \edef\flo@kdli{\the\flo@kdq}\fi
+    \fi}%
+  \edef\flo@kdlx{\flo@kdx{kdarc}\flo@kdli}\edef\flo@kdly{\flo@kdy{kdarc}\flo@kdli}%
+  \flo@loop{kdhl}\flo@kdq{0}{4}{\flo@kdtobeak\flo@kdlx\flo@kdly{0.18+0.5*\the\flo@kdq/4}%
+    \flo@kdput{kdhl}{\the\numexpr\flo@kdq+1\relax}{\flo@kdox}{\flo@kdoy}}\flo@kdsetn{kdhl}{5}%
+  \ifnum\flo@kdin=1 \def\flo@t{0.35}\else\def\flo@t{0.42}\fi
+  \flo@kdswell{kdhl}{0.1*\flo@kdVH}{white}{\flo@t}%
+  \ifnum\flo@kdin=1
+    \flo@loop{kddp}\flo@kdq{0}{3}{\flo@kdtobeak{0}{0}{0.05+0.4*\the\flo@kdq/3}%
+      \flo@kdput{kddeep}{\the\numexpr\flo@kdq+1\relax}{\flo@kdox}{\flo@kdoy}}\flo@kdsetn{kddeep}{4}%
+    \flo@vtone{flo@kdd}{0.1}\flo@kdswell{kddeep}{0.1*\flo@kdVH}{flo@kdd}{0.14}%
+  \fi
+  \ifnum\flo@kdlod=0
+    \flo@calc\flo@kdms{0.12*\flo@kdVH}%
+    \flo@vmottle\flo@kdfxa\flo@kdfya\flo@kdfxb\flo@kdfyb{5}\flo@kdms{\flo@kdt-0.14}{\flo@kdt+0.18}{4}%
+  \fi
+  \ifnum\flo@kdin=0 \edef\flo@t{\flo@kget{pattern}}\def\flo@tmp{none}\ifx\flo@t\flo@tmp\else\flo@kdpattern\fi\fi
+  % ribs: a groove between each two, from the beak to a trough of the margin, a light crest
+  % along each; inside, the grooves show faintly
+  \ifnum\flo@kdshowribs=1
+    \flo@loop{kdrv}\flo@kdl{1}{\flo@kdribn}{%
+      \flo@kdalong{kdarc}{acc}{(\the\flo@kdl-0.5)*\flo@kdgap}\let\flo@kdpx\flo@kdox\let\flo@kdpy\flo@kdoy
+      \ifnum\flo@kdl<\flo@kdribn
+        \flo@kdalong{kdarc}{acc}{\the\flo@kdl*\flo@kdgap}%
+        \flo@kdoutward\flo@kdox\flo@kdoy{-\flo@kdsk*\flo@kdgap}\let\flo@kdqx\flo@kdox\let\flo@kdqy\flo@kdoy
+        \flo@kdtobeak\flo@kdqx\flo@kdqy{0.06}\flo@kdput{kdg}{1}{\flo@kdox}{\flo@kdoy}%
+        \flo@kdtobeak\flo@kdqx\flo@kdqy{0.37}\flo@kdput{kdg}{2}{\flo@kdox}{\flo@kdoy}%
+        \flo@kdtobeak\flo@kdqx\flo@kdqy{0.68}\flo@kdput{kdg}{3}{\flo@kdox}{\flo@kdoy}%
+        \flo@kdput{kdg}{4}{\flo@kdqx}{\flo@kdqy}\flo@kdsetn{kdg}{4}%
+        \ifnum\flo@kdin=1 \def\flo@t{0.15}\else\def\flo@t{0.36}\fi
+        \flo@vtone{flo@kdc}{\flo@kdt-0.2}\flo@kdtaper{kdg}{0.02*\flo@kdgap}{0.34*\flo@kdgap}{flo@kdc}{\flo@t}%
+      \fi
+      \ifnum\flo@kdlod=0 \ifnum\flo@kdin=0
+        \flo@loop{kdcr}\flo@kdq{0}{4}{\flo@kdtobeak\flo@kdpx\flo@kdpy{0.15+0.8*\the\flo@kdq/4}%
+          \flo@kdput{kdcrest}{\the\numexpr\flo@kdq+1\relax}{\flo@kdox}{\flo@kdoy}}\flo@kdsetn{kdcrest}{5}%
+        \flo@kdswell{kdcrest}{0.16*\flo@kdgap}{white}{0.32}%
+      \fi\fi}%
+  \fi
+  % concentric ridges (a clam's), closer together toward the margin; growth lines elsewhere
+  \edef\flo@t{\flo@kget{sculpture}}\def\flo@tmp{ridges}%
+  \ifx\flo@t\flo@tmp
+    \edef\flo@kdnl{\flo@kget{ridges}}%
+    \flo@loop{kdrd}\flo@kdl{1}{\flo@kdnl}{%
+      \flo@calc\flo@kdtj{0.22+0.76*pow(\the\flo@kdl/(\flo@kdnl+0.6),0.8)}%
+      \flo@kdshrink{kdmarc}{\flo@kdtj}{kdsa}\flo@kdstroke{\flo@kdt-0.2}{0.45*\flo@kdpen}{0.42}{1}{\flo@kdcurve{kdsa}1}%
+      \ifnum\flo@kdlod=0 \flo@kdshrink{kdmarc}{\flo@kdtj+0.012}{kdsa}\flo@kdwstroke{0.4*\flo@kdpen}{0.4}{\flo@kdcurve{kdsa}1}\fi}%
+  \else\ifnum\flo@kdlod=0 \def\flo@tmpc{oyster}\ifx\flo@kdkind\flo@tmpc\else
+    \ifdim\flo@kdt pt<0.32pt \def\flo@kdlit{1}\else\def\flo@kdlit{0}\fi
+    \flo@kdgrowth{0.94}\flo@kdgrowth{0.87}\flo@kdgrowth{0.78}\flo@kdgrowth{0.66}%
+  \fi\fi\fi
+  \ifnum\flo@kdin=1 \flo@kdinside\fi}
+% a growth line at #1 of the way out from the beak, a little uneven
+\def\flo@kdgrowth#1{\flo@sym\flo@t{0.015}\flo@kdshrink{kdmarc}{#1+\flo@t}{kdsa}%
+  \ifnum\flo@kdlit=1 \flo@kdwstroke{0.3*\flo@kdpen}{0.22}{\flo@kdcurve{kdsa}1}%
+  \else\flo@kdstroke{\flo@kdt-0.15}{0.3*\flo@kdpen}{0.25}{1}{\flo@kdcurve{kdsa}1}\fi}
+% a valve lying open: the rim, the pallial line, the muscle scars, the hinge's teeth, a glint
+% of nacre
+\def\flo@kdinside{%
+  \flo@vtone{flo@kdd}{\flo@kdt-0.12}\flo@kdstreak{kdmarc}{0.03*\flo@kdVH}{0.03*\flo@kdVH}{flo@kdd}{0.45}%
+  \def\flo@tmp{scallop}\def\flo@tmpb{oyster}\def\flo@tmpc{mussel}%
+  \ifx\flo@kdkind\flo@tmp\else\ifx\flo@kdkind\flo@tmpb\else
+    \flo@kdshrink{kdmarc}{0.8}{kdsa}\flo@kdstroke{0.1}{0.45*\flo@kdpen}{0.35}{1}{\flo@kdcurve{kdsa}1}\fi\fi
+  \ifx\flo@kdkind\flo@tmp\flo@kdscar{0.12*\flo@kdmm}{-0.05}{0.11}%
+  \else\ifx\flo@kdkind\flo@tmpb\flo@kdscar{0.12*\flo@kdmm}{-0.05}{0.11}%
+  \else\ifx\flo@kdkind\flo@tmpc\flo@kdscar{0.22*\flo@kdmm}{0.04*\flo@kdVH}{0.1}\flo@kdscar{-0.38*\flo@kdmm}{-0.1*\flo@kdVH}{0.04}%
+  \else\flo@kdscar{-0.3*\flo@kdmm}{0.25*\flo@kdVH}{0.07}\flo@kdscar{0.3*\flo@kdmm}{0.25*\flo@kdVH}{0.08}\fi\fi\fi
+  \ifnum\flo@kdlod=0 \ifx\flo@kdkind\flo@tmpb\else
+    \flo@kdtooth{-2}\flo@kdtooth{-1}\flo@kdtooth{1}\flo@kdtooth{2}\fi\fi
+  \ifnum\flo@kdnac=1 \ifnum\flo@kdlod=0
+    \flo@kdaccent1\flo@kdalong{kdarc}{acc}{\flo@kdtotal*0.6}\let\flo@kdpx\flo@kdox\let\flo@kdpy\flo@kdoy
+    \flo@loop{kdgl}\flo@kdq{0}{4}{\flo@kdtobeak\flo@kdpx\flo@kdpy{0.3+0.4*\the\flo@kdq/4}%
+      \flo@kdput{kdglint}{\the\numexpr\flo@kdq+1\relax}{\flo@kdox}{\flo@kdoy}}\flo@kdsetn{kdglint}{5}%
+    \flo@kdswell{kdglint}{0.06*\flo@kdVH}{white}{0.5}\flo@kdaccent0%
+  \fi\fi}
+\def\flo@kdscar#1#2#3{\flo@calc\flo@kdscx{#1}\flo@calc\flo@kdscy{#2}\flo@calc\flo@kdr{0.8*(#3)*\flo@kdVH}%
+  \flo@vblob\flo@kdscx\flo@kdscy\flo@kdr{0.75*\flo@kdr}{0.25}{7}\flo@kdfill{\flo@kdt-0.16}{0.26}{1}{\flo@smoothpath}}
+\def\flo@kdtooth#1{%
+  \ifnum#1<0 \def\flo@t{1}\else\edef\flo@t{\flo@kdn{kdarc}}\fi
+  \flo@kdtobeak{\flo@kdx{kdarc}\flo@t}{\flo@kdy{kdarc}\flo@t}{0.06*abs(#1)+0.03}\let\flo@kdpx\flo@kdox\let\flo@kdpy\flo@kdoy
+  \flo@kdtobeak\flo@kdpx\flo@kdpy{0.82}%
+  \flo@calc\flo@kdya{\flo@kdpy-0.012*\flo@kdVH}\flo@calc\flo@kdyb{\flo@kdoy-0.03*\flo@kdVH}%
+  \flo@kdstroke{0.08}{0.6*\flo@kdpen}{0.55}{1}{\pgfpathmoveto{\flo@P\flo@kdpx\flo@kdya}\pgfpathlineto{\flo@P\flo@kdox\flo@kdyb}}}
+
+% ---------------------------------------------------------------- gastropods
+% A sea snail's shell from the side, its axis upright, turned \flo@kdGph about it so the
+% mouth faces a little forward (florilegium-shell.lua: gastropod). The ring of growth angle
+% th sits y0 l from the axis at height -x0 l (l = W^(th/360)). gc(psi): the ring's point at
+% psi into \flo@kdgcx \flo@kdgcy (a circle S tall, a shoulder, a flat base, a whelk's egg)
+\def\flo@kdgc#1{\flo@calc\flo@kdpsi{#1}%
+  \flo@calc\flo@kdgcx{cos(\flo@kdpsi)}\flo@calc\flo@kdgcy{\flo@kdGS*sin(\flo@kdpsi)}%
+  \ifx\flo@kdGsh\flo@kdangular
+    \flo@calc\flo@t{0.55*\flo@kdGS}\ifdim\flo@kdgcy pt>\flo@t pt
+      \flo@calc\flo@kdgcy{\flo@t+0.3*(\flo@kdgcy-\flo@t)}\flo@calc\flo@kdgcx{\flo@kdgcx*1.06}\fi
+  \else\ifx\flo@kdGsh\flo@kdrounded
+    \flo@calc\flo@t{0.7*\flo@kdGS}\ifdim\flo@kdgcy pt>\flo@t pt \flo@calc\flo@kdgcy{\flo@t+0.6*(\flo@kdgcy-\flo@t)}\fi
+  \fi\fi
+  \ifnum\flo@kdGflat=1 \flo@calc\flo@t{-0.45*\flo@kdGS}\ifdim\flo@kdgcy pt<\flo@t pt
+    \flo@calc\flo@kdgcy{\flo@t+0.12*(\flo@kdgcy-(\flo@t))}\fi\fi
+  \ifnum\flo@kdGegg=1
+    \flo@calc\flo@t{\flo@kdpsi-360*floor(\flo@kdpsi/360)}%
+    \ifdim\flo@t pt>180pt \flo@calc\flo@kdgk{-sin(\flo@kdpsi)}%
+      \flo@calc\flo@kdgcy{\flo@kdgcy*(1+0.35*\flo@kdgk)}\flo@calc\flo@kdgcx{\flo@kdgcx*(1-0.18*\flo@kdgk)}\fi
+  \fi}
+\def\flo@kdangular{angular}\def\flo@kdrounded{rounded}
+% gp(th, psi) into \flo@kdpx \flo@kdpy; gcenter(th) into \flo@kdcx \flo@kdcy
+\def\flo@kdgp#1#2{\flo@calc\flo@kdgth{#1}\flo@kdgc{#2}\flo@calc\flo@kdlam{pow(\flo@kdGW,\flo@kdgth/360)}%
+  \flo@calc\flo@kdpx{\flo@kdGhx*(\flo@kdGy+\flo@kdgcx)*\flo@kdlam*cos(\flo@kdGph-\flo@kdgth)}%
+  \flo@calc\flo@kdpy{(\flo@kdgcy-\flo@kdGx)*\flo@kdlam}}
+\def\flo@kdgcenter#1{\flo@calc\flo@kdgth{#1}\flo@calc\flo@kdlam{pow(\flo@kdGW,\flo@kdgth/360)}%
+  \flo@calc\flo@kdcx{\flo@kdGhx*\flo@kdGy*\flo@kdlam*cos(\flo@kdGph-\flo@kdgth)}\flo@calc\flo@kdcy{-\flo@kdGx*\flo@kdlam}}
+% whorl #1's front half (0 the body whorl): lists top<j> bot<j> (left to right), rcap<j>
+% (top to bottom), lcap<j> (bottom to top); values tb, ta, ab, h and its box
+\def\flo@kdgwhorl#1{%
+  \ifnum#1=0 \def\flo@kdwb{0}\edef\flo@kdwab{\flo@kdGph}\else\flo@calc\flo@kdwb{\flo@kdGph-360*#1}\def\flo@kdwab{0}\fi
+  \flo@calc\flo@kdwa{\flo@kdGph-180-360*#1}%
+  \flo@kdvset{gtb}{#1}{\flo@kdwb}\flo@kdvset{gta}{#1}{\flo@kdwa}\flo@kdvset{gab}{#1}{\flo@kdwab}%
+  \flo@loop{kdgw}\flo@kdm{0}{18}{%
+    \flo@calc\flo@kdwth{\flo@kdwa+(\flo@kdwb-\flo@kdwa)*\the\flo@kdm/18}%
+    \flo@kdgp\flo@kdwth{90}\flo@kdput{top#1}{\the\numexpr\flo@kdm+1\relax}{\flo@kdpx}{\flo@kdpy}%
+    \flo@kdgp\flo@kdwth{-90}\flo@kdput{bot#1}{\the\numexpr\flo@kdm+1\relax}{\flo@kdpx}{\flo@kdpy}}%
+  \flo@loop{kdgx}\flo@kdm{0}{12}{%
+    \flo@kdgp\flo@kdwb{90-180*\the\flo@kdm/12}\flo@kdput{rcap#1}{\the\numexpr\flo@kdm+1\relax}{\flo@kdpx}{\flo@kdpy}%
+    \flo@kdgp\flo@kdwa{-90+180*\the\flo@kdm/12}\flo@kdput{lcap#1}{\the\numexpr\flo@kdm+1\relax}{\flo@kdpx}{\flo@kdpy}}%
+  \flo@kdsetn{top#1}{19}\flo@kdsetn{bot#1}{19}\flo@kdsetn{rcap#1}{13}\flo@kdsetn{lcap#1}{13}%
+  \flo@calc\flo@t{\flo@kdy{top#1}{10}-(\flo@kdy{bot#1}{10})}\flo@kdvset{gh}{#1}{\flo@t}%
+  \flo@kdbox{top#1}\flo@kdboxadd{bot#1}\flo@kdboxadd{rcap#1}\flo@kdboxadd{lcap#1}%
+  \flo@kdvset{gxa}{#1}{\flo@kdbxa}\flo@kdvset{gxb}{#1}{\flo@kdbxb}\flo@kdvset{gya}{#1}{\flo@kdbya}\flo@kdvset{gyb}{#1}{\flo@kdbyb}}
+% thin: list #2 is every other point of list #1 and its last
+\def\flo@kdthin#1#2{\def\flo@kdtn{0}%
+  \flo@loop{kdth}\flo@kdm{1}{\flo@kdn{#1}}{\ifodd\flo@kdm
+    \edef\flo@kdtn{\the\numexpr\flo@kdtn+1\relax}\flo@kdput{#2}{\flo@kdtn}{\flo@kdx{#1}{\the\flo@kdm}}{\flo@kdy{#1}{\the\flo@kdm}}\fi}%
+  \ifodd\flo@kdn{#1} \else\edef\flo@kdtn{\the\numexpr\flo@kdtn+1\relax}%
+    \flo@kdput{#2}{\flo@kdtn}{\flo@kdx{#1}{\flo@kdn{#1}}}{\flo@kdy{#1}{\flo@kdn{#1}}}\fi
+  \flo@kdsetn{#2}{\flo@kdtn}}
+% the whorl's outline (thinned when small, #2 1)
+\def\flo@kdgpath#1#2{%
+  \ifnum#2=1 \flo@kdthin{rcap#1}{kdga}\flo@kdthin{bot#1}{kdgb}\flo@kdthin{lcap#1}{kdgc}\flo@kdthin{top#1}{kdgd}%
+  \else\flo@kdslice{rcap#1}{1}{13}{kdga}\flo@kdslice{bot#1}{1}{19}{kdgb}\flo@kdslice{lcap#1}{1}{13}{kdgc}\flo@kdslice{top#1}{1}{19}{kdgd}\fi
+  \flo@kdrev{kdgb}{kdge}%
+  \flo@kdcurve{kdga}1\flo@kdcurve{kdge}0\flo@kdcurve{kdgc}0\flo@kdcurve{kdgd}0\pgfpathclose}
+% its outline but for the bottom edge, which a canal hides
+\def\flo@kdglinenobase#1{\flo@kdslice{lcap#1}{3}{13}{kdga}\flo@kdcurve{kdga}1\flo@kdcurve{top#1}0\flo@kdcurve{rcap#1}0}
+% gacross: a rib's line across the whorl at growth angle #1 as list #2; galong: a cord's
+% along whorl #1 at psi #2 from polar angle #3 to #4, as list #5
+\def\flo@kdgacross#1#2{\flo@calc\flo@kdgat{#1}%
+  \flo@kdgp\flo@kdgat{80}\flo@kdput{#2}{1}{\flo@kdpx}{\flo@kdpy}\flo@kdgp\flo@kdgat{28}\flo@kdput{#2}{2}{\flo@kdpx}{\flo@kdpy}%
+  \flo@kdgp\flo@kdgat{-28}\flo@kdput{#2}{3}{\flo@kdpx}{\flo@kdpy}\flo@kdgp\flo@kdgat{-80}\flo@kdput{#2}{4}{\flo@kdpx}{\flo@kdpy}%
+  \flo@kdsetn{#2}{4}}
+\def\flo@kdgalong#1#2#3#4#5{\flo@calc\flo@kdgpsi{#2}%
+  \flo@calc\flo@kdgaa{max(#3,\flo@kdv{gab}{#1})}\flo@calc\flo@kdgab{max(#4,\flo@kdv{gab}{#1})}%
+  \flo@loop{kdga}\flo@kdq{0}{12}{%
+    \flo@calc\flo@kdgat{\flo@kdv{gtb}{#1}+\flo@kdv{gab}{#1}-(\flo@kdgaa+(\flo@kdgab-\flo@kdgaa)*\the\flo@kdq/12)}%
+    \flo@kdgp\flo@kdgat\flo@kdgpsi\flo@kdput{#5}{\the\numexpr\flo@kdq+1\relax}{\flo@kdpx}{\flo@kdpy}}%
+  \flo@kdsetn{#5}{13}}
+% the whorl's surface (#1 its index): its shading, light, grain, pattern and sculpture
+\def\flo@kdgsurface#1{%
+  \edef\flo@kdh{\flo@kdv{gh}{#1}}%
+  \flo@vtone{flo@kdd}{0.08}\flo@kdstreak{top#1}{0.14*\flo@kdh}{0.2*\flo@kdh}{flo@kdd}{0.28}%
+  \flo@kdrev{bot#1}{kdsa}\flo@kdstreak{kdsa}{0.18*\flo@kdh}{0.3*\flo@kdh}{flo@kdd}{0.22}%
+  \ifnum\flo@kdGhx>0 \flo@kdstreak{rcap#1}{0.25*\flo@kdh}{0.25*\flo@kdh}{flo@kdd}{0.24}%
+  \else\flo@kdstreak{lcap#1}{0.25*\flo@kdh}{0.25*\flo@kdh}{flo@kdd}{0.24}\fi
+  \ifnum\flo@kdGhx>0 \flo@kdgalong{#1}{25}{165}{100}{kdlit}\else\flo@kdgalong{#1}{25}{15}{80}{kdlit}\fi
+  \ifnum#1=0 \def\flo@t{0.45}\else\def\flo@t{0.35}\fi
+  \flo@kdswell{kdlit}{0.22*\flo@kdh}{white}{\flo@t}%
+  \ifnum\flo@kdlod=0 \flo@calc\flo@t{\flo@kdh*\flo@kdcm}\ifdim\flo@t pt>0.3pt
+    \flo@kdbox{top#1}\let\flo@kdmxa\flo@kdbxa\let\flo@kdmxb\flo@kdbxb\let\flo@kdmyb\flo@kdbyb
+    \flo@kdbox{bot#1}\let\flo@kdmya\flo@kdbya
+    \flo@calc\flo@kdms{0.25*\flo@kdh}%
+    \flo@vmottle\flo@kdmxa\flo@kdmya\flo@kdmxb\flo@kdmyb{3}\flo@kdms{\flo@kdt-0.14}{\flo@kdt+0.18}{3}%
+  \fi\fi
+  % the pattern
+  \edef\flo@kdct{\flo@kget{contrast}}\edef\flo@t{\flo@kget{pattern}}%
+  \def\flo@tmp{bands}\def\flo@tmpb{flammules}\def\flo@tmpc{dots}%
+  \ifx\flo@t\flo@tmp
+    \flo@loop{kdgb}\flo@kdl{1}{2}{%
+      \flo@calc\flo@kdpz{50-70*\the\flo@kdl/2}%
+      \flo@kdgalong{#1}{\flo@kdpz}{0}{180}{kdsa}\flo@kdgalong{#1}{\flo@kdpz-16}{0}{180}{kdsb}\flo@kdrev{kdsb}{kdsc}%
+      \flo@kdfill{\flo@kdt-0.22}{0.25+0.35*\flo@kdct}{0}{\flo@kdcurve{kdsa}1\flo@kdcurve{kdsc}0\pgfpathclose}}%
+  \else\ifx\flo@t\flo@tmpb
+    \flo@loop{kdgf}\flo@kdl{1}{7}{%
+      \flo@range\flo@t{0.3}{0.7}\flo@calc\flo@kdfa{180*(\the\flo@kdl-\flo@t)/7}%
+      \flo@calc\flo@kdfth{\flo@kdv{gtb}{#1}+\flo@kdv{gab}{#1}-max(\flo@kdv{gab}{#1},\flo@kdfa)}%
+      \flo@loop{kdgg}\flo@kdq{0}{4}{%
+        \flo@sym\flo@t{6}\flo@kdgp{\flo@kdfth-\flo@t}{80-160*\the\flo@kdq/4}%
+        \flo@kdput{kdfl}{\the\numexpr\flo@kdq+1\relax}{\flo@kdpx}{\flo@kdpy}}%
+      \flo@kdsetn{kdfl}{5}%
+      \flo@range\flo@t{0.7}{1.3}\flo@calc\flo@kdfw{0.12*\flo@kdh*\flo@t}%
+      \flo@vtone{flo@kdc}{\flo@kdt-0.26}\flo@kdstreak{kdfl}{0.04*\flo@kdh}{\flo@kdfw}{flo@kdc}{0.25+0.4*\flo@kdct}}%
+  \else\ifx\flo@t\flo@tmpc
+    \flo@range\flo@t{6}{12}\pgfmathtruncatemacro\flo@kdnb{floor(\flo@t)}%
+    \flo@loop{kdgd}\flo@kdl{1}{\flo@kdnb}{%
+      \flo@calc\flo@t{max(15,\flo@kdv{gab}{#1})}\flo@range\flo@kdfa{\flo@t}{165}%
+      \flo@range\flo@kdpz{-60}{60}%
+      \flo@kdgp{\flo@kdv{gtb}{#1}+\flo@kdv{gab}{#1}-\flo@kdfa}{\flo@kdpz}%
+      \let\flo@kdox\flo@kdpx\let\flo@kdoy\flo@kdpy
+      \flo@range\flo@t{0.04}{0.07}\flo@calc\flo@kdr{\flo@kdh*\flo@t}%
+      \flo@vblob\flo@kdox\flo@kdoy\flo@kdr{0.8*\flo@kdr}{0.25}{7}%
+      \flo@kdfill{\flo@kdt-0.26}{0.35+0.4*\flo@kdct}{1}{\flo@smoothpath}}%
+  \fi\fi\fi
+  % the sculpture: axial ribs where they stand 0.5 mm apart, cords along, knobs on the shoulder
+  \flo@calc\flo@kdlam{pow(\flo@kdGW,\flo@kdv{gtb}{#1}/360)}%
+  \edef\flo@kdscu{\flo@kget{sculpture}}\def\flo@tmp{ribs}\def\flo@tmpb{cancellate}\def\flo@tmpc{nodes}%
+  \def\flo@kdribby{0}\ifx\flo@kdscu\flo@tmp\def\flo@kdribby{1}\fi\ifx\flo@kdscu\flo@tmpb\def\flo@kdribby{1}\fi
+  \ifx\flo@kdscu\flo@tmpc\def\flo@kdribby{1}\fi
+  \ifnum\flo@kdribby=1 \ifnum\flo@kget{ribs}>0
+    \flo@calc\flo@kdhalf{\flo@kget{ribs}/2}%
+    \flo@calc\flo@kdgap{\flo@kdGy*\flo@kdlam*(180/\flo@kdhalf)*0.0174533}%
+    \flo@calc\flo@t{\flo@kdgap*\flo@kdcm}%
+    \ifdim\flo@t pt>0.05pt
+      \ifx\flo@kdscu\flo@tmpb\def\flo@kdwide{0.14}\else\def\flo@kdwide{0.22}\fi
+      \pgfmathtruncatemacro\flo@kdnb{floor(\flo@kdhalf+0.5)}%
+      \flo@loop{kdgr}\flo@kdl{1}{\flo@kdnb}{%
+        \flo@calc\flo@kdra{max(\flo@kdv{gab}{#1},180*(\the\flo@kdl-0.5)/\flo@kdhalf)}%
+        \flo@calc\flo@kdrth{\flo@kdv{gtb}{#1}+\flo@kdv{gab}{#1}-\flo@kdra}%
+        \flo@calc\flo@kdf{max(0.15,sin(\flo@kdra))}%
+        \ifx\flo@kdscu\flo@tmpc
+          \flo@kdgp\flo@kdrth{62}\let\flo@kdox\flo@kdpx\let\flo@kdoy\flo@kdpy
+          \flo@calc\flo@kdr{0.3*\flo@kdgap*\flo@kdf}%
+          \flo@vblob\flo@kdox\flo@kdoy\flo@kdr{0.8*\flo@kdr}{0.2}{7}\flo@kdfill{\flo@kdt-0.2}{0.45}{1}{\flo@smoothpath}%
+          \flo@calc\flo@kdxa{\flo@kdox-0.3*\flo@kdr}\flo@calc\flo@kdya{\flo@kdoy+0.3*\flo@kdr}\flo@calc\flo@kdxb{0.3*\flo@kdr}%
+          \flo@vfill{white}{0.4}{0}{\pgfpathcircle{\flo@P\flo@kdxa\flo@kdya}{\flo@kdxb pt}}%
+        \else
+          \flo@kdgacross\flo@kdrth{kdrib}\flo@vtone{flo@kdc}{\flo@kdt-0.2}%
+          \flo@kdswell{kdrib}{\flo@kdwide*\flo@kdgap*\flo@kdf}{flo@kdc}{0.38}%
+          \ifnum\flo@kdlod=0 \flo@kdgacross{\flo@kdrth+\flo@kdGhx*4}{kdrib}%
+            \flo@kdswell{kdrib}{0.4*\flo@kdwide*\flo@kdgap*\flo@kdf}{white}{0.35}\fi
+        \fi}%
+    \fi
+  \fi\fi
+  \def\flo@kdcrd{0}\def\flo@tmp{cords}\ifx\flo@kdscu\flo@tmp\def\flo@kdcrd{1}\fi\ifx\flo@kdscu\flo@tmpb\def\flo@kdcrd{1}\fi
+  \ifnum\flo@kdcrd=1 \ifnum\flo@kget{cords}>0 \flo@calc\flo@t{\flo@kdh*\flo@kdcm}\ifdim\flo@t pt>0.12pt
+    \edef\flo@kdnc{\flo@kget{cords}}%
+    \flo@loop{kdgc}\flo@kdl{1}{\flo@kdnc}{%
+      \flo@calc\flo@kdpz{75-150*\the\flo@kdl/(\flo@kdnc+1)}%
+      \flo@kdgalong{#1}{\flo@kdpz}{3}{177}{kdsa}\flo@kdstroke{\flo@kdt-0.2}{0.45*\flo@kdpen}{0.42}{1}{\flo@kdcurve{kdsa}1}%
+      \ifnum\flo@kdlod=0 \flo@kdgalong{#1}{\flo@kdpz+5}{3}{177}{kdsa}\flo@kdwstroke{0.35*\flo@kdpen}{0.35}{\flo@kdcurve{kdsa}1}\fi}%
+  \fi\fi\fi}
+% the canal: the body whorl's base drawn down under the mouth to a tip bent a little toward
+% the axis; its tip into \flo@kdtipx \flo@kdtipy
+\def\flo@kdgcanaltip{%
+  \edef\flo@t{\flo@kget{canal}}\def\flo@tmp{long}%
+  \ifx\flo@t\flo@tmp\flo@calc\flo@kdclen{1.5*\flo@kdGS}\else\flo@calc\flo@kdclen{0.6*\flo@kdGS}\fi
+  \flo@kdgp{0}{-90}\flo@calc\flo@kdtipx{\flo@kdpx-\flo@kdGhx*0.3}\flo@calc\flo@kdtipy{\flo@kdpy-\flo@kdclen}}
+\def\flo@kdgcanalpath{\flo@kdcurve{kdca}1\flo@kdcurve{kdcb}0\pgfpathclose}
+\def\flo@kdgcanal{%
+  \flo@kdgcanaltip
+  \edef\flo@kdcax{\flo@kdx{lcap0}3}\edef\flo@kdcay{\flo@kdy{lcap0}3}%
+  \flo@kdgp{0}{-40}\let\flo@kdcox\flo@kdpx\let\flo@kdcoy\flo@kdpy
+  \flo@calc\flo@kdcmx{0.45*\flo@kdcax+0.55*\flo@kdtipx+\flo@kdGhx*0.1}\flo@calc\flo@kdcmy{0.5*(\flo@kdcay+\flo@kdtipy)}%
+  \flo@calc\flo@kdcnx{0.5*(\flo@kdcox+\flo@kdtipx)+\flo@kdGhx*0.05}\flo@calc\flo@kdcny{0.45*\flo@kdcoy+0.55*\flo@kdtipy}%
+  \flo@kdput{kdca}{1}\flo@kdcax\flo@kdcay\flo@kdput{kdca}{2}\flo@kdcmx\flo@kdcmy\flo@kdput{kdca}{3}\flo@kdtipx\flo@kdtipy\flo@kdsetn{kdca}{3}%
+  \flo@kdput{kdcb}{1}\flo@kdtipx\flo@kdtipy\flo@kdput{kdcb}{2}\flo@kdcnx\flo@kdcny\flo@kdput{kdcb}{3}\flo@kdcox\flo@kdcoy\flo@kdsetn{kdcb}{3}%
+  \flo@sym\flo@t{0.02}\flo@kdfill{\flo@kdt+\flo@t}{1}{0}{\flo@kdgcanalpath}%
+  \ifnum\flo@kdlod<2
+    \begin{pgfscope}\flo@kdgcanalpath\pgfusepath{clip}%
+      \flo@kdput{kdcc}{1}\flo@kdcox\flo@kdcoy\flo@kdput{kdcc}{2}\flo@kdcnx\flo@kdcny\flo@kdput{kdcc}{3}\flo@kdtipx\flo@kdtipy\flo@kdsetn{kdcc}{3}%
+      \flo@vtone{flo@kdd}{0.08}\flo@kdstreak{kdcc}{0.35}{0.05}{flo@kdd}{0.3}%
+      \flo@kdswell{kdca}{0.12}{white}{0.3}%
+    \end{pgfscope}%
+  \fi
+  \flo@kdstroke{0.05}{0.9*\flo@kdpen}{0.85}{1}{\flo@kdgcanalpath}}
+% the canal's open channel, on from the mouth: porcelain, its left edge the columella's
+\def\flo@kdgchannel{%
+  \flo@kdgcanaltip\flo@kdgp{0}{-90}%
+  \flo@kdput{kdch}{1}\flo@kdpx\flo@kdpy
+  \flo@calc\flo@kdcmx{0.5*(\flo@kdpx+\flo@kdtipx)+\flo@kdGhx*0.06}\flo@calc\flo@kdcmy{0.5*(\flo@kdpy+\flo@kdtipy)}%
+  \flo@kdput{kdch}{2}\flo@kdcmx\flo@kdcmy
+  \flo@calc\flo@kdcnx{\flo@kdtipx+\flo@kdGhx*0.03}\flo@calc\flo@kdcny{\flo@kdtipy+0.12*\flo@kdclen}%
+  \flo@kdput{kdch}{3}\flo@kdcnx\flo@kdcny\flo@kdsetn{kdch}{3}%
+  \flo@vtone{flo@kdd}{min(0.82,\flo@kdt+0.3)}\flo@kdstreak{kdch}{0.32}{0.04}{flo@kdd}{1}%
+  \flo@calc\flo@kdax{\flo@kdpx-\flo@kdGhx*0.12}\flo@calc\flo@kday{\flo@kdpy+0.05}\flo@kdput{kdce}{1}\flo@kdax\flo@kday
+  \flo@calc\flo@kdax{\flo@kdcmx-\flo@kdGhx*0.08}\flo@kdput{kdce}{2}\flo@kdax\flo@kdcmy
+  \flo@kdput{kdce}{3}\flo@kdcnx\flo@kdcny\flo@kdsetn{kdce}{3}%
+  \flo@kdstroke{0.08}{0.6*\flo@kdpen}{0.7}{1}{\flo@kdcurve{kdce}1}}
+% a point of the mouth's ring at psi #1, drawn #2 (in x) and #3 (in y) of the way out from
+% its center, appended to list #4 as point #5
+\def\flo@kdgring#1#2#3#4#5{\flo@kdgp{0}{#1}%
+  \flo@calc\flo@kdax{\flo@kdcx+(#2)*(\flo@kdpx-\flo@kdcx)}\flo@calc\flo@kday{\flo@kdcy+(#3)*(\flo@kdpy-\flo@kdcy)}%
+  \flo@kdput{#4}{#5}{\flo@kdax}{\flo@kday}}
+% the mouth, face on: the dark inside, the pale callus along the columella with its folds,
+% the lip thickened or flared
+\def\flo@kdgmouth{%
+  \flo@loop{kdgm}\flo@kdq{0}{23}{\flo@kdgp{0}{15*\the\flo@kdq}\flo@kdput{kdring}{\the\numexpr\flo@kdq+1\relax}{\flo@kdpx}{\flo@kdpy}}%
+  \flo@kdsetn{kdring}{24}%
+  \flo@kdgcenter{0}%
+  \edef\flo@kdlip{\flo@kget{lip}}\def\flo@tmp{flared}%
+  \ifx\flo@kdlip\flo@tmp
+    \flo@loop{kdgn}\flo@kdq{0}{10}{\flo@kdgring{14*(\the\flo@kdq-5)}{1.2}{1.06}{kdflange}{\the\numexpr\flo@kdq+1\relax}%
+      \flo@kdgp{0}{14*(5-\the\flo@kdq)}\flo@kdput{kdinner}{\the\numexpr\flo@kdq+1\relax}{\flo@kdpx}{\flo@kdpy}}%
+    \flo@kdsetn{kdflange}{11}\flo@kdsetn{kdinner}{11}%
+    \flo@kdfill{\flo@kdt+0.06}{1}{0}{\flo@kdcurve{kdflange}1\flo@kdcurve{kdinner}0\pgfpathclose}%
+    \flo@kdstroke{0.05}{0.8*\flo@kdpen}{0.85}{1}{\flo@kdcurve{kdflange}1}%
+  \fi
+  \flo@kdfill{min(0.82,\flo@kdt+0.3)}{1}{0}{\flo@kdsmooth{kdring}}%
+  \ifnum\flo@kdlod<2
+    \flo@loop{kdgo}\flo@kdq{0}{6}{%
+      \flo@kdgring{95+110*\the\flo@kdq/6}{0.72}{0.75}{kddeep}{\the\numexpr\flo@kdq+1\relax}%
+      \flo@kdgring{-60+120*\the\flo@kdq/6}{0.72}{0.78}{kdglow}{\the\numexpr\flo@kdq+1\relax}}%
+    \flo@kdsetn{kddeep}{7}\flo@kdsetn{kdglow}{7}%
+    \begin{pgfscope}\flo@kdsmooth{kdring}\pgfusepath{clip}%
+      \flo@vtone{flo@kdd}{0.12}\flo@kdswell{kddeep}{0.5}{flo@kdd}{0.45}%
+      \flo@vtone{flo@kdd}{0.08}\flo@kdswell{kddeep}{0.25}{flo@kdd}{0.35}%
+      \flo@kdswell{kdglow}{0.3}{white}{0.45}%
+    \end{pgfscope}%
+    \flo@loop{kdgp}\flo@kdq{0}{6}{\flo@kdgring{125+110*\the\flo@kdq/6}{0.82}{0.88}{kdcol}{\the\numexpr\flo@kdq+1\relax}}%
+    \flo@kdsetn{kdcol}{7}\flo@kdswell{kdcol}{0.22}{white}{0.35}%
+    \ifnum\flo@kdlod=0 \ifnum\flo@kget{folds}>0
+      % columella folds: short ridges slanting down into the mouth
+      \edef\flo@kdnf{\flo@kget{folds}}%
+      \flo@loop{kdgq}\flo@kdq{1}{\flo@kdnf}{%
+        \flo@kdgp{0}{200+14*(\the\flo@kdq-(\flo@kdnf+1)/2)}%
+        \flo@calc\flo@kdax{\flo@kdcx+0.82*(\flo@kdpx-\flo@kdcx)}\flo@calc\flo@kday{\flo@kdpy-0.12}%
+        \flo@kdwstroke{0.6*\flo@kdpen}{0.45}{\pgfpathmoveto{\flo@P\flo@kdpx\flo@kdpy}\pgfpathlineto{\flo@P\flo@kdax\flo@kday}}}%
+    \fi\fi
+    \def\flo@tmp{thick}\ifx\flo@kdlip\flo@tmp
+      \flo@loop{kdgt}\flo@kdq{0}{10}{\flo@kdgring{14*(\the\flo@kdq-5)}{0.9}{0.94}{kdlipr}{\the\numexpr\flo@kdq+1\relax}}%
+      \flo@kdsetn{kdlipr}{11}\flo@kdswell{kdlipr}{0.16}{white}{0.55}%
+    \fi
+  \fi
+  \flo@kdstroke{0.05}{\flo@kdpen}{0.85}{1}{\flo@kdsmooth{kdring}}}
+% a sea snail: a whelk, a turret shell or a topshell
+\def\flo@kdgastropod{%
+  \edef\flo@kdGW{\flo@kget{expansion}}\edef\flo@kdGS{\flo@kget{aperture}}\edef\flo@kdGsh{\flo@kget{shoulder}}%
+  \flo@calc\flo@kdGy{(1+\flo@kget{umbilicus})/(1-\flo@kget{umbilicus})}\flo@calc\flo@kdGx{\flo@kget{spire}*\flo@kdGy}%
+  \edef\flo@kdkind{\flo@kget{kind}}\def\flo@tmp{topshell}\def\flo@tmpb{whelk}%
+  \ifx\flo@kdkind\flo@tmp\def\flo@kdGflat{1}\else\def\flo@kdGflat{0}\fi
+  \ifx\flo@kdkind\flo@tmpb\def\flo@kdGegg{1}\else\def\flo@kdGegg{0}\fi
+  \edef\flo@t{\flo@kget{view}}\def\flo@tmp{back}\ifx\flo@t\flo@tmp\def\flo@kdback{1}\else\def\flo@kdback{0}\fi
+  \edef\flo@t{\flo@kget{hand}}\def\flo@tmp{sinistral}%
+  \ifx\flo@t\flo@tmp\def\flo@kdGhx{-1}\else\def\flo@kdGhx{1}\fi
+  \ifnum\flo@kdback=1 \edef\flo@kdGhx{\the\numexpr-\flo@kdGhx\relax}\fi
+  \flo@range\flo@kdGph{18}{30}%
+  % the whorls, the shell's own count
+  \pgfmathtruncatemacro\flo@kdJ{ceil(\flo@kget{whorls})}%
+  \flo@loop{kdgv}\flo@kdk{0}{\flo@kdJ-1}{\expandafter\flo@kdgwhorl\expandafter{\the\flo@kdk}}%
+  \def\flo@kdbxa{16000}\def\flo@kdbxb{-16000}\def\flo@kdbya{16000}\def\flo@kdbyb{-16000}%
+  \flo@loop{kdgy}\flo@kdk{0}{\flo@kdJ-1}{%
+    \flo@kdboxadd{top\the\flo@kdk}\flo@kdboxadd{bot\the\flo@kdk}\flo@kdboxadd{rcap\the\flo@kdk}\flo@kdboxadd{lcap\the\flo@kdk}}%
+  \edef\flo@t{\flo@kget{canal}}\def\flo@tmp{none}\ifx\flo@t\flo@tmp\def\flo@kdcanal{0}\else\def\flo@kdcanal{1}\fi
+  \ifnum\flo@kdcanal=1 \flo@kdgcanaltip\flo@kdput{kdbx}{1}\flo@kdtipx\flo@kdtipy\flo@kdsetn{kdbx}{1}\flo@kdboxadd{kdbx}\fi
+  \edef\flo@t{\flo@kget{lip}}\def\flo@tmp{flared}\ifx\flo@t\flo@tmp
+    \flo@kdgcenter{0}\flo@calc\flo@kdax{\flo@kdcx+\flo@kdGhx*1.2*1.06}\flo@kdput{kdbx}{1}\flo@kdax\flo@kdcy\flo@kdsetn{kdbx}{1}\flo@kdboxadd{kdbx}\fi
+  \flo@kdput{kdbx}{1}{0}{0}\flo@kdsetn{kdbx}{1}\flo@kdboxadd{kdbx}% the apex
+  \flo@kdframe
+  \flo@kdtone
+  \ifnum\flo@kdcanal=1 \flo@kdgcanal\fi
+  \edef\flo@kdpres{\flo@kget{preservation}}\def\flo@tmp{nacre}%
+  \ifx\flo@kdpres\flo@tmp\def\flo@kdnacp{1}\else\def\flo@kdnacp{0}\fi
+  \flo@loop{kdgz}\flo@kdk{1}{\flo@kdJ}{%
+    \edef\flo@kdbk{\the\numexpr\flo@kdJ-\flo@kdk\relax}% the whorl's index, oldest first
+    \flo@calc\flo@t{\flo@kdv{gh}{\flo@kdbk}*\flo@kdcm}\edef\flo@kdhcm{\flo@t}%
+    \def\flo@kdgo{0}\ifdim\flo@kdhcm pt>0.02pt \def\flo@kdgo{1}\fi\ifnum\flo@kdbk=0 \def\flo@kdgo{1}\fi
+    \ifnum\flo@kdgo=1 \expandafter\flo@kdgdraw\expandafter{\flo@kdbk}\fi}%
+  % the apex's tip, where the whorls are too small to draw
+  \flo@kdgp{-360*\flo@kdJ}{90}\flo@calc\flo@kdr{0.02/max(0.00002,\flo@kdcm)}%
+  \flo@kdfill{0.08}{0.8}{0}{\pgfpathcircle{\flo@P{0}\flo@kdpy}{\flo@kdr pt}}%
+  \ifnum\flo@kdback=0 \flo@kdgmouth\ifnum\flo@kdcanal=1 \flo@kdgchannel\fi\fi}
+% whorl #1 painted: its wash, in its clip the surface; its outline
+\def\flo@kdgdraw#1{%
+  % worn to its nacre at the apex
+  \def\flo@kdnac{0}\ifnum\flo@kdnacp=1 \ifnum\numexpr#1+1\relax>\numexpr\flo@kdJ-3\relax\def\flo@kdnac{1}\fi\fi
+  \flo@kdaccent\flo@kdnac
+  \def\flo@kdsmall{0}\ifdim\flo@kdhcm pt<0.3pt \def\flo@kdsmall{1}\fi
+  \flo@sym\flo@t{0.03}\flo@calc\flo@kdtw{\flo@kdt+\flo@t}%
+  \def\flo@kddet{0}\ifnum\flo@kdlod<2 \ifdim\flo@kdhcm pt>0.08pt \def\flo@kddet{1}\fi\fi
+  \ifnum\flo@kddet=1
+    \begin{pgfscope}\flo@kdgpath{#1}\flo@kdsmall\pgfusepath{clip}%
+      \flo@kdfill{\flo@kdtw}{1}{0}{\flo@kdrect{\flo@kdv{gxa}{#1}}{\flo@kdv{gya}{#1}}{\flo@kdv{gxb}{#1}}{\flo@kdv{gyb}{#1}}}%
+      \flo@kdgsurface{#1}%
+    \end{pgfscope}%
+  \else
+    \flo@kdfill{\flo@kdtw}{1}{0}{\flo@kdgpath{#1}\flo@kdsmall}%
+  \fi
+  \flo@kdaccent0%
+  \ifnum#1=0 \def\flo@t{1}\else\def\flo@t{0.75}\fi
+  \ifnum#1=0 \ifnum\flo@kdcanal=1
+    \flo@kdstroke{0.05}{\flo@t*\flo@kdpen}{0.85}{1}{\flo@kdglinenobase{#1}}%
+  \else\flo@kdstroke{0.05}{\flo@t*\flo@kdpen}{0.85}{1}{\flo@kdgpath{#1}\flo@kdsmall}\fi
+  \else\flo@kdstroke{0.05}{\flo@t*\flo@kdpen}{0.85}{1}{\flo@kdgpath{#1}\flo@kdsmall}\fi}
+
+% ---------------------------------------------------------------- cowries
+% a glossy egg 1 long and aspect wide, lying along x: from above its dome, its spots and the
+% pale line where the mantle met; from beneath its paler base and the long toothed slit
+\def\flo@kdcowrie{%
+  \edef\flo@kdA{\flo@kget{aspect}}%
+  \flo@loop{kdcw}\flo@kdq{0}{35}{%
+    \flo@calc\flo@kdax{0.5*cos(10*\the\flo@kdq)}\flo@calc\flo@kday{0.5*\flo@kdA*sin(10*\the\flo@kdq)*(1+0.08*cos(10*\the\flo@kdq))}%
+    \flo@kdput{kdegg}{\the\numexpr\flo@kdq+1\relax}{\flo@kdax}{\flo@kday}}%
+  \flo@kdsetn{kdegg}{36}%
+  \flo@calc\flo@kdty{0.5*\flo@kdA*1.08*\flo@sizept}%
+  \pgftransformshift{\flo@P{0}\flo@kdty}\pgftransformscale{\flo@sizept}%
+  \flo@calc\flo@kdcm{\flo@sizept/28.45276}%
+  \ifdim\flo@kdacm pt<0.5pt \def\flo@kdlod{2}\else\ifdim\flo@kdacm pt<1.2pt \def\flo@kdlod{1}\else\def\flo@kdlod{0}\fi\fi
+  \flo@calc\flo@kdpen{max(0.3,min(0.85,0.028*\flo@kdacm*28.3465))}%
+  \flo@kdtone
+  \edef\flo@t{\flo@kget{view}}\def\flo@tmp{mouth}\ifx\flo@t\flo@tmp\def\flo@kdunder{1}\flo@calc\flo@kdt{min(0.78,\flo@kdt+0.22)}\else\def\flo@kdunder{0}\fi
+  \flo@kdfill{\flo@kdt}{1}{0}{\flo@kdsmooth{kdegg}}%
+  \ifnum\flo@kdlod<2
+    \begin{pgfscope}\flo@kdsmooth{kdegg}\pgfusepath{clip}%
+      \flo@kdslice{kdegg}{21}{33}{kdsa}\flo@vtone{flo@kdd}{0.08}\flo@kdstreak{kdsa}{0.04*\flo@kdA}{0.12*\flo@kdA}{flo@kdd}{0.3}%
+      \ifnum\flo@kdunder=1
+        \flo@vtone{flo@kdd}{\flo@kdt-0.3}\flo@kdstreak{kdegg}{0.1*\flo@kdA}{0.1*\flo@kdA}{flo@kdd}{0.35}%
+        \flo@loop{kdcs}\flo@kdq{0}{8}{%
+          \flo@calc\flo@kdax{-0.46+0.92*\the\flo@kdq/8}\flo@calc\flo@kday{0.04*\flo@kdA*sin(180*\the\flo@kdq/8)-0.02*\flo@kdA}%
+          \flo@kdput{kdslit}{\the\numexpr\flo@kdq+1\relax}{\flo@kdax}{\flo@kday}}%
+        \flo@kdsetn{kdslit}{9}\flo@vtone{flo@kdd}{0.08}\flo@kdswell{kdslit}{0.06*\flo@kdA}{flo@kdd}{0.9}%
+        \ifnum\flo@kdlod=0
+          \flo@loop{kdct}\flo@kdq{1}{16}{%
+            \flo@calc\flo@kdax{-0.4+0.8*(\the\flo@kdq-0.5)/16}%
+            \flo@calc\flo@kday{0.04*\flo@kdA*sin(180*(\flo@kdax+0.46)/0.92)-0.02*\flo@kdA}%
+            \flo@kdtooththe{-1}\flo@kdtooththe{1}}%
+        \fi
+      \else
+        \edef\flo@t{\flo@kget{pattern}}\def\flo@tmp{dots}\def\flo@tmpb{bands}\edef\flo@kdct{\flo@kget{contrast}}%
+        \ifx\flo@t\flo@tmp
+          \flo@range\flo@t{18}{34}\pgfmathtruncatemacro\flo@kdnb{floor(\flo@t)}%
+          \flo@loop{kdcd}\flo@kdl{1}{\flo@kdnb}{%
+            \flo@range\flo@kdox{-0.4}{0.4}\flo@range\flo@t{-0.38}{0.38}\flo@calc\flo@kdoy{\flo@t*\flo@kdA}%
+            \flo@range\flo@t{0.025}{0.06}\flo@calc\flo@kdr{\flo@kdA*\flo@t}%
+            \flo@vblob\flo@kdox\flo@kdoy\flo@kdr{0.85*\flo@kdr}{0.25}{7}%
+            \flo@kdfill{\flo@kdt-0.28}{0.35+0.45*\flo@kdct}{1}{\flo@smoothpath}}%
+        \else\ifx\flo@t\flo@tmpb
+          \flo@loop{kdcb}\flo@kdl{1}{3}{%
+            \flo@calc\flo@kdax{-0.3+0.3*(\the\flo@kdl-1)}\flo@calc\flo@kday{0.6*\flo@kdA}\flo@calc\flo@kdcx{\flo@kdax+0.02}%
+            \flo@kdput{kdstripe}{1}{\flo@kdax}{-\flo@kday}\flo@kdput{kdstripe}{2}{\flo@kdcx}{0}\flo@kdput{kdstripe}{3}{\flo@kdax}{\flo@kday}%
+            \flo@kdsetn{kdstripe}{3}%
+            \flo@vtone{flo@kdd}{\flo@kdt-0.24}\flo@kdstreak{kdstripe}{0.1}{0.1}{flo@kdd}{0.25+0.35*\flo@kdct}}%
+        \fi\fi
+        % the mantle line, and the gloss: a long light along the upper left of the dome
+        \flo@loop{kdcm}\flo@kdq{0}{6}{%
+          \flo@calc\flo@kdax{-0.42+0.84*\the\flo@kdq/6}\flo@calc\flo@kday{0.1*\flo@kdA+0.015*sin(360*\the\flo@kdq/6)}%
+          \flo@kdput{kdml}{\the\numexpr\flo@kdq+1\relax}{\flo@kdax}{\flo@kday}}\flo@kdsetn{kdml}{7}%
+        \ifnum\flo@kdlod=0 \flo@kdwstroke{0.6*\flo@kdpen}{0.5}{\flo@kdpoly{kdml}0}\fi
+        \flo@loop{kdcg}\flo@kdq{0}{4}{%
+          \flo@calc\flo@kdax{-0.3+0.45*\the\flo@kdq/4}\flo@calc\flo@kday{0.22*\flo@kdA+0.03*\flo@kdA*sin(180*\the\flo@kdq/4)}%
+          \flo@kdput{kdgl}{\the\numexpr\flo@kdq+1\relax}{\flo@kdax}{\flo@kday}}\flo@kdsetn{kdgl}{5}%
+        \flo@kdswell{kdgl}{0.12*\flo@kdA}{white}{0.6}%
+      \fi
+    \end{pgfscope}%
+  \fi
+  \flo@kdstroke{0.05}{\flo@kdpen}{0.85}{1}{\flo@kdsmooth{kdegg}}%
+  % the canals at either end
+  \flo@calc\flo@kday{0.03*\flo@kdA}%
+  \flo@kdstroke{0.05}{0.7*\flo@kdpen}{0.8}{1}{\pgfpathmoveto{\flo@P{-0.5}\flo@kday}\pgfpathlineto{\flo@P{-0.45}{0}}\pgfpathlineto{\flo@P{-0.5}{-\flo@kday}}}%
+  \flo@kdstroke{0.05}{0.7*\flo@kdpen}{0.8}{1}{\pgfpathmoveto{\flo@P{0.5}\flo@kday}\pgfpathlineto{\flo@P{0.45}{0}}\pgfpathlineto{\flo@P{0.5}{-\flo@kday}}}}
+% a tooth of the cowrie's slit, on side #1, at \flo@kdax \flo@kday
+\def\flo@kdtooththe#1{\flo@calc\flo@kdya{\flo@kday+(#1)*0.035*\flo@kdA}\flo@calc\flo@kdyb{\flo@kday+(#1)*0.11*\flo@kdA}%
+  \flo@kdstroke{\flo@kdt-0.25}{0.5*\flo@kdpen}{0.55}{1}{\pgfpathmoveto{\flo@P\flo@kdax\flo@kdya}\pgfpathlineto{\flo@P\flo@kdax\flo@kdyb}}}
