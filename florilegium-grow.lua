@@ -872,11 +872,13 @@ function M.page(g)
           disc(x, y, 0.45 * max(w, h), 0.75)
           event({ kind = "bloom", phase = "stems", off = 0.3 + 0.25 * k, size = 1 })
           place(L_GHOST, x, y, 90 + tilt, function()             -- behind the stems and leaves
-            -- the shadow, on the ground whichever way the shell lies
+            -- the shadow, on the ground whichever way the shell lies, to the right on the page
             ink.push() ink.rotate(-tilt)
-            ink.push() ink.translate(0.3 * hx, -0.92 * hy + 0.04) ink.scale(1.05 * hx, 0.09)
+            ink.push() ink.translate((g.mirror and -0.3 or 0.3) * hx, -0.92 * hy + 0.04) ink.scale(1.05 * hx, 0.09)
             ink.circle(0, 0, 1) ink.fill(ink.tone(0.08), 0.13, true)
             ink.pop() ink.pop()
+            -- on a mirrored page the mirror undone, so a whelk keeps its hand and its light
+            if g.mirror then ink.scale(-1, 1) end
             SHL.draw(s, z, size, true)
           end)
         end

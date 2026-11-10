@@ -7,14 +7,19 @@ florilegium test: page 1, 2 drawings
   2. md5 393acbd48fa10bbaf0764eb7777df4c7, 3287 bytes
   grew: bee 0, bells 0, bloom:1 3, blossoms 0, bud 0, budding 0, budding:1 20, budding:2 3, budding:3 7, budding:4 1, butterfly 0, cyme 0, flower 0, g:bloom 3, g:budding 31, g:leaf 8, g:spray 31, g:tendril 4, g:unit 9, g:visitor 3, leaf 0, leaf:1 6, leaf:2 2, leaf:4 0, lily 0, seedhead 0, spray:1 18, spray:2 9, spray:3 4, spray:4 0, sprig 0, tendril 0, tendril:2 4, umbel 0, unit:1 5, unit:2 3, unit:3 1, unit:4 0, visitor:1 1, visitor:2 1, visitor:3 1, visitor:stem 0 [1
 ]
-florilegium: grew 10564 cells, 214 motifs, 1364 stem points, 19020 KB; visitors: none
+florilegium: grew 4614 cells, 81 motifs, 608 stem points, 8872 KB; visitors: none
 florilegium: species daisy 964045549, pea 1587868791, iris 248707002, catkin 229879674
 florilegium test: page 2, 7 drawings
-  1. md5 daeac36c3fe31bf4cd783c26407d6a95, 19476691 bytes
+  1. md5 02b1ad4d67969b09b09b970850e470a1, 9084769 bytes
   2. md5 393acbd48fa10bbaf0764eb7777df4c7, 3287 bytes
   3. md5 d79b097e1471cbe2326a9091d1aa3a3e, 4721 bytes
   4. md5 f15a3dcd9198e3433977584192dfb6dd, 13486 bytes
   5. md5 d8d3c671203fcdc829a02f18bff72cab, 10165 bytes
   6. md5 6b30bd2d78dee08c4dce7f63a2e07e3e, 10126 bytes
   7. md5 d0169822678513d7baf3cf4b3e63e8f9, 2151 bytes
-  grew: bee 0, bells 0, bloom:1 7, blossoms 0, bud 0, budding 0, budding:1 40, budding:2 22, budding:3 6, budding:4 2, butterfly 0, cyme 0, flower 0, g:bloom 7, g:budding 70, g:leaf 36, g:spray 63, g:tendril 13, g:unit 22, g:visitor 0, leaf 0, leaf:1 24, leaf:2 12, leaf:4 0, lily 0, seedhead 0, shell 3, spray:1 44, spray:2 14, spray:3 2, spray:4 3, sprig 0, tendril 0, tendril:2 13, umbel 0, unit:1 13, unit:2 8, unit:3 1, unit:4 0, visitor:1 0, visitor:2 0, visitor:3 0, visitor:stem 0 [2]
+  grew: bee 0, bells 0, bloom:1 3, blossoms 0, bud 0, budding 0, budding:1 13, budding:2 6, budding:3 6, budding:4 0, butterfly 0, cyme 0, flower 0, g:bloom 3, g:budding 25, g:leaf 11, g:spray 26, g:tendril 4, g:unit 9, g:visitor 0, leaf 0, leaf:1 7, leaf:2 2, leaf:4 2, lily 0, seedhead 0, shell 3, spray:1 19, spray:2 7, spray:3 0, spray:4 0, sprig 0, tendril 0, tendril:2 4, umbel 0, unit:1 3, unit:2 4, unit:3 2, unit:4 0, visitor:1 0, visitor:2 0, visitor:3 0, visitor:stem 0 [2]
+florilegium: 124 shells, 6 strands of wrack, 1 tufts of weed, 70 grains
+florilegium test: page 3, 2 drawings
+  1. md5 4f692be659d296f50fa62b741783f1fa, 5674226 bytes
+  2. md5 faaaa9eabdcf9e8e9ee2746814975fdb, 18359 bytes
+  grew: grit 70, mark 1, shell 124, weed 1, wrack 6 [3]

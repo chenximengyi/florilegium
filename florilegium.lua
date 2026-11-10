@@ -12,8 +12,8 @@ local M = { ink = ink, flora = flora }
 -- a newer florilegium.sty and florilegium.lua beside the document); check_versions
 -- stops such a mix before anything is drawn. A release changes all of them together.
 M.version = "2.0.1"
-local PARTS = { "ink", "flora", "grow", "authored", "figures", "theme-geometric", "theme-math", "initial", "svg", "species",
-  "pgfmath", "native", "tracery", "shell" }
+local PARTS = { "ink", "flora", "grow", "authored", "figures", "theme-geometric", "theme-math", "theme-shells", "initial", "svg",
+  "species", "pgfmath", "native", "tracery", "shell" }
 
 local function where(file, format, module)     -- " (path)" for the message, if it can be found
   local ok, path = pcall(function() return kpse.find_file(file, format) end)
@@ -632,7 +632,7 @@ M.authored = guarded(M.authored)
 -- load the rest of the package now, so that a mixed set stops in the preamble and not
 -- halfway through a page (florilegium-initial waits for the first initial; florilegium-svg
 -- runs only outside TeX, where it loads this file and so is checked here too)
-for _, part in ipairs({ "grow", "authored", "figures", "theme-geometric", "theme-math", "tracery", "shell" }) do
+for _, part in ipairs({ "grow", "authored", "figures", "theme-geometric", "theme-math", "theme-shells", "tracery", "shell" }) do
   require("florilegium-" .. part)
 end
 M.check_versions()

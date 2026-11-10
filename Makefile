@@ -2,7 +2,7 @@ LUALATEX = $(RUN) lualatex -interaction=nonstopmode -halt-on-error
 SEEDS   ?= 1 2 3 4 5 6
 # RUN=tools/in-docker builds inside the florilegium-tex image (see tools/Dockerfile)
 RUN     ?=
-LUA      = florilegium-ink.lua florilegium-flora.lua florilegium-species.lua florilegium-pgfmath.lua florilegium-native.lua florilegium-tracery.lua florilegium.lua florilegium-initial.lua florilegium-figures.lua florilegium-theme-geometric.lua florilegium-theme-math.lua
+LUA      = florilegium-ink.lua florilegium-flora.lua florilegium-species.lua florilegium-pgfmath.lua florilegium-native.lua florilegium-tracery.lua florilegium.lua florilegium-initial.lua florilegium-figures.lua florilegium-theme-geometric.lua florilegium-theme-math.lua florilegium-theme-shells.lua florilegium-shell.lua
 GS      ?= gs
 SEED    ?= 7
 # the manual and the zip are dated by the last commit, so the same commit gives the same bytes
@@ -53,9 +53,9 @@ specimen-geometric.pdf: specimen-geometric.tex florilegium.sty $(LUA)
 ornaments.pdf: ornaments.tex florilegium.sty $(LUA)
 	$(LUALATEX) ornaments.tex
 
-# the grown document with the geometric and the math theme, for gallery/geometric.png
-# and gallery/math.png (its second page)
-build/geometric.pdf build/math.pdf: build/%.pdf: florilegium-grow.tex florilegium.sty florilegium-grow.lua $(LUA) text-methods.tex text-growth.tex text-sharing.tex
+# the grown document with the geometric, the math and the shells theme, for
+# gallery/geometric.png, gallery/math.png and gallery/shells.png (its second page)
+build/geometric.pdf build/math.pdf build/shells.pdf: build/%.pdf: florilegium-grow.tex florilegium.sty florilegium-grow.lua $(LUA) text-methods.tex text-growth.tex text-sharing.tex
 	mkdir -p build
 	$(LUALATEX) -jobname=build/$* "\PassOptionsToPackage{theme=$*}{florilegium}\input{florilegium-grow.tex}"
 
@@ -70,7 +70,7 @@ gallery: gallery.tex florilegium.sty florilegium-grow.lua $(LUA) tools/gallery.p
 	python3 tools/gallery.py --seeds $(SEEDS) --run "$(RUN)"
 	python3 tools/gallery.py --seed 6 --inks 2456C4 5B2A1F 2F6B4F 8E1B3A 4B3B8F 1D6E7A --run "$(RUN)"
 	python3 tools/gallery.py --seed 6 --ages 0 0.33 0.67 1 --run "$(RUN)"
-	python3 tools/gallery.py --seed 6 --themes flora geometric math --run "$(RUN)"
+	python3 tools/gallery.py --seed 6 --themes flora geometric math shells --run "$(RUN)"
 	python3 tools/gallery.py --seed 6 --options density=1 density=0.5 density=0.2 density=0.05 intensity=0.5 --run "$(RUN)"
 
 # the growth of one seed:  make grow-7  ->  build/grow-7.gif and .mp4 (MP4 needs ffmpeg);
@@ -111,11 +111,12 @@ luacheck:
 check:
 	$(RUN) l3build check
 
-preview: florilegium.pdf florilegium-grow.pdf showcase.pdf spread.pdf specimen-geometric.pdf ornaments.pdf build/geometric.pdf build/math.pdf
+preview: florilegium.pdf florilegium-grow.pdf showcase.pdf spread.pdf specimen-geometric.pdf ornaments.pdf build/geometric.pdf build/math.pdf build/shells.pdf
 	mkdir -p gallery build
 	pdftoppm -png -r 110 -singlefile ornaments.pdf gallery/ornaments
 	pdftoppm -png -r 60 -f 2 -l 2 -singlefile build/geometric.pdf gallery/geometric
 	pdftoppm -png -r 60 -f 2 -l 2 -singlefile build/math.pdf gallery/math
+	pdftoppm -png -r 60 -f 2 -l 2 -singlefile build/shells.pdf gallery/shells
 	pdftoppm -png -r 60 -f 1 -l 1 -singlefile florilegium.pdf gallery/preview-authored
 	pdftoppm -png -r 60 -f 1 -l 1 -singlefile florilegium-grow.pdf gallery/preview-grown
 	pdftoppm -png -r 50 -singlefile specimen-geometric.pdf gallery/specimen-geometric

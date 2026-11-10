@@ -17,7 +17,7 @@ async function pinned([url, integrity], type) {
 }
 
 const MODULES = ['florilegium', 'florilegium-ink', 'florilegium-flora', 'florilegium-grow', 'florilegium-authored',
-  'florilegium-figures', 'florilegium-theme-geometric', 'florilegium-theme-math', 'florilegium-svg',
+  'florilegium-figures', 'florilegium-theme-geometric', 'florilegium-theme-math', 'florilegium-theme-shells', 'florilegium-svg',
   'florilegium-species', 'florilegium-pgfmath', 'florilegium-native', 'florilegium-tracery', 'florilegium-shell']
 
 // the published site has the .lua files beside this one; the repository has them one up

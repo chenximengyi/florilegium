@@ -1,20 +1,20 @@
 # Themes
 
-![seed 6 as the species garden, geometric and math](../gallery/themes.png)
+![seed 6 as the species garden, geometric, math and shells](../gallery/themes.png)
 
-*Seed 6 three times: the species garden, with `theme=geometric`, and with `theme=math`.*
+*Seed 6 four times: the species garden, with `theme=geometric`, with `theme=math` and with `theme=shells`.*
 
 ```latex
-\usepackage[grown,theme=geometric]{florilegium}   % or theme=math; the whole document
+\usepackage[grown,theme=geometric]{florilegium}   % or theme=math, theme=shells; the whole document
 \florilegiumtheme{math}                            % or from the page this stands on
 ```
 
 The growth loop never knew what it was drawing. It reads a table of motifs (the size of the
 disc each one takes, a weight, a function that draws it) and calls every primitive by name. A
 theme is one Lua file, `florilegium-theme-<name>.lua`, that replaces some of those primitives
-and may add rows to the table, or brings a composition of its own. A themed page grows v1.3's
-garden, with its hand-designed kinds, and draws it in the theme's way; the species belong to
-the unthemed margin.
+and may add rows to the table, or brings a composition of its own. The geometric theme grows
+v1.3's garden, with its hand-designed kinds, and draws it in its own way; the species belong to
+the unthemed margin. The math and shells themes lay out the whole page themselves.
 
 ## Geometric
 
@@ -51,6 +51,33 @@ whatever space the page leaves, like the garden; `density` sets how much there i
 
 <img src="../gallery/math.png" alt="a page with the math theme" width="500">
 
+## Shells
+
+`theme=shells` is no plant either (`florilegium-theme-shells.lua`). The margin is a strip of the
+shore seen from above. Strands of wrack lie from a pebble in the corner up the column and along
+the foot of the page. Each is a flat strap with a midrib that forks as it goes, with air bladders
+in pairs and swollen tips, the way bladderwrack grows, and the shells lie among them.
+
+Every shell is sampled from a genome, as a plant is, and drawn from it by
+`florilegium-shell.lua`: an ammonite or a nautilus, a scallop, cockle, mussel, clam or oyster, a
+whelk, turret shell, topshell or cowrie. The document's cabinet of four, the same four that lie on
+the ground on some of the species garden's pages, lies lowest, the largest nearest the corner, so
+a reader sees the same collection on every page. Then the page draws five kinds of its own and
+lays them where there is room, largest hole first and those near the wrack first, as the
+garden's flowers grow from its stems. They are large toward the corner and small up the column
+and along the foot, they overlap a little, and now and then one is tucked half under its
+neighbors. Which kind goes where follows how large it grows, and a kind gets rarer the more of
+it there is. A tuft of fine weed in the accent, sometimes one or two more in the ink, and grit
+and broken shell along the bottom finish the page. Each shell casts a soft shadow to its lower right. On a
+mirrored page the shells are drawn the right way round, since a whelk's coil has a hand.
+
+A small copper scallop stands beside each heading (option `sections`) and starts the head rule,
+and `\florilegiumbloom[whelk]` lays a shell of that kind, or of a group (`planispiral`,
+`bivalve`, `gastropod`). The theme has no seasons and no visitors; `density` thins it down to a
+single strand and a few shells at `0.05`.
+
+<img src="../gallery/shells.png" alt="a page with the shells theme" width="500">
+
 ## Writing a theme
 
 A theme returns its primitives by name, with the same arguments and frame as the ones they
@@ -67,6 +94,6 @@ return {
 ```
 
 A theme with `page = function(g, grow)` gets the whole page instead and lays it out itself, as
-`florilegium-theme-math.lua` does. `florilegium-theme-geometric.lua` is the example to start
+`florilegium-theme-math.lua` and `florilegium-theme-shells.lua` do. `florilegium-theme-geometric.lua` is the example to start
 from, and [CLAUDE.md](../CLAUDE.md) lists the rules a theme has to keep (the animation's,
 mirrored pages', density's).

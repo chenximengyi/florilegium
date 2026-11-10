@@ -4,7 +4,8 @@
 -- a fern unrolls its fiddleheads), in autumn with a heading and a \florilegiumbloom marked
 -- in the text, in autumn with two levels of heading and a monocot's bloom on a mirrored
 -- page, at density 0.4 and 0.05; with the geometric theme, with the geometric theme in
--- autumn on a mirrored page, and the math theme with marks and mirrored at density 0.3).
+-- autumn on a mirrored page, the math theme with marks and mirrored at density 0.3, and the
+-- shells theme with marks on a mirrored page and at density 0.3).
 -- Runs without TeX:
 --   texlua tools/animcheck.lua 1 2 3      (or: tools/in-docker texlua tools/animcheck.lua)
 tex = { sprint = function() end }
@@ -26,6 +27,9 @@ local CASES = {
   { name = "density 0.05", density = 0.05 },
   { name = "math, marks", theme = "math", marks = { { kind = "heading", arg = 1, y = 20 }, { kind = "bloom", arg = "knot", y = 9 } } },
   { name = "math, mirrored, density 0.3", theme = "math", mirror = true, density = 0.3 },
+  { name = "shells, marks, mirrored", theme = "shells", mirror = true,
+    marks = { { kind = "heading", arg = 1, y = 20 }, { kind = "bloom", arg = "whelk", y = 9 } } },
+  { name = "shells, density 0.3", theme = "shells", density = 0.3 },
   { name = "autumn, marks, mirrored", age = 0.95, mirror = true,
     marks = { { kind = "heading", arg = 1, y = 20 }, { kind = "heading", arg = 2, y = 14 }, { kind = "bloom", arg = "monocot", y = 9 } } },
 }

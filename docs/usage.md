@@ -36,7 +36,7 @@ hand-designed shapes.
 | `sections` | a flower beside every numbered section and subsection, in the copper of the accents (standard classes and KOMA-Script's; grown only) |
 | `aging` | the garden ages from spring on the first page to autumn on the last (grown only; two runs, for the page count) |
 | `novisitors` | no butterflies, bees, beetles, dragonflies, caterpillars, snails or birds |
-| `theme=geometric`, `theme=math` | another drawing, or another composition (see [themes](themes.md)) |
+| `theme=geometric`, `theme=math`, `theme=shells` | another drawing, or another composition (see [themes](themes.md)) |
 | `density=0.4` | less in the margin, down to a single vine at `0.05` (grown only) |
 | `intensity=0.6` | a paler margin, from `1` as painted to `0.3` faint |
 | `headpieces` | a headpiece of Gothic tracery over every `\section`, a vine up its jamb from the margin (standard classes; see [tracery](tracery.md)) |

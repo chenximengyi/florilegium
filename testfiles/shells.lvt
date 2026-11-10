@@ -1,7 +1,8 @@
 % shells.lvt -- shells (board #5340): seed 20's second page has three of the document's
 % cabinet lying on the margin's ground (an ammonite, a turret shell, a cowrie), under the
-% footer's vine; the last page's text ends early, so the garden spills under it. Then the
-% five shells \florilegiumornament knows by name.
+% footer's vine, and the five shells \florilegiumornament knows by name. The last page has
+% the shells theme (board #5345), with a \florilegiumbloom for a whelk; its text ends early,
+% so the shells spill under it.
 \input{regression-test}
 \documentclass[11pt,a4paper]{article}
 \renewcommand\rmdefault{cmr}
@@ -24,6 +25,11 @@
 \paras{2}
 \florilegiumornament{scallop} \florilegiumornament{ammonite} \florilegiumornament{nautilus}
 \florilegiumornament{whelk} \florilegiumornament{cowrie}
+\newpage
+\florilegiumtheme{shells}
+\paras{2}
+\florilegiumbloom[whelk]
+\paras{1}
 \florilegiumtextend
 \clearpage
 \END
