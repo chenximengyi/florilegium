@@ -102,8 +102,8 @@ jobs:
           persist-credentials: false
           fetch-depth: 2
       # A pull request checks out its merge commit, whose first parent is the base branch, so
-      # the diff between the two is what the pull request changes. A push, a tag or a manual
-      # run always runs tikz.
+      # the diff between the two is what the pull request changes. A push to main or a manual
+      # run always runs tikz, and a tag never does (the tikz job's own condition).
       - name: whether anything but Markdown changed
         id: files
         env:
@@ -130,10 +130,11 @@ jobs:
   # cluster, leaf, fern and visitor, a plant in three seasons. Pure TikZ is slow: in one run it
   # took 70 minutes here. The pages, the pics' shards and the comparison (of the inked part of
   # each page only) now share the runner's cores, about 12 minutes on four threads of a fast
-  # desktop, beside pdfs. A pull request that changes only Markdown skips it.
+  # desktop, beside pdfs. A pull request that changes only Markdown skips it, and so does a
+  # tag: the pull request and main ran it on the same tree, and the release doesn't wait for it.
   tikz:
     needs: changes
-    if: needs.changes.outputs.code == 'true'
+    if: needs.changes.outputs.code == 'true' && !startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
@@ -233,9 +234,9 @@ jobs:
   # A release starts with a tag: git tag -a v2.0.0 -m v2.0.0 && git push origin v2.0.0, after a
   # commit that sets the version everywhere (CLAUDE.md, Releases); the lua job stops a tag
   # that florilegium.sty and the Lua files don't agree with, the l3build job one whose
-  # drawings moved without their logs being recorded again, the tikz job one whose two
-  # engines no longer draw the same species, the postscript job one whose PostScript port grows
-  # another garden, and the zip job one whose zip lacks a file. This
+  # drawings moved without their logs being recorded again, the postscript job one whose
+  # PostScript port grows another garden, and the zip job one whose zip lacks a file. The tikz
+  # job doesn't run on a tag, since main's run of the same commit ran it. This
   # job signs a build provenance attestation for the PDFs, the manual and florilegium.zip built
   # from that tag and opens a draft release with them attached, along with the attestation
   # itself as florilegium-pdfs.sigstore.json. The notes are written by hand, and publishing the draft
@@ -247,8 +248,8 @@ jobs:
   release:
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    # tikz runs on the tag too but is not waited for: the pull request and main ran it on the
-    # same tree, and on the runner it takes about 25 minutes
+    # tikz doesn't run on a tag: the pull request and main ran it on the same tree, and on the
+    # runner it takes about 25 to 40 minutes
     needs: [lua, pdfs, l3build, postscript, zip]
     if: startsWith(github.ref, 'refs/tags/v')
     permissions:
