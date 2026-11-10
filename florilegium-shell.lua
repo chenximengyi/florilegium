@@ -732,6 +732,384 @@ local function bivalve(s, size)
   return (x1 - x0) * sc, (y1 - y0) * sc
 end
 
+-- ---------------------------------------------------------------- gastropods
+-- A sea snail's empty shell seen from the side, as plates show it: the axis upright, the
+-- apex up, the mouth facing us (on the right of a dextral shell; seen from the back, the
+-- whole drawing mirrored and no mouth). The ring of growth angle th sits y0 l from the axis
+-- at height -x0 l (x0 = T y0, l = W^(th/360)), at polar angle a = -th about the axis, the
+-- front half where a runs 0..180. Each whorl shows the front half of its turn: the sweep of
+-- its ring from the left silhouette to the right, bounded by the ring's top and bottom and,
+-- at each end, the ring's outer half. The whorls are painted oldest first, each one's top
+-- edge the suture on the one above. At the mouth the ring lies in the picture plane, so the
+-- aperture is seen face on: the snail's tube with its rings seen from above (the visitor's,
+-- florilegium-native.lua's gs*) would hide it.
+local GA = {}
+-- the ring's point at psi (0 away from the axis, 90 up): a circle S tall, its top flattened
+-- to a shoulder, a topshell's bottom flattened to its base
+local function gc(psi)
+  local S = GA.S
+  local x, y = cos(psi), S * sin(psi)
+  if GA.shoulder == "angular" and y > 0.55 * S then
+    y = 0.55 * S + 0.3 * (y - 0.55 * S) x = x * 1.06
+  elseif GA.shoulder == "rounded" and y > 0.7 * S then
+    y = 0.7 * S + 0.6 * (y - 0.7 * S)
+  end
+  if GA.flatbase and y < -0.45 * S then y = -0.45 * S + 0.12 * (y + 0.45 * S) end
+  if GA.egg and psi % 360 > 180 then
+    -- a whelk's ring is an egg, drawn down to a point where it runs into the canal
+    local k = -sin(psi)
+    y, x = y * (1 + 0.35 * k), x * (1 - 0.18 * k)
+  end
+  return x, y
+end
+-- the page point of the ring at growth angle th, at its point psi, and the ring's center
+local function gp(th, psi)
+  local lam = GA.W ^ (th / 360)
+  local gx, gy = gc(psi)
+  return { GA.hx * (GA.y0 + gx) * lam * cos(GA.ph - th), (gy - GA.x0) * lam }
+end
+local function gcenter(th)
+  local lam = GA.W ^ (th / 360)
+  return { GA.hx * GA.y0 * lam * cos(GA.ph - th), -GA.x0 * lam }
+end
+-- the growth angle where whorl W's ring lies at polar angle a
+local function gth(W, a) return W.tb + W.ab - a end
+-- whorl j's front half (0 the body whorl): its top and bottom edges from left to right,
+-- its caps (the right one from top to bottom, the left from bottom to top), its height
+local function gwhorl(j)
+  -- the shell is turned GA.ph about its axis, so the mouth lies a little toward the front:
+  -- the body whorl's front half runs from the left silhouette to the mouth, the others' from
+  -- the left silhouette to the right one
+  local tb = j == 0 and 0 or GA.ph - 360 * j
+  local ta = GA.ph - 180 - 360 * j
+  local W = { j = j, ta = ta, tb = tb, ab = j == 0 and GA.ph or 0, top = {}, bot = {}, rcap = {}, lcap = {} }
+  for i = 0, 18 do
+    local th = ta + (tb - ta) * i / 18           -- the body whorl's ends at its mouth
+    W.top[i + 1], W.bot[i + 1] = gp(th, 90), gp(th, -90)
+  end
+  for i = 0, 12 do
+    W.rcap[i + 1] = gp(tb, 90 - 180 * i / 12)
+    W.lcap[i + 1] = gp(ta, -90 + 180 * i / 12)
+  end
+  W.h = W.top[10][2] - W.bot[10][2]                -- across the whorl at its front
+  return W
+end
+local function gpath(W)
+  curve(W.rcap, true) curve(reversed(W.bot), false) curve(W.lcap, false) curve(W.top, false) close()
+end
+-- its outline but for the bottom edge, which a canal hides: the base runs into the canal
+local function gline_nobase(W)
+  curve(slice(W.lcap, 3, #W.lcap), true) curve(W.top, false) curve(W.rcap, false)
+end
+-- a line across the whorl's front half at growth angle th (a rib's, from top to bottom), or
+-- along it at psi (a cord's, from left to right)
+local function gacross(th) return { gp(th, 80), gp(th, 28), gp(th, -28), gp(th, -80) } end
+local function galong(W, psi, a0, a1)
+  a0, a1 = max(a0, W.ab), max(a1, W.ab)
+  local pts = {}
+  for i = 0, 12 do pts[i + 1] = gp(gth(W, a0 + (a1 - a0) * i / 12), psi) end
+  return pts
+end
+local RIBBY = { ribs = true, cancellate = true, nodes = true }
+local function gsurface(s, W)
+  local h = W.h
+  local t = D.t
+  -- the shading: under the suture, the underside, the side away from the light, and a
+  -- light on the side toward it, a little above the middle
+  N.streak(W.top, 0.14 * h, 0.2 * h, tone(0.08), 0.28)
+  N.streak(reversed(W.bot), 0.18 * h, 0.3 * h, tone(0.08), 0.22)
+  local darkcap = GA.hx > 0 and W.rcap or W.lcap
+  N.streak(darkcap, 0.25 * h, 0.25 * h, tone(0.08), 0.24)
+  local lit = GA.hx > 0 and galong(W, 25, 165, 100) or galong(W, 25, 15, 80)
+  swell(lit, 0.22 * h, WHITE, W.j == 0 and 0.45 or 0.35)
+  if D.lod == 0 and h * D.cm > K(0.25) then
+    local x0, x1, y0, y1 = 1e9, -1e9, 1e9, -1e9
+    for _, p in ipairs(W.top) do x0, x1, y1 = min(x0, p[1]), max(x1, p[1]), max(y1, p[2]) end
+    for _, p in ipairs(W.bot) do y0 = min(y0, p[2]) end
+    N.mottle(x0, y0, x1, y1, 3, 0.25 * h, t - 0.14, t + 0.18, 3)
+  end
+  -- the pattern
+  local ct = s.contrast
+  if s.pattern == "bands" then
+    for b = 1, 2 do
+      local p0 = 50 - 70 * b / 2
+      curve(galong(W, p0, 0, 180), true) curve(reversed(galong(W, p0 - 16, 0, 180)), false) close()
+      fill(tone(t - 0.22), 0.25 + 0.35 * ct)
+    end
+  elseif s.pattern == "flammules" then
+    local nf = 7
+    for k = 1, nf do
+      local a = 180 * (k - range(0.3, 0.7)) / nf
+      local pts = {}
+      for i = 0, 4 do pts[i + 1] = gp(gth(W, max(W.ab, a)) - sym(6), 80 - 160 * i / 4) end
+      N.streak(pts, 0.04 * h, 0.12 * h * range(0.7, 1.3), tone(t - 0.26), 0.25 + 0.4 * ct)
+    end
+  elseif s.pattern == "dots" then
+    for _ = 1, floor(range(6, 12)) do
+      local c = gp(gth(W, range(max(15, W.ab), 165)), range(-60, 60))
+      local r = h * range(0.04, 0.07)
+      ink.smooth(N.blob(c[1], c[2], r, r * 0.8, 0.25, 7), true) fill(tone(t - 0.26), 0.35 + 0.4 * ct, true)
+    end
+  end
+  -- the sculpture: axial ribs across the whorl where they stand 0.5 mm apart at its front,
+  -- spiral cords along it, knobs on the shoulder
+  local lam = GA.W ^ (W.tb / 360)
+  if RIBBY[s.sculpture] and s.ribs > 0 then
+    local half = s.ribs / 2
+    local gap = GA.y0 * lam * (180 / half) * RAD
+    if gap * D.cm > K(0.05) then
+      local wide = s.sculpture == "cancellate" and 0.14 or 0.22
+      for k = 1, floor(half + 0.5) do
+        local a = max(W.ab, 180 * (k - 0.5) / half)
+        local th = gth(W, a)
+        local f = max(0.15, sin(a))                    -- foreshortened toward the silhouettes
+        if s.sculpture ~= "nodes" then
+          swell(gacross(th), wide * gap * f, tone(t - 0.2), 0.38)
+          if D.lod == 0 then swell(gacross(th + GA.hx * 4), 0.4 * wide * gap * f, WHITE, 0.35) end
+        else
+          local c = gp(th, 62)
+          local r = 0.3 * gap * f
+          ink.smooth(N.blob(c[1], c[2], r, 0.8 * r, 0.2, 7), true) fill(tone(t - 0.2), 0.45, true)
+          ink.circle(c[1] - 0.3 * r, c[2] + 0.3 * r, 0.3 * r) fill(WHITE, 0.4)
+        end
+      end
+    end
+  end
+  if (s.sculpture == "cords" or s.sculpture == "cancellate") and s.cords > 0 and h * D.cm > K(0.08) then
+    for c = 1, s.cords do
+      local psi = 75 - 150 * c / (s.cords + 1)
+      curve(galong(W, psi, 3, 177), true) stroke(tone(t - 0.2), 0.45 * D.pen, 0.42, true)
+      if D.lod == 0 then curve(galong(W, psi + 5, 3, 177), true) stroke(WHITE, 0.35 * D.pen, 0.35) end
+    end
+  end
+end
+-- the canal: the body whorl's base drawn down under the mouth to a tip bent a little
+-- toward the axis, its left edge from the base, its right from the mouth's lower outer side
+local function gcanal_len(s) return (s.canal == "long" and 1.5 or 0.6) * GA.S end
+local function gcanal_tip(s)
+  local B = gp(0, -90)
+  return { B[1] - GA.hx * 0.3, B[2] - gcanal_len(s) }
+end
+local function gcanal(s, body)
+  local tip = gcanal_tip(s)
+  local A = body.lcap[3]                             -- low on the left side, before it turns in
+  local O = gp(0, -40)                               -- the mouth's lower outer side
+  local mid = { 0.45 * A[1] + 0.55 * tip[1] + GA.hx * 0.1, 0.5 * (A[2] + tip[2]) }
+  local mid2 = { 0.5 * (O[1] + tip[1]) + GA.hx * 0.05, 0.45 * O[2] + 0.55 * tip[2] }
+  local function path() curve({ A, mid, tip }, true) curve({ tip, mid2, O }, false) close() end
+  path() fill(tone(D.t + sym(0.02)), 1)
+  if D.lod < 2 then
+    path() ink.clip()
+    N.streak({ O, mid2, tip }, 0.35, 0.05, tone(0.08), 0.3)
+    swell({ A, mid, tip }, 0.12, WHITE, 0.3)
+    ink.unclip()
+  end
+  path() stroke(tone(0.05), 0.9 * D.pen, 0.85, true)
+end
+-- the canal's open channel, on from the mouth: porcelain, its left edge the columella's
+local function gchannel(s)
+  local B, tip = gp(0, -90), gcanal_tip(s)
+  local c = { B, { 0.5 * (B[1] + tip[1]) + GA.hx * 0.06, 0.5 * (B[2] + tip[2]) }, { tip[1] + GA.hx * 0.03, tip[2] + 0.12 * gcanal_len(s) } }
+  N.streak(c, 0.32, 0.04, tone(min(0.82, D.t + 0.3)), 1)
+  local edge = { { B[1] - GA.hx * 0.12, B[2] + 0.05 }, { c[2][1] - GA.hx * 0.08, c[2][2] }, c[3] }
+  curve(edge, true) stroke(tone(0.08), 0.6 * D.pen, 0.7, true)
+end
+-- the mouth, face on: the dark inside, the pale callus along the columella with its folds,
+-- the lip thickened or flared
+local function gmouth(s)
+  local ring = {}
+  for i = 0, 23 do ring[i + 1] = gp(0, 15 * i) end
+  local c = gcenter(0)
+  if s.lip == "flared" then
+    local flange = {}
+    for i = -5, 5 do
+      local p = gp(0, 14 * i)
+      flange[#flange + 1] = { c[1] + 1.2 * (p[1] - c[1]), c[2] + 1.06 * (p[2] - c[2]) }
+    end
+    local inner = {}
+    for i = 5, -5, -1 do inner[#inner + 1] = gp(0, 14 * i) end
+    curve(flange, true) curve(inner, false) close() fill(tone(D.t + 0.06), 1)
+    curve(flange, true) stroke(tone(0.05), 0.8 * D.pen, 0.85, true)
+  end
+  -- the inside is porcelain, pale, going dark where it turns away into the shell: toward the
+  -- columella and the top
+  ink.smooth(ring, true) fill(tone(min(0.82, D.t + 0.3)), 1)
+  if D.lod < 2 then
+    local deep, glow = {}, {}
+    for i = 0, 6 do
+      local p = gp(0, 95 + 110 * i / 6)
+      deep[i + 1] = { c[1] + 0.72 * (p[1] - c[1]), c[2] + 0.75 * (p[2] - c[2]) }
+      local q = gp(0, -60 + 120 * i / 6)
+      glow[i + 1] = { c[1] + 0.72 * (q[1] - c[1]), c[2] + 0.78 * (q[2] - c[2]) }
+    end
+    ink.smooth(ring, true) ink.clip()
+    swell(deep, 0.5, tone(0.12), 0.45)
+    swell(deep, 0.25, tone(0.08), 0.35)
+    swell(glow, 0.3, WHITE, 0.45)
+    ink.unclip()
+    local col = {}
+    for i = 0, 6 do
+      local p = gp(0, 125 + 110 * i / 6)
+      col[i + 1] = { c[1] + 0.82 * (p[1] - c[1]), c[2] + 0.88 * (p[2] - c[2]) }
+    end
+    swell(col, 0.22, WHITE, 0.35)
+    if D.lod == 0 then
+      -- columella folds: short ridges slanting down into the mouth
+      for k = 1, s.folds do
+        local p = gp(0, 200 + 14 * (k - (s.folds + 1) / 2))
+        local q = { c[1] + 0.82 * (p[1] - c[1]), p[2] - 0.12 }
+        moveto(p[1], p[2]) lineto(q[1], q[2]) stroke(WHITE, 0.6 * D.pen, 0.45)
+      end
+    end
+    if s.lip == "thick" then
+      local lip = {}
+      for i = -5, 5 do
+        local p = gp(0, 14 * i)
+        lip[#lip + 1] = { c[1] + 0.9 * (p[1] - c[1]), c[2] + 0.94 * (p[2] - c[2]) }
+      end
+      swell(lip, 0.16, WHITE, 0.55)
+    end
+  end
+  ink.smooth(ring, true) stroke(tone(0.05), D.pen, 0.85, true)
+end
+local function gastropod(s, size)
+  GA.W, GA.S, GA.shoulder = s.expansion, s.aperture, s.shoulder
+  GA.y0 = (1 + s.umbilicus) / (1 - s.umbilicus)
+  GA.x0 = s.spire * GA.y0
+  GA.flatbase = s.kind == "topshell"
+  GA.egg = s.kind == "whelk"
+  local back = s.view == "back"
+  GA.hx = (s.hand == "sinistral" and -1 or 1) * (back and -1 or 1)
+  GA.ph = range(18, 30)
+  -- the whorls, as many as show: down to a ring 0.3 mm across, or the shell's own count
+  local whorls = {}
+  for j = 0, ceil(s.whorls) - 1 do whorls[j + 1] = gwhorl(j) end
+  local x0, x1, y0, y1 = 1e9, -1e9, 1e9, -1e9
+  local function box(p) x0, x1, y0, y1 = min(x0, p[1]), max(x1, p[1]), min(y0, p[2]), max(y1, p[2]) end
+  for _, W in ipairs(whorls) do
+    for _, part in ipairs({ W.top, W.bot, W.rcap, W.lcap }) do for _, p in ipairs(part) do box(p) end end
+  end
+  if s.canal ~= "none" then box(gcanal_tip(s)) end
+  if s.lip == "flared" then local c = gcenter(0) box({ c[1] + GA.hx * 1.2 * 1.06, c[2] }) end
+  box({ 0, 0 })                                     -- the apex
+  local sc = size / max(x1 - x0, y1 - y0)
+  local unit = ink.unit()
+  ink.push()
+  ink.translate(-(x0 + x1) / 2 * sc, -y0 * sc)
+  ink.scale(sc)
+  D.cm = sc * unit
+  local across_cm = size * unit
+  D.lod = across_cm < K(0.5) and 2 or across_cm < K(1.2) and 1 or 0
+  D.pen = max(0.3, min(0.85, 0.028 * across_cm * 28.3465))
+  local t = s.tone - 0.04
+  if s.ground == "pale" then t = min(0.72, t + 0.25) elseif s.ground == "dark" then t = t - 0.12 end
+  D.t = t
+  if s.canal ~= "none" then gcanal(s, whorls[1]) end
+  for j = #whorls, 1, -1 do
+    local W = whorls[j]
+    if W.h * D.cm > K(0.02) or j == 1 then
+      N.pen.accent = s.preservation == "nacre" and j > #whorls - 3     -- worn at the apex
+      gpath(W) fill(tone(t + sym(0.03)), 1)
+      if D.lod < 2 and W.h * D.cm > K(0.05) then
+        gpath(W) ink.clip()
+        gsurface(s, W)
+        ink.unclip()
+      end
+      N.pen.accent = false
+      if j == 1 and s.canal ~= "none" then gline_nobase(W) else gpath(W) end
+      stroke(tone(0.05), (j == 1 and 1 or 0.75) * D.pen, 0.85, true)
+    end
+  end
+  -- the apex's tip, where the whorls are too small to draw
+  ink.circle(0, gp(-360 * #whorls, 90)[2], 0.02 / max(1e-6, D.cm)) fill(tone(0.08), 0.8)
+  if not back then
+    gmouth(s)
+    if s.canal ~= "none" then gchannel(s) end
+  end
+  ink.pop()
+  return (x1 - x0) * sc, (y1 - y0) * sc
+end
+
+-- a cowrie: a glossy egg 1 long and `aspect` wide, lying along x; from above its dome, its
+-- spots and the pale line where the mantle met; from beneath its paler base and the long
+-- toothed slit
+local function cowrie(s, size)
+  local A = s.aspect
+  local egg = {}
+  for i = 0, 35 do
+    local u = 10 * i
+    egg[i + 1] = { 0.5 * cos(u), 0.5 * A * sin(u) * (1 + 0.08 * cos(u)) }
+  end
+  local sc = size / 1
+  local unit = ink.unit()
+  ink.push()
+  ink.translate(0, 0.5 * A * 1.08 * sc)
+  ink.scale(sc)
+  D.cm = sc * unit
+  local across_cm = size * unit
+  D.lod = across_cm < K(0.5) and 2 or across_cm < K(1.2) and 1 or 0
+  D.pen = max(0.3, min(0.85, 0.028 * across_cm * 28.3465))
+  local t = s.tone - 0.04
+  if s.ground == "pale" then t = min(0.72, t + 0.25) elseif s.ground == "dark" then t = t - 0.12 end
+  local under = s.view == "mouth"
+  if under then t = min(0.78, t + 0.22) end
+  D.t = t
+  ink.smooth(egg, true) fill(tone(t), 1)
+  if D.lod < 2 then
+    ink.smooth(egg, true) ink.clip()
+    N.streak(slice(egg, 21, 33), 0.04 * A, 0.12 * A, tone(0.08), 0.3)     -- the lower edge's shadow
+    if under then
+      -- the base: the back's color round its edge, the slit with its teeth
+      N.streak(egg, 0.1 * A, 0.1 * A, tone(t - 0.3), 0.35)
+      local slit = {}
+      for i = 0, 8 do
+        local x = -0.46 + 0.92 * i / 8
+        slit[i + 1] = { x, 0.04 * A * sin(180 * i / 8) - 0.02 * A }
+      end
+      swell(slit, 0.06 * A, tone(0.08), 0.9)
+      if D.lod == 0 then
+        for k = 1, 16 do
+          local x = -0.4 + 0.8 * (k - 0.5) / 16
+          local y = 0.04 * A * sin(180 * (x + 0.46) / 0.92) - 0.02 * A
+          for side = -1, 1, 2 do
+            moveto(x, y + side * 0.035 * A) lineto(x, y + side * 0.11 * A) stroke(tone(t - 0.25), 0.5 * D.pen, 0.55, true)
+          end
+        end
+      end
+    else
+      if s.pattern == "dots" then
+        for _ = 1, floor(range(18, 34)) do
+          local x, y = range(-0.4, 0.4), range(-0.38, 0.38) * A
+          local r = A * range(0.025, 0.06)
+          ink.smooth(N.blob(x, y, r, 0.85 * r, 0.25, 7), true) fill(tone(t - 0.28), 0.35 + 0.45 * s.contrast, true)
+        end
+      elseif s.pattern == "bands" then
+        for b = 1, 3 do
+          local x = -0.3 + 0.3 * (b - 1)
+          local stripe = { { x, -0.6 * A }, { x + 0.02, 0 }, { x, 0.6 * A } }
+          N.streak(stripe, 0.1, 0.1, tone(t - 0.24), 0.25 + 0.35 * s.contrast)
+        end
+      end
+      -- the mantle line, and the gloss: a long light along the upper left of the dome
+      local ml = {}
+      for i = 0, 6 do ml[i + 1] = { -0.42 + 0.84 * i / 6, 0.1 * A + 0.015 * sin(360 * i / 6) } end
+      if D.lod == 0 then ink.poly(ml, false) stroke(WHITE, 0.6 * D.pen, 0.5) end
+      local gl = {}
+      for i = 0, 4 do gl[i + 1] = { -0.3 + 0.45 * i / 4, 0.22 * A + 0.03 * A * sin(180 * i / 4) } end
+      swell(gl, 0.12 * A, WHITE, 0.6)
+    end
+    ink.unclip()
+  end
+  ink.smooth(egg, true) stroke(tone(0.05), D.pen, 0.85, true)
+  -- the canals at either end
+  for side = -1, 1, 2 do
+    moveto(side * 0.5, 0.03 * A) lineto(side * 0.45, 0) lineto(side * 0.5, -0.03 * A)
+    stroke(tone(0.05), 0.7 * D.pen, 0.8, true)
+  end
+  ink.pop()
+  return size, A * 1.08 * size
+end
+
 -- ---------------------------------------------------------------- entry
 -- Draw the shell `s` (M.shsample's table) `size` across at most in the local unit, its base
 -- on the origin, from pgf's generator seeded with `seed` (as the TikZ library seeds a
@@ -745,9 +1123,11 @@ function M.draw(s, seed, size)
   N.fresh()
   local lift, accent = N.pen.lift, N.pen.accent
   N.pen.lift, N.pen.accent = 0, false
-  local w, h = 0, 0
+  local w, h
   if s.group == "planispiral" then w, h = planispiral(s, size)
-  elseif s.group == "bivalve" then w, h = bivalve(s, size) end
+  elseif s.group == "bivalve" then w, h = bivalve(s, size)
+  elseif s.kind == "cowrie" then w, h = cowrie(s, size)
+  else w, h = gastropod(s, size) end
   N.pen.lift, N.pen.accent = lift, accent
   return w, h
 end

@@ -1428,7 +1428,7 @@ do
     -- shell's); the lightning whelk coils to the left
     { name = "whelk", group = "gastropod", w = 2, roles = { margin = 2, ornament = 1 }, d = {
       size = R(50, 180), ground = W("pale", 2, "ink", 2), pattern = W("none", 2, "bands", 2, "flammules", 2),
-      whorls = R(5, 8), expansion = R(1.9, 2.8), spire = R(1.5, 3), aperture = R(1.6, 2.4),
+      whorls = R(5, 8), expansion = R(1.7, 2.1), spire = R(2, 3.2), aperture = R(1.3, 1.6),
       hand = W("dextral", 49, "sinistral", 1),
       sculpture = W("ribs", 2, "cords", 2, "cancellate", 1, "nodes", 2, "smooth", 1),
       ribs = BY("sculpture", { ribs = I(8, 14), cancellate = I(8, 14), nodes = I(7, 11), _ = C(0) }),
@@ -1440,18 +1440,19 @@ do
     -- low W, Okabe and Yoshimura 2017); the triphorids coil to the left
     { name = "turret", group = "gastropod", w = 2, roles = { margin = 1 }, d = {
       size = R(25, 90), ground = W("ink", 2, "pale", 2, "dark", 1), pattern = W("none", 2, "bands", 1, "flammules", 1),
-      whorls = R(9, 15), expansion = R(1.15, 1.4), spire = R(3, 6), aperture = R(0.9, 1.2),
+      whorls = R(9, 15), expansion = R(1.15, 1.3), spire = R(3, 5), aperture = R(0.95, 1.2),
       hand = W("dextral", 49, "sinistral", 1),
       sculpture = W("cords", 3, "ribs", 2, "cancellate", 1, "smooth", 1),
       ribs = BY("sculpture", { ribs = I(14, 24), cancellate = I(14, 22), _ = C(0) }),
       cords = BY("sculpture", { cords = I(2, 5), cancellate = I(2, 4), _ = C(0) }),
       shoulder = W("none", 3, "angular", 1), lip = C("plain"),
     } },
-    -- a topshell: a low cone on a flat base, now and then worn down to its nacre
+    -- a topshell: a cone on a flat base (a 60-70 degree apex is T about 2), now and then worn
+    -- down to its nacre
     { name = "topshell", group = "gastropod", w = 2, roles = { margin = 1 }, d = {
       size = R(12, 35), ground = W("ink", 2, "pale", 1), pattern = W("flammules", 2, "bands", 1, "dots", 1, "none", 1),
       preservation = W("shell", 3, "nacre", 1),
-      whorls = R(5, 7), expansion = R(1.7, 2.3), spire = R(1, 1.8), aperture = R(0.7, 0.95), umbilicus = R(0, 0.12),
+      whorls = R(6, 9), expansion = R(1.5, 1.7), spire = R(1.8, 2.4), aperture = R(0.8, 0.95), umbilicus = R(0, 0.06),
       sculpture = W("cords", 3, "smooth", 2, "nodes", 1),
       ribs = BY("sculpture", { nodes = I(10, 16), _ = C(0) }), cords = BY("sculpture", { cords = I(3, 6), _ = C(0) }),
       shoulder = W("none", 3, "angular", 1), lip = C("plain"),
@@ -1488,6 +1489,11 @@ do
     check(not coiled or (s.expansion > 1 and s.umbilicus >= 0 and s.umbilicus < 1 and s.spire >= 0),
       "a coil outside Raup's bounds (W > 1, 0 <= D < 1, T >= 0)")
     check(not coiled or s.expansion * s.umbilicus <= 1, "whorls that do not touch (W D > 1)")
+    -- along the axis too: a ring sits T y0 (1 - 1/W) above the next one round, and each
+    -- reaches S of its size up and down
+    local y0 = coiled and (1 + s.umbilicus) / (1 - s.umbilicus) or 0
+    check(s.group ~= "gastropod" or not coiled or s.spire * y0 * (s.expansion - 1) <= s.aperture * (s.expansion + 1),
+      "whorls that part along the axis (T y0 (W - 1) > S (W + 1))")
     check(coiled or (s.expansion == 0 and s.umbilicus == 0 and s.spire == 0), "a coil's numbers on a shell without a coil")
     check(s.group ~= "planispiral" or (coiled and s.spire == 0), "a planispiral with a spire, or without a coil")
     check((s.involution ~= "none") == (s.group == "planispiral"), "an involution on a shell that is no planispiral, or one without")

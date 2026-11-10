@@ -178,8 +178,8 @@ This page is written by `tools/tikztables.lua` from `florilegium-species.lua`.
 | `whorls` | a number from 3 to 15 |
 | `expansion` | a number from 1.15 to 3.6 |
 | `umbilicus` | a number from 0 to 0.45 |
-| `spire` | a number from 0 to 6 |
-| `aperture` | a number from 0.7 to 2.4 |
+| `spire` | a number from 0 to 5 |
+| `aperture` | a number from 0.8 to 1.6 |
 | `hand` | `dextral`, `sinistral` |
 | `sculpture` | `branching`, `cancellate`, `cords`, `layers`, `nodes`, `ribs`, `ridges`, `smooth`, `tubercles` |
 | `ribs` | a whole number from 0 to 48 |
