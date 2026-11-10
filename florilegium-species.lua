@@ -1317,6 +1317,299 @@ function M.tdescribe(w)
 end
 TRACERY.describe = M.tdescribe
 
+-- ---------------------------------------------------------------- shells
+-- A shell (board #5335, the shells report's part A) is sampled as a visitor is: its kind
+-- first (an ammonite, a scallop, a whelk ...), which fixes its group, then the traits the
+-- report gives that kind, each a constant where the kind has no such thing. Three groups:
+-- planispirals coil flat and are seen from the side, down the axis (ammonites, the
+-- nautilus); bivalves are drawn from the outline of one valve; gastropods are the sea
+-- snails' empty shells, Raup's coiled tube with a spire, but for the cowrie, whose spire is
+-- hidden and which is drawn from its outline too. The coil is Raup's (1966), its ring
+-- placed as Okabe and Yoshimura place it (2017): expansion W (how many times the tube
+-- widens in a turn), umbilicus D (the tube's inner edge over its outer, from the axis),
+-- spire T (how far the tube slides along the axis in a turn, for its distance from it) and
+-- aperture S (the mouth's height for its width); a shell without a coil has them all 0.
+-- size is the real shell's in mm, its longest extent; ground the wash it is painted in;
+-- preservation what shows of its surface: the shell, a mold (an ammonite whose shell has
+-- worn away, its septa's suture lines showing), pyrite or nacre (both in the copper).
+do
+  M.SHTRAITS = {
+    "kind", "group", "size", "tone", "ground", "pattern", "contrast", "view", "preservation",
+    -- the coil
+    "whorls", "expansion", "umbilicus", "spire", "aperture", "hand",
+    -- the surface: ribs (a whorl's, or a valve's from its beak), spiral cords, concentric
+    -- ridges or layers
+    "sculpture", "ribs", "cords", "ridges",
+    -- an ammonite's keel, the suture lines of its septa on a mold, a broken last whorl
+    "keel", "septa", "broken",
+    -- an outline's width for its length (a valve's, a cowrie's), the beak's place along the
+    -- hinge (0 at one end, 0.5 in the middle), a scallop's ears, how domed a valve is
+    "aspect", "beak", "ears", "inflation",
+    -- a gastropod's shoulder, how deep its suture runs, the canal, the lip, columella folds
+    "shoulder", "suture", "canal", "lip", "folds",
+  }
+  -- what a shell does not have: every trait a constant (no draw)
+  local SHNONE = {
+    pattern = C("none"), preservation = C("shell"),
+    whorls = C(0), expansion = C(0), umbilicus = C(0), spire = C(0), aperture = C(0), hand = C("none"),
+    ribs = C(0), cords = C(0), ridges = C(0), keel = C("none"), septa = C("none"), broken = C(0),
+    aspect = C(0), beak = C(0), ears = C("none"), inflation = C(0),
+    shoulder = C("none"), suture = C(0), canal = C("none"), lip = C("none"), folds = C(0),
+  }
+  -- a pattern's strength, where there is one
+  local CONTRAST = BY("pattern", { none = C(0), _ = R(0.35, 1) })
+  -- each group's own, under its kinds' tables
+  local SHGROUP = {
+    planispiral = { tone = R(0.28, 0.42), contrast = CONTRAST, view = C("flank"), spire = C(0) },
+    bivalve = { tone = R(0.28, 0.42), contrast = CONTRAST, view = W("outside", 3, "inside", 1), inflation = R(0.2, 0.6) },
+    gastropod = { tone = R(0.28, 0.42), contrast = CONTRAST, view = W("mouth", 3, "back", 1), hand = C("dextral"),
+      umbilicus = R(0, 0.06), suture = R(0.15, 0.7) },
+  }
+  -- kinds: group; w, the weight among all kinds and in its group's role; roles, the weight
+  -- in the others (margin: lying on the margin's ground, the shapes that read small first;
+  -- ornament: alone, as an ornament). A coil's whorls touch when W D <= 1 (McGhee 2015), so
+  -- an ammonite's wide umbilicus comes with a slowly widening coil
+  M.SHKINDS = {
+    -- an ammonite: ribs simple, forking or knobbed; a mold shows the septa's suture lines,
+    -- the frilled (ammonitic) ones of the Jurassic and Cretaceous most often
+    { name = "ammonite", group = "planispiral", w = 3, roles = { margin = 3, ornament = 2 }, d = {
+      size = R(30, 180), ground = W("ink", 3, "pale", 2),
+      preservation = W("shell", 3, "mold", 3, "pyrite", 1, "nacre", 1),
+      whorls = R(4, 7), expansion = R(1.6, 2.6), umbilicus = R(0.1, 0.38),
+      sculpture = W("ribs", 4, "branching", 3, "tubercles", 2, "smooth", 1),
+      ribs = BY("sculpture", { smooth = C(0), _ = I(18, 48) }),
+      keel = W("none", 3, "keel", 2, "grooved", 1),
+      septa = BY("preservation", { mold = W("ammonitic", 3, "ceratitic", 1, "goniatitic", 1), _ = C("none") }),
+      broken = W(0, 4, 1, 1),
+    } },
+    -- the chambered nautilus: one wide whorl hiding the rest (W 3.4 and D 0.04, Raup 1967),
+    -- a dimple at the center, flame stripes on its older half
+    { name = "nautilus", group = "planispiral", w = 1, roles = { margin = 1, ornament = 2 }, d = {
+      size = R(140, 220), ground = W("pale", 3, "ink", 1), pattern = C("flammules"),
+      preservation = W("shell", 6, "nacre", 1),
+      whorls = R(3, 3.6), expansion = R(3.1, 3.6), umbilicus = R(0.02, 0.06), sculpture = C("smooth"),
+    } },
+    -- a scallop: a fan on a straight hinge with ears, strong ribs from the beak at its middle
+    { name = "scallop", group = "bivalve", w = 3, roles = { margin = 3, ornament = 3 }, d = {
+      size = R(40, 120), ground = W("ink", 3, "pale", 2, "dark", 1),
+      pattern = W("none", 3, "bands", 1, "rays", 1, "zigzags", 1, "dots", 1),
+      sculpture = C("ribs"), ribs = I(12, 24), aspect = R(0.9, 1.05), beak = C(0.5),
+      ears = W("equal", 2, "unequal", 3),
+    } },
+    -- a cockle: round and domed, crowded ribs scalloping its edge
+    { name = "cockle", group = "bivalve", w = 2, roles = { margin = 2 }, d = {
+      size = R(25, 60), ground = W("pale", 3, "ink", 2), pattern = W("none", 3, "bands", 1),
+      sculpture = C("ribs"), ribs = I(18, 34), aspect = R(0.85, 1), beak = R(0.42, 0.5), inflation = R(0.5, 0.8),
+    } },
+    -- a mussel: a dark wedge with its beak at the narrow end, nacre inside
+    { name = "mussel", group = "bivalve", w = 2, roles = { margin = 1 }, d = {
+      size = R(40, 100), ground = W("dark", 3, "ink", 1), sculpture = C("smooth"),
+      aspect = R(0.4, 0.55), beak = R(0, 0.06),
+    } },
+    -- a clam: an oval with its beak off center, concentric ridges, often rayed
+    { name = "clam", group = "bivalve", w = 2, roles = { margin = 1 }, d = {
+      size = R(25, 70), ground = W("pale", 3, "ink", 2), pattern = W("none", 2, "rays", 2, "zigzags", 1),
+      sculpture = W("ridges", 3, "smooth", 1), ridges = BY("sculpture", { ridges = I(6, 14), _ = C(0) }),
+      aspect = R(0.65, 0.82), beak = R(0.25, 0.4),
+    } },
+    -- an oyster: lumpy, in layers, as often lying open on its pale inside as not
+    { name = "oyster", group = "bivalve", w = 1, roles = { margin = 1 }, d = {
+      size = R(50, 130), ground = W("pale", 2, "ink", 2), sculpture = C("layers"), ridges = I(4, 8),
+      aspect = R(0.7, 1.2), beak = R(0.05, 0.25), view = W("outside", 1, "inside", 1),
+    } },
+    -- a whelk: a spindle drawn out into a canal, columella folds now and then (as a tulip
+    -- shell's); the lightning whelk coils to the left
+    { name = "whelk", group = "gastropod", w = 2, roles = { margin = 2, ornament = 1 }, d = {
+      size = R(50, 180), ground = W("pale", 2, "ink", 2), pattern = W("none", 2, "bands", 2, "flammules", 2),
+      whorls = R(5, 8), expansion = R(1.9, 2.8), spire = R(1.5, 3), aperture = R(1.6, 2.4),
+      hand = W("dextral", 49, "sinistral", 1),
+      sculpture = W("ribs", 2, "cords", 2, "cancellate", 1, "nodes", 2, "smooth", 1),
+      ribs = BY("sculpture", { ribs = I(8, 14), cancellate = I(8, 14), nodes = I(7, 11), _ = C(0) }),
+      cords = BY("sculpture", { cords = I(3, 7), cancellate = I(3, 6), _ = C(0) }),
+      shoulder = W("none", 2, "rounded", 2, "angular", 2), canal = W("long", 2, "short", 2),
+      lip = W("thick", 2, "plain", 2, "flared", 1), folds = W(0, 3, 2, 1, 3, 1),
+    } },
+    -- a turret shell: a tall screw of many slowly widening whorls (a high spire goes with a
+    -- low W, Okabe and Yoshimura 2017); the triphorids coil to the left
+    { name = "turret", group = "gastropod", w = 2, roles = { margin = 1 }, d = {
+      size = R(25, 90), ground = W("ink", 2, "pale", 2, "dark", 1), pattern = W("none", 2, "bands", 1, "flammules", 1),
+      whorls = R(9, 15), expansion = R(1.15, 1.4), spire = R(3, 6), aperture = R(0.9, 1.2),
+      hand = W("dextral", 49, "sinistral", 1),
+      sculpture = W("cords", 3, "ribs", 2, "cancellate", 1, "smooth", 1),
+      ribs = BY("sculpture", { ribs = I(14, 24), cancellate = I(14, 22), _ = C(0) }),
+      cords = BY("sculpture", { cords = I(2, 5), cancellate = I(2, 4), _ = C(0) }),
+      shoulder = W("none", 3, "angular", 1), lip = C("plain"),
+    } },
+    -- a topshell: a low cone on a flat base, now and then worn down to its nacre
+    { name = "topshell", group = "gastropod", w = 2, roles = { margin = 1 }, d = {
+      size = R(12, 35), ground = W("ink", 2, "pale", 1), pattern = W("flammules", 2, "bands", 1, "dots", 1, "none", 1),
+      preservation = W("shell", 3, "nacre", 1),
+      whorls = R(5, 7), expansion = R(1.7, 2.3), spire = R(1, 1.8), aperture = R(0.7, 0.95), umbilicus = R(0, 0.12),
+      sculpture = W("cords", 3, "smooth", 2, "nodes", 1),
+      ribs = BY("sculpture", { nodes = I(10, 16), _ = C(0) }), cords = BY("sculpture", { cords = I(3, 6), _ = C(0) }),
+      shoulder = W("none", 3, "angular", 1), lip = C("plain"),
+    } },
+    -- a cowrie: a glossy egg, seen from above or from beneath with its toothed slit
+    { name = "cowrie", group = "gastropod", w = 2, roles = { margin = 2, ornament = 1 }, d = {
+      size = R(15, 80), ground = W("ink", 2, "dark", 1, "pale", 1), pattern = W("dots", 3, "bands", 1, "none", 1),
+      view = W("back", 3, "mouth", 1), umbilicus = C(0), suture = C(0), sculpture = C("smooth"),
+      aspect = R(0.55, 0.72), lip = C("toothed"),
+    } },
+  }
+  M.SHROLES = { margin = true, ornament = true, planispiral = true, bivalve = true, gastropod = true, any = true }
+  local SHELL = family {
+    name = "shell", noun = "shell", what = "a shell", heading = "A shell",
+    traits = M.SHTRAITS, kinds = M.SHKINDS, derived = "group", roles = M.SHROLES,
+    rolelist = { "margin", "ornament", "planispiral", "bivalve", "gastropod", "any" },
+    fallback = function(k, trait) return SHGROUP[k.group][trait] or SHNONE[trait] end,
+    weight = function(k, role) if role == "any" or role == k.group then return k.w end return k.roles[role] end,
+    -- a shell's values (M.values) are what its kind or group draws, never SHNONE's placeholders
+    own = function(k, trait) return k.d[trait] or SHGROUP[k.group][trait] end,
+    tex = { traits = "ktraits", role = "krole", kind = "kkind", T = "KT", BY = "KBY", d = "sh@", ok = "kok" },
+  }
+  M.FAMILIES[4], M.FAMILIES.shell = SHELL, SHELL
+  M.shdist, M.shrolekinds, M.shsample = SHELL.dist, SHELL.rolekinds, SHELL.sample
+
+  -- the rules of shells (the report's A6); one broken is a bug in the tables
+  local RIBBED = { ribs = 1, branching = 1, tubercles = 1, cancellate = 1, nodes = 1 }
+  local NACREOUS = { oyster = 1, mussel = 1 }                  -- a valve whose inside is nacre
+  function M.shviolations(s)
+    local out = {}
+    local function check(ok, what) if not ok then out[#out + 1] = what end end
+    local coiled = s.whorls > 0
+    check(not coiled or s.group ~= "bivalve", "a coil on a bivalve")
+    check(not coiled or (s.expansion > 1 and s.umbilicus >= 0 and s.umbilicus < 1 and s.spire >= 0),
+      "a coil outside Raup's bounds (W > 1, 0 <= D < 1, T >= 0)")
+    check(not coiled or s.expansion * s.umbilicus <= 1, "whorls that do not touch (W D > 1)")
+    check(coiled or (s.expansion == 0 and s.umbilicus == 0 and s.spire == 0), "a coil's numbers on a shell without a coil")
+    check(s.group ~= "planispiral" or (coiled and s.spire == 0), "a planispiral with a spire, or without a coil")
+    check((s.aperture > 0) == (s.group == "gastropod" and coiled), "a mouth's shape on a shell that is no coiled gastropod, or one without")
+    check((s.suture > 0) == (s.group == "gastropod" and coiled), "a suture's depth on a shell that is no coiled gastropod, or one without")
+    check(s.shoulder == "none" or (s.group == "gastropod" and coiled), "a shoulder on a shell that is no coiled gastropod")
+    check((s.hand == "none") == (s.group ~= "gastropod"), "a handedness on a shell that shows none, or a gastropod without one")
+    check(s.hand ~= "sinistral" or s.kind == "whelk" or s.kind == "turret", "a sinistral shell other than a whelk or a turret")
+    check(s.canal == "none" or s.kind == "whelk", "a canal on a shell that is no spindle")
+    check((s.lip == "toothed") == (s.kind == "cowrie"), "a toothed slit on a shell that is no cowrie, or a cowrie without one")
+    check(s.lip == "none" or s.group == "gastropod", "a lip on a shell that is no gastropod")
+    check(s.folds == 0 or s.kind == "whelk", "columella folds on a shell that is no spindle")
+    check((s.preservation ~= "pyrite" and s.preservation ~= "mold") or s.kind == "ammonite", "pyrite or a mold on a shell other than an ammonite")
+    check(s.preservation ~= "nacre" or s.kind == "ammonite" or s.kind == "nautilus" or s.kind == "topshell",
+      "nacre showing on a shell that has none to show")
+    check((s.septa ~= "none") == (s.preservation == "mold"), "suture lines on a shell, or a mold without them")
+    check((s.view == "flank") == (s.group == "planispiral"), "a planispiral seen other than from the side")
+    check((s.view == "outside" or s.view == "inside") == (s.group == "bivalve"), "a valve's view on a shell that is no bivalve")
+    check((s.view == "mouth" or s.view == "back") == (s.group == "gastropod"), "a gastropod's view on a shell that is no gastropod")
+    check((s.ribs > 0) == (RIBBED[s.sculpture] ~= nil), "ribs counted on a shell that has none, or a ribbed shell without a count")
+    check((s.cords > 0) == (s.sculpture == "cords" or s.sculpture == "cancellate"), "cords counted on a shell without them, or one with them uncounted")
+    check((s.ridges > 0) == (s.sculpture == "ridges" or s.sculpture == "layers"), "ridges counted on a shell without them, or one with them uncounted")
+    check(s.ridges == 0 or s.group == "bivalve", "concentric ridges on a shell that is no bivalve")
+    check(s.ears == "none" or s.kind == "scallop", "ears on a shell that is no scallop")
+    check(s.keel == "none" or s.kind == "ammonite", "a keel on a shell that is no ammonite")
+    check(s.broken == 0 or s.group == "planispiral", "a broken whorl on a shell that is no planispiral")
+    check((s.aspect > 0) == (s.group == "bivalve" or s.kind == "cowrie"), "an outline's aspect on a shell drawn from its coil, or an outline without one")
+    check((s.beak == 0 and s.inflation == 0) or s.group == "bivalve", "a beak or a dome on a shell that is no bivalve")
+    check((s.contrast > 0) == (s.pattern ~= "none"), "a pattern without strength, or strength without a pattern")
+    return out
+  end
+  SHELL.violations = M.shviolations
+  -- a shell in the copper: pyrite, nacre worn through, or a valve lying open on its nacre
+  function M.shcopper(s)
+    return s.preservation == "pyrite" or s.preservation == "nacre" or (s.view == "inside" and NACREOUS[s.kind] ~= nil)
+  end
+
+  -- a shell in words: "a pyritized ammonite with forking ribs and a keel, its last whorl
+  -- broken", "a sinistral whelk of six whorls with a long canal, knobbed on its shoulder"
+  local SHKINDW = { ammonite = "ammonite", nautilus = "chambered nautilus", scallop = "scallop", cockle = "cockle",
+    mussel = "mussel", clam = "clam", oyster = "oyster", whelk = "whelk", turret = "turret shell", topshell = "topshell",
+    cowrie = "cowrie" }
+  local PATTERNW = { bands = "banded", rays = "rayed", flammules = "flame-striped", zigzags = "zigzag-marked", dots = "spotted" }
+  local SEPTAW = { goniatitic = "zigzag", ceratitic = "saw-toothed", ammonitic = "frilled" }
+  -- a count in words, to ninety-nine (an ammonite has up to 48 ribs a whorl)
+  local TENS = { [2] = "twenty", [3] = "thirty", [4] = "forty", [5] = "fifty", [6] = "sixty", [7] = "seventy",
+    [8] = "eighty", [9] = "ninety" }
+  local function count_(k)
+    if k < 20 or k > 99 then return n_(k) end
+    return TENS[k // 10] .. (k % 10 > 0 and "-" .. NUM[k % 10] or "")
+  end
+  -- the head ("a sinistral banded whelk"), what it is made of ("of seven whorls"), what it has
+  -- ("with a long canal and spiral cords"), then the rest, each after a comma ("latticed",
+  -- "its lip thickened")
+  function M.shdescribe(s)
+    local adj = {}
+    if s.preservation == "pyrite" then adj[#adj + 1] = "pyritized" end
+    if s.hand == "sinistral" then adj[#adj + 1] = "sinistral" end
+    if PATTERNW[s.pattern] and s.kind ~= "nautilus" then adj[#adj + 1] = PATTERNW[s.pattern] end
+    adj[#adj + 1] = SHKINDW[s.kind] .. (s.preservation == "mold" and " mold" or "")
+    local of, has, rest = nil, {}, {}
+    local function with(what) has[#has + 1] = what end
+    local function also(what) rest[#rest + 1] = what end
+    if s.group == "planispiral" then
+      if s.sculpture == "ribs" then with(count_(s.ribs) .. " ribs a whorl")
+      elseif s.sculpture == "branching" then with("forking ribs")
+      elseif s.sculpture == "tubercles" then with("knobbed ribs") end
+      if s.keel == "keel" then with("a keel") elseif s.keel == "grooved" then with("a keel between two grooves") end
+      if s.kind == "nautilus" then with("flame stripes") end
+      if s.septa ~= "none" then also("showing its " .. SEPTAW[s.septa] .. " suture lines") end
+      if s.preservation == "nacre" then also("worn to its nacre") end
+      if s.broken == 1 then also("its last whorl broken") end
+    elseif s.group == "bivalve" then
+      if s.ribs > 0 then of = "of " .. count_(s.ribs) .. " ribs" end
+      if s.ears == "unequal" then with("unequal ears") elseif s.ears == "equal" then with("ears") end
+      if s.sculpture == "ridges" then with(count_(s.ridges) .. " concentric ridges")
+      elseif s.sculpture == "layers" then of = "in " .. count_(s.ridges) .. " layers" end
+      if s.view == "inside" then also(NACREOUS[s.kind] and "lying open on its nacre" or "lying open") end
+    else
+      if s.whorls > 0 then of = "of " .. count_(floor(s.whorls + 0.5)) .. " whorls" end
+      if s.canal ~= "none" then with("a " .. s.canal .. " canal") end
+      if s.sculpture == "cords" then with("spiral cords") end
+      local on = s.shoulder == "angular" and " on its angular shoulder" or ""
+      if s.sculpture == "ribs" then also("ribbed" .. on)
+      elseif s.sculpture == "cancellate" then also("latticed")
+      elseif s.sculpture == "nodes" then also("knobbed" .. (on ~= "" and on or " on its shoulder")) end
+      if s.lip == "flared" then also("its lip flared") elseif s.lip == "thick" then also("its lip thickened") end
+      if s.preservation == "nacre" then also("worn to its nacre") end
+      if s.kind == "cowrie" then also(s.view == "mouth" and "seen from beneath, its slit toothed" or "seen from above") end
+    end
+    local text = an_(concat(adj, " "))
+    if of then text = text .. " " .. of end
+    if #has > 0 then
+      text = text .. " with " .. (#has == 1 and has[1] or concat(has, ", ", 1, #has - 1) .. " and " .. has[#has])
+    end
+    if #rest > 0 then text = text .. ", " .. concat(rest, ", ") end
+    text = text .. "."
+    return text:sub(1, 1):upper() .. text:sub(2)
+  end
+  SHELL.describe = M.shdescribe
+
+  -- the document's cabinet (docseed as for the pool): four shells of role margin from a
+  -- stream of their own, no kind twice, more than one group, at most one in the copper, so
+  -- a page that lies one to three of them on its ground keeps the margin's copper sparse
+  local cabinets = {}
+  function M.cabinet(docseed)
+    docseed = docseed or 0
+    if cabinets[docseed] then return cabinets[docseed] end
+    local rng = ink.rng(docseed * 104729 + 701)
+    local cab, used, groups, copper, tries = {}, {}, {}, false, 0
+    while #cab < 4 do
+      local s = M.shsample(1 + floor(rng.u() * 2147483645), "margin")
+      local ok = not used[s.kind] and not (copper and M.shcopper(s))
+      if ok and #cab == 3 then
+        local n = 0
+        for _ in pairs(groups) do n = n + 1 end
+        if n == 1 and groups[s.group] then ok = false end
+      end
+      if ok then
+        used[s.kind], groups[s.group], copper = true, true, copper or M.shcopper(s)
+        cab[#cab + 1] = s
+      end
+      tries = tries + 1
+      assert(tries < 10000, "florilegium-species: no cabinet of shells for the document seed " .. docseed)
+    end
+    cabinets[docseed] = cab
+    return cab
+  end
+end
+
 -- ---------------------------------------------------------------- as TeX
 -- the tables for tikzlibraryflorilegium.code.tex: one macro per plan that draws its
 -- traits in M.TRAITS order, and one per role that draws a plan
@@ -1412,11 +1705,12 @@ function M.traitsdoc()
   local out = {
     "# Traits",
     "",
-    "The traits a species and a visitor are sampled with, in the order they are drawn, and what",
-    "each may be fixed to: one of the names listed, or a number in the range given (a whole",
-    "number where it says so). Fix them with `\\florilegiumspecies[...]`, `\\florilegiumvisitor[...]`",
-    "or a pic's `traits` key; [the TikZ library](tikz.md#a-genome-of-your-own) shows how. `clade` and",
-    "`group` follow from the plan and the kind and are not fixed themselves.",
+    "The traits a species, a visitor, a window of tracery and a shell are sampled with, in the order",
+    "they are drawn, and what each may be fixed to: one of the names listed, or a number in the range",
+    "given (a whole number where it says so). Fix them with `\\florilegiumspecies[...]`,",
+    "`\\florilegiumvisitor[...]`, `\\florilegiumtracery[...]`, `\\florilegiumshell[...]` or a pic's `traits`",
+    "key; [the TikZ library](tikz.md#a-genome-of-your-own) shows how. `clade` and `group` follow from",
+    "the plan and the kind and are not fixed themselves.",
     "",
     "This page is written by `tools/tikztables.lua` from `florilegium-species.lua`.",
   }

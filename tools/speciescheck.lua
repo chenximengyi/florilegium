@@ -1,7 +1,8 @@
 -- Check the species tables without TeX: every sampled species keeps the rules of
 -- florilegium-species.lua, the body plans and traits are spread as intended, and the
 -- generated TikZ tables are current.
---   texlua tools/speciescheck.lua [N]          (from the repo root; N species, N/10 ferns, N visitors and N windows of tracery, default 10000)
+--   texlua tools/speciescheck.lua [N]          (from the repo root; N species, N/10 ferns, N visitors, N windows of tracery
+--                                              and N shells, default 10000; N/10 documents' cabinets of shells)
 --   texlua tools/speciescheck.lua --pools K     K documents' pools, in words
 --   texlua tools/speciescheck.lua --log a b     choice logs of seeds a..b, role any (for tikzcheck)
 package.path = "./?.lua;" .. package.path
@@ -114,11 +115,67 @@ for seed = 1, N do
   end
   species.tdescribe(w)
 end
-local NV = { visitor = N // #VROLES + (N % #VROLES > 0 and 1 or 0), tracery = N // #TROLES + (N % #TROLES > 0 and 1 or 0) }
+-- shells, in every role in turn
+local SHROLES = { "any", "margin", "ornament", "planispiral", "bivalve", "gastropod" }
+for seed = 1, N do
+  local role = SHROLES[1 + seed % #SHROLES]
+  local s = species.shsample(seed, role)
+  local bad1 = species.shviolations(s)
+  -- a group's role draws only that group; margin and ornament only the kinds weighted for them
+  local GROUPS = { planispiral = true, bivalve = true, gastropod = true }
+  if GROUPS[role] then
+    if s.group ~= role then bad1[#bad1 + 1] = "the role " .. role .. " drew a " .. s.group end
+  elseif role ~= "any" then
+    local ok = false
+    for _, k in ipairs(species.SHKINDS) do if k.name == s.kind and k.roles[role] then ok = true end end
+    if not ok then bad1[#bad1 + 1] = "the role " .. role .. " drew " .. s.kind end
+  end
+  if #bad1 > 0 then
+    bad = bad + 1
+    if bad <= 10 then print(fmt("seed %d (shell %s, %s): %s", seed, role, s.kind, table.concat(bad1, "; "))) end
+  end
+  if role == "any" then count("shell", s.kind) end
+  if role == "margin" then count("shell margin", s.kind) end
+  for _, t in ipairs({ "view", "preservation", "sculpture", "hand" }) do count("shell " .. t, s[t]) end
+  local again = species.shsample(seed, role)
+  for _, t in ipairs(species.SHTRAITS) do
+    if again[t] ~= s[t] then error(fmt("seed %d: shell %s differs on a second draw", seed, t)) end
+  end
+  species.shdescribe(s)
+end
+-- a document's cabinet: four shells of role margin, no kind twice, more than one group, at
+-- most one in the copper
+local ND = N // 10
+for doc = 0, ND - 1 do
+  local cab, kinds, groups, copper = species.cabinet(doc), {}, {}, 0
+  local why = {}
+  if #cab ~= 4 then why[#why + 1] = #cab .. " shells" end
+  for _, s in ipairs(cab) do
+    if kinds[s.kind] then why[#why + 1] = s.kind .. " twice" end
+    kinds[s.kind], groups[s.group] = true, true
+    if species.shcopper(s) then copper = copper + 1 end
+    if s.role ~= "margin" then why[#why + 1] = "a shell of role " .. s.role end
+    for _, v in ipairs(species.shviolations(s)) do why[#why + 1] = v end
+  end
+  local ng = 0
+  for _ in pairs(groups) do ng = ng + 1 end
+  if ng < 2 then why[#why + 1] = "one group only" end
+  if copper > 1 then why[#why + 1] = copper .. " in the copper" end
+  if #why > 0 then
+    bad = bad + 1
+    if bad <= 10 then print(fmt("document %d's cabinet: %s", doc, table.concat(why, "; "))) end
+  end
+  count("cabinet copper", copper)
+end
+local NV = { visitor = N // #VROLES + (N % #VROLES > 0 and 1 or 0), tracery = N // #TROLES + (N % #TROLES > 0 and 1 or 0),
+  shell = N // #SHROLES + (N % #SHROLES > 0 and 1 or 0) }
+NV["shell margin"] = NV.shell
+NV["cabinet copper"] = ND
 for _, t in ipairs({ "plan", "syndrome", "form", "merosity", "inflo", "compound", "leafmargin", "venation", "arrangement", "fruit",
   "fern division", "fern pinnae", "fern outline", "fern sori", "fern dimorphic",
   "visitor", "visitor pose", "visitor border", "visitor spots", "visitor hand",
-  "tracery", "tracery period", "tracery arch", "tracery branch", "tracery figure", "tracery foils" }) do
+  "tracery", "tracery period", "tracery arch", "tracery branch", "tracery figure", "tracery foils",
+  "shell", "shell margin", "shell view", "shell preservation", "shell sculpture", "shell hand", "cabinet copper" }) do
   local ks = {}
   for k in pairs(hist[t]) do ks[#ks + 1] = k end
   table.sort(ks, function(a, b) return hist[t][a] > hist[t][b] or (hist[t][a] == hist[t][b] and tostring(a) < tostring(b)) end)
@@ -139,5 +196,5 @@ if f then f:close() end
 if dstale then print("docs/traits.md is stale: texlua tools/tikztables.lua") end
 stale = stale or dstale
 
-print(fmt("%d species, %d ferns, %d visitors and %d windows of tracery, %d broke a rule", N, NF, N, N, bad))
+print(fmt("%d species, %d ferns, %d visitors, %d windows of tracery, %d shells and %d cabinets, %d broke a rule", N, NF, N, N, N, ND, bad))
 os.exit((bad == 0 and not stale) and 0 or 1)

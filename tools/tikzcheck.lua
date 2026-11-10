@@ -5,7 +5,7 @@
 -- them, every choice and every real-valued trait exactly (both are pgfmath's numbers).
 --   texlua tools/tikzcheck.lua [FROM TO [ENGINE [ROLE [TRAITS]]]]   (from the repo root; default 1 1000 lualatex any)
 --   (ROLE v:<role>, e.g. v:any or v:stem: visitors of that role instead of plants, t:<role>
---   windows of tracery; TRAITS,
+--   windows of tracery, s:<role> shells; TRAITS,
 --   e.g. "compound=palmate, leaflets=7": those traits fixed in every one, #5109)
 --   tools/in-docker texlua tools/tikzcheck.lua 1 1000 pdflatex
 --
@@ -579,13 +579,14 @@ local engine = arg[3] or "lualatex"
 local role = arg[4] or "any"
 local visitor = role:match("^v:(.+)")
 local tracery = role:match("^t:(.+)")
-if visitor then role = visitor elseif tracery then role = tracery end
+local shell = role:match("^s:(.+)")
+if visitor then role = visitor elseif tracery then role = tracery elseif shell then role = shell end
 local fixtext = arg[5]
-local fix = fixtext and species.fixes(fixtext, tracery and "tracery" or visitor ~= nil)
+local fix = fixtext and species.fixes(fixtext, tracery and "tracery" or shell and "shell" or visitor ~= nil)
 local job = "tikzcheck-" .. engine
 
 local cmd = fmt([[%s -interaction=batchmode -output-directory=build -jobname=%s "%s%s\def\tikzcheckfrom{%d}\def\tikzcheckto{%d}\def\tikzcheckrole{%s}\input{tools/tikzcheck.tex}" >/dev/null]],
-  engine, job, visitor and "\\def\\tikzcheckvisitor{}" or tracery and "\\def\\tikzchecktracery{}" or "", fixtext and ("\\def\\tikzcheckfix{" .. fixtext .. "}") or "", from, to, role)
+  engine, job, visitor and "\\def\\tikzcheckvisitor{}" or tracery and "\\def\\tikzchecktracery{}" or shell and "\\def\\tikzcheckshell{}" or "", fixtext and ("\\def\\tikzcheckfix{" .. fixtext .. "}") or "", from, to, role)
 local t0 = os.time()
 os.remove("build/" .. job .. ".choices")
 os.execute(cmd)
@@ -606,7 +607,7 @@ local bad = 0
 for i, line in ipairs(tex) do
   local seed = from + i - 1
   local lua = { { "seed", tostring(seed) } }
-  ;(visitor and species.vsample or tracery and species.tsample or species.sample)(seed, role, function(t, v)
+  ;(visitor and species.vsample or tracery and species.tsample or shell and species.shsample or species.sample)(seed, role, function(t, v)
     lua[#lua + 1] = { t, math.type(v) == "float" and pm.str(math.floor(v * 65536 + 0.5)) or tostring(v) }
   end, fix)
   local got = fields(line)
@@ -625,6 +626,6 @@ for i, line in ipairs(tex) do
     if bad <= 10 then print(fmt("seed %d: %s", seed, why)) end
   end
 end
-print(fmt("%s: %d %s (role %s%s) in %d s, %d differ", engine, #tex, visitor and "visitors" or tracery and "windows" or "species", role,
+print(fmt("%s: %d %s (role %s%s) in %d s, %d differ", engine, #tex, visitor and "visitors" or tracery and "windows" or shell and "shells" or "species", role,
   fixtext and ", " .. fixtext or "", secs, bad))
 os.exit(bad == 0 and 0 or 1)
