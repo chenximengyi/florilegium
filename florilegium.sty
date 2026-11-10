@@ -18,6 +18,7 @@
 %%                                      page from a pool of eight per document
 %%   \usepackage[nomargin]{florilegium} no margin, only \florilegiumdraw
 %%   \usepackage[grown,novisitors]{florilegium}  no visitors (insects, snails, birds)
+%%   \usepackage[grown,noshells]{florilegium}    no shells on the margin's ground
 %%   \usepackage[grown,sections]{florilegium}    a flower beside every numbered \section
 %%                                      and \subsection (standard classes)
 %%   \usepackage[grown,headpieces]{florilegium}  a headpiece of Gothic tracery over every
@@ -29,6 +30,8 @@
 %%                                      with straight edges (florilegium-theme-geometric.lua)
 %%   \usepackage[grown,theme=math]{florilegium}  no plant: figures, symbols and equations
 %%                                      cascading down the margin (florilegium-theme-math.lua)
+%%   \usepackage[grown,theme=shells]{florilegium} no plant: shells among strands of wrack
+%%                                      (florilegium-theme-shells.lua)
 %%   \usepackage[grown,density=0.4]{florilegium} less in the margin: 1 is full, 0.05 a
 %%                                      single vine
 %%   \usepackage[intensity=0.5]{florilegium}     a paler margin: 1 as painted, 0.3 faint
@@ -101,6 +104,7 @@
 \newif\ifflorilegium@grown
 \newif\ifflorilegium@margin \florilegium@margintrue
 \newif\ifflorilegium@visitors \florilegium@visitorstrue
+\newif\ifflorilegium@shells \florilegium@shellstrue
 \newif\ifflorilegium@sections
 \newif\ifflorilegium@headpieces
 \newif\ifflorilegium@aging
@@ -108,6 +112,7 @@
 \DeclareOption{grown}{\florilegium@growntrue}
 \DeclareOption{nomargin}{\florilegium@marginfalse}
 \DeclareOption{novisitors}{\florilegium@visitorsfalse}
+\DeclareOption{noshells}{\florilegium@shellsfalse}
 \DeclareOption{sections}{\florilegium@sectionstrue}
 \DeclareOption{headpieces}{\florilegium@headpiecestrue}
 \DeclareOption{aging}{\florilegium@agingtrue}
@@ -137,6 +142,7 @@
   tex.error("florilegium: florilegium.lua is from an earlier release than florilegium.sty",
     {"Copy florilegium.sty and every florilegium*.lua from one release."}) end}
 \ifflorilegium@visitors\else\directlua{florilegium.visitors = false}\fi
+\ifflorilegium@shells\else\directlua{florilegium.shells = false}\fi
 %% a number that is not one warns in the log and takes the default (florilegium.lua: number)
 \ifdefined\florilegium@density
   \directlua{florilegium.density = florilegium.number("density", "\luaescapestring{\florilegium@density}", 1)}\fi

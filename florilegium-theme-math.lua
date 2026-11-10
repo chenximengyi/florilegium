@@ -145,6 +145,16 @@ function M.page(g, grow)
     end
   end
 
+  -- a headpiece's vine (\florilegiumheadpiece) carries flora's leaflets, as on a themed
+  -- garden's page; drawn under everything, in every frame
+  for _, mk in ipairs(g.marks or {}) do
+    if mk.kind == "headpiece" and g.headpiece then
+      local layer, tag = ink.layer(-1), ink.tag(nil)
+      g.headpiece(mk, function(r, L) ink.scale(L) grow.flora.leaflet(r) end)
+      ink.layer(layer) ink.tag(tag)
+    end
+  end
+
   -- 2. families flowing down the column toward the corner, each figure larger
   -- than the one before, joined by small copper arrows
   local nfam = D >= 0.5 and 2 or D >= 0.15 and 1 or 0

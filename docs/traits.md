@@ -1,10 +1,11 @@
 # Traits
 
-The traits a species and a visitor are sampled with, in the order they are drawn, and what
-each may be fixed to: one of the names listed, or a number in the range given (a whole
-number where it says so). Fix them with `\florilegiumspecies[...]`, `\florilegiumvisitor[...]`
-or a pic's `traits` key; [the TikZ library](tikz.md#a-genome-of-your-own) shows how. `clade` and
-`group` follow from the plan and the kind and are not fixed themselves.
+The traits a species, a visitor, a window of tracery and a shell are sampled with, in the order
+they are drawn, and what each may be fixed to: one of the names listed, or a number in the range
+given (a whole number where it says so). Fix them with `\florilegiumspecies[...]`,
+`\florilegiumvisitor[...]`, `\florilegiumtracery[...]`, `\florilegiumshell[...]` or a pic's `traits`
+key; [the TikZ library](tikz.md#a-genome-of-your-own) shows how. `clade` and `group` follow from
+the plan and the kind and are not fixed themselves.
 
 This page is written by `tools/tikztables.lua` from `florilegium-species.lua`.
 
@@ -160,3 +161,39 @@ This page is written by `tools/tikztables.lua` from `florilegium-species.lua`.
 | `oculus` | a number from 0 to 0.3 |
 | `tone` | a number from 0.3 to 0.5 |
 | `accent` | `center`, `none`, `stops` |
+
+## A shell
+
+| trait | what it may be |
+|---|---|
+| `kind` | `ammonite`, `clam`, `cockle`, `cowrie`, `mussel`, `nautilus`, `oyster`, `scallop`, `topshell`, `turret`, `whelk` |
+| `size` | a number from 12 to 220 |
+| `tone` | a number from 0.28 to 0.42 |
+| `ground` | `dark`, `ink`, `pale` |
+| `pattern` | `bands`, `dots`, `flammules`, `none`, `rays`, `zigzags` |
+| `contrast` | a number from 0 to 1 |
+| `view` | `back`, `flank`, `inside`, `mouth`, `outside` |
+| `preservation` | `mold`, `nacre`, `pyrite`, `shell` |
+| `involution` | `evolute`, `intermediate`, `involute` |
+| `whorls` | a number from 3 to 15 |
+| `expansion` | a number from 1.15 to 3.6 |
+| `umbilicus` | a number from 0 to 0.45 |
+| `spire` | a number from 0 to 5 |
+| `aperture` | a number from 0.8 to 1.6 |
+| `hand` | `dextral`, `sinistral` |
+| `sculpture` | `branching`, `cancellate`, `cords`, `layers`, `nodes`, `ribs`, `ridges`, `smooth`, `tubercles` |
+| `ribs` | a whole number from 0 to 48 |
+| `cords` | a whole number from 0 to 7 |
+| `ridges` | a whole number from 0 to 14 |
+| `keel` | `grooved`, `keel`, `none` |
+| `septa` | `ammonitic`, `ceratitic`, `goniatitic`, `none` |
+| `broken` | a whole number from 0 to 1 |
+| `aspect` | a number from 0.4 to 1.2 |
+| `beak` | a number from 0 to 0.5 |
+| `ears` | `equal`, `unequal` |
+| `inflation` | a number from 0.2 to 0.8 |
+| `shoulder` | `angular`, `none`, `rounded` |
+| `suture` | a number from 0 to 0.7 |
+| `canal` | `long`, `short` |
+| `lip` | `flared`, `plain`, `thick`, `toothed` |
+| `folds` | a whole number from 0 to 3 |

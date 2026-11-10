@@ -14,6 +14,7 @@
 %   \florilegiumtrait{<trait>}            a trait of the species last drawn, e.g. {plan}, {merosity}
 %   \florilegiumvisitor{<seed>}{<role>}   a visitor: a butterfly, a bee, a snail ... (see below)
 %   \florilegiumtracery{<seed>}{<role>}   a window of Gothic tracery (see below)
+%   \florilegiumshell{<seed>}{<role>}     a shell: an ammonite, a scallop, a whelk ... (see below)
 
 \ifdefined\ProvidesFile
   \ProvidesFile{tikzlibraryflorilegium.code.tex}[2026/11/05 v2.0.1 florilegium species in pure TikZ]
@@ -130,8 +131,9 @@
   \flo@fixcheck{\pgfkeyscurrentname}{#1}%
   \expandafter\let\csname flo@\flo@fixns fix@\pgfkeyscurrentname\endcsname\flo@fixval
   \edef\flo@fixlist{\flo@fixlist,\pgfkeyscurrentname}}}
-\def\flo@tns{t}
-\def\flo@fixwhat{\ifx\flo@fixns\pgfutil@empty a species\else\ifx\flo@fixns\flo@tns a window of tracery\else a visitor\fi\fi}
+\def\flo@tns{t}\def\flo@kns{k}
+\def\flo@fixwhat{\ifx\flo@fixns\pgfutil@empty a species\else\ifx\flo@fixns\flo@tns a window of tracery\else
+  \ifx\flo@fixns\flo@kns a shell\else a visitor\fi\fi\fi}
 \def\flo@fixcheck#1#2{%
   \ifcsname flo@\flo@fixns ok@#1\endcsname
     \expandafter\expandafter\expandafter\flo@fixcheck@\csname flo@\flo@fixns ok@#1\endcsname{#1}{#2}%
@@ -346,6 +348,45 @@
 \def\flo@troleerror#1{\pgfutil@packageerror{florilegium}{No tracery has the role `#1'}{A
   window's role is headpiece, window, frame, rose, ornament, any, or a kind (arcade, foil);
   see docs/species.md. Press return to draw one of role any}}
+
+% ---------------------------------------------------------------- shells (board #5335)
+% A shell sampled from its genome (florilegium-species.lua's shell family, the tables'
+% \flo@krole@<role> and \flo@kkind@<kind>), as a visitor is: the kind first (ammonite,
+% nautilus, scallop, cockle, mussel, clam, oyster, whelk, turret, topshell, cowrie), which
+% fixes its group (planispiral, bivalve, gastropod), then its traits in \flo@ktraits order.
+% Its namespace is k (\flo@k@, \flo@kfix@, \flo@kok@), since the library's h names are taken.
+%   \florilegiumshell{<seed>}{<role>}   role margin, ornament, planispiral, bivalve, gastropod, any, or a kind
+%   \florilegiumshell[kind=scallop, ribs=18]{<seed>}{<role>}   those traits fixed
+%   \florilegiumshelltrait{<trait>}     a trait of the shell last drawn, e.g. {kind}, {ribs}
+\def\flo@kset#1#2{\expandafter\edef\csname flo@k@#1\endcsname{#2}}
+\def\flo@kget#1{\csname flo@k@#1\endcsname}
+\let\florilegiumshelltrait\flo@kget
+\def\flo@KT#1#2{#2\ifcsname flo@kfix@#1\endcsname\edef\flo@val{\csname flo@kfix@#1\endcsname}\fi
+  \flo@kset{#1}{\flo@val}\flo@logT{#1}}
+\def\flo@KBY#1#2{%
+  \edef\flo@key{flo@d@#2@\flo@kget{#1}}%
+  \ifcsname\flo@key\endcsname\else\edef\flo@key{flo@d@#2@_}\fi
+  \csname\flo@key\endcsname}
+\def\florilegiumshell{\pgfutil@ifnextchar[\flo@sample@shell{\flo@sample@shell[]}}
+\def\flo@sample@shell[#1]#2#3{%
+  \flo@fixset{k}{#1}%
+  \pgfmathsetseed{#2}\edef\flo@seedval{#2}\flo@seedcheck
+  \pgfmathgeneratepseudorandomnumber\pgfmathgeneratepseudorandomnumber
+  \flo@kset{seed}{\flo@seedval}%
+  \edef\florilegiumspecieslog{seed=\flo@seedval}%
+  \flo@isrole{flo@krole@}{#3}%
+  \ifflo@roleok\flo@kset{role}{\flo@rq}\else
+    \flo@kroleerror{#3}%
+    \flo@kset{role}{any}%
+  \fi
+  \csname flo@krole@\flo@kget{role}\endcsname
+  \ifcsname flo@kfix@kind\endcsname\edef\flo@val{\flo@kfix@kind}\fi
+  \flo@kset{kind}{\flo@val}\flo@logT{kind}%
+  \csname flo@kkind@\flo@val\endcsname
+  \flo@fixclear}
+\def\flo@kroleerror#1{\pgfutil@packageerror{florilegium}{No shell has the role `#1'}{A
+  shell's role is margin, ornament, planispiral, bivalve, gastropod, any, or a kind (scallop,
+  whelk, ...); see docs/traits.md. Press return to draw one of role any}}
 
 % ================================================================ drawing
 % Everything below draws through pgf's basic layer (\pgfpathmoveto, \pgfpathcurveto,

@@ -1,16 +1,16 @@
 This is a generated file for the l3build validation system.
 Don't change this file in any respect.
-florilegium: grew 4614 cells, 67 motifs, 573 stem points, 7723 KB; visitors: ladybird, butterfly, beetle
+florilegium: grew 4614 cells, 68 motifs, 573 stem points, 7774 KB; visitors: ladybird, butterfly, beetle
 florilegium: species daisy 2070653861, rose 1427514472, lily 19393825, eudicot 1550149611
 florilegium test: page 1, 7 drawings
-  1. md5 5f511f71663f3e61938ccbeb32f1cc22, 7908264 bytes
+  1. md5 fb64caa4d950fad9eda25da1ee95eb56, 7960850 bytes
   2. md5 8adb7afad9cf806bc75f6c9dfe89e91e, 3273 bytes
   3. md5 4755a52608f9cb1143d835ce929c6f67, 85255 bytes
   4. md5 d28747cba7117b962220c563baffd199, 1487 bytes
   5. md5 d2eac34ca154f2ff2f7bc57da46284be, 1978 bytes
   6. md5 e92e661e9ea82b8437988476c4fc4bbd, 12076 bytes
   7. md5 d17c176e1829ef6f7b9044e5f527bc1f, 1651 bytes
-  grew: bee 0, bells 0, bloom:1 2, blossoms 0, bud 0, budding 0, budding:1 10, budding:2 8, budding:3 1, budding:4 1, butterfly 0, cyme 0, fern 3, flower 0, g:bloom 2, g:budding 20, g:leaf 12, g:spray 19, g:tendril 0, g:unit 9, g:visitor 2, leaf 0, leaf:1 9, leaf:2 3, leaf:4 0, lily 0, seedhead 0, spray:1 14, spray:2 4, spray:3 1, spray:4 0, sprig 0, tendril 0, umbel 0, unit:1 7, unit:2 1, unit:3 1, unit:4 0, visitor:1 1, visitor:2 1, visitor:3 0, visitor:4 0 [1
+  grew: bee 0, bells 0, bloom:1 2, blossoms 0, bud 0, budding 0, budding:1 10, budding:2 8, budding:3 1, budding:4 1, butterfly 0, cyme 0, fern 3, flower 0, g:bloom 2, g:budding 20, g:leaf 12, g:spray 19, g:tendril 0, g:unit 9, g:visitor 2, leaf 0, leaf:1 9, leaf:2 3, leaf:4 0, lily 0, seedhead 0, shell 1, spray:1 14, spray:2 4, spray:3 1, spray:4 0, sprig 0, tendril 0, umbel 0, unit:1 7, unit:2 1, unit:3 1, unit:4 0, visitor:1 1, visitor:2 1, visitor:3 0, visitor:4 0 [1
 ]
 florilegium: grew 4624 cells, 62 motifs, 544 stem points, 5429 KB; visitors: snail, hummingbird, solitarybee
 florilegium: species iris 963985113, daisy 2070653861, lily 19393825, eudicot 1550149611

@@ -184,15 +184,16 @@ the margin itself, laid out around a page's text, is the package's and needs Lua
 
 ## Themes
 
-![seed 6 as the species garden, geometric and math](gallery/themes.png)
+![seed 6 as the species garden, geometric, math and shells](gallery/themes.png)
 
-*Seed 6 three times: the species garden, with `theme=geometric`, and with `theme=math`.*
+*Seed 6 four times: the species garden, with `theme=geometric`, with `theme=math` and with `theme=shells`.*
 
 The growth loop never knew what it was drawing, so a theme can redraw it. `theme=geometric`
 cuts v1.3's plant from flat, straight-edged shapes, with crystals among the flowers.
 `theme=math` grows no plant at all, but figures, families of figures and equations that cascade
-down the margin and across the foot of the page. [Themes](docs/themes.md) shows both, and how
-to write one.
+down the margin and across the foot of the page. `theme=shells` lays shells sampled from genomes
+among strands of wrack, the document's cabinet of four low in the corner. [Themes](docs/themes.md)
+shows all three, and how to write one.
 
 ## More in the margin
 
@@ -293,7 +294,7 @@ text without one (option `nomargin`), per page. `make bench` measures every row 
   and pdfLaTeX's memory; [the traits](docs/traits.md) lists every trait a pic can fix.
 - [Gothic tracery](docs/tracery.md) describes the windows' genome, the headpieces over the
   sections and their vine, the initial's arch, and how a window is drawn.
-- [Themes](docs/themes.md) shows geometric and math, and how to write a theme.
+- [Themes](docs/themes.md) shows geometric, math and shells, and how to write a theme.
 - [How it works](docs/how-it-works.md) follows the painting, the growth loop, the reading of the
   page, the initials and the animation.
 - [SVG, Typst and the browser](docs/svg-and-web.md) and [the PostScript port](postscript/README.md)
