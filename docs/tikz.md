@@ -1,8 +1,8 @@
 # The TikZ library
 
 `\usetikzlibrary{florilegium}` draws the species of 2.0 in a TikZ picture, under pdfLaTeX or
-LuaLaTeX. Under pdfLaTeX it is pure TikZ: every plant and every visitor is sampled from its
-genome, grown and painted by pgfmath and TikZ, with no Lua at all. It is slow, about a minute
+LuaLaTeX. Under pdfLaTeX it is pure TikZ: every plant, visitor, window and shell is sampled
+from its genome, grown and painted by pgfmath and TikZ, with no Lua at all. It is slow, about a minute
 and a half for a strip of three plants 21 cm tall, but it is all TikZ. Under LuaLaTeX
 the library draws the same plants with florilegium's Lua instead, about a hundred times faster.
 
@@ -46,6 +46,7 @@ can't be found, the library draws in pure TikZ.
 | `florilegium fern` | a fern's crown, `size` its longest frond | `seed size season draw` |
 | `florilegium visitor` | a visitor, `size` its wingspan, or its length | `seed role size draw` |
 | `florilegium tracery` | a window of Gothic tracery centered on the origin with its sill on the x axis, `size` its width (the outermost molding included) | `seed role size draw` |
+| `florilegium shell` | a shell centered on the y axis with its base on the x axis, `size` across at most | `seed role size draw` |
 
 - `seed` picks the species (1 to 2147483646), and `role` narrows what it may be to `hero`,
   `spray`, `monocot`, `any` (the default), or a body plan (`rose`, `lily`, `pea`, `daisy`,
@@ -67,6 +68,14 @@ can't be found, the library draws in pure TikZ.
   (`docs/traits.md`), so `traits={period=perpendicular, lights=5, transoms=1}` asks for a
   Perpendicular window of five lights with a transom. In pure TikZ a window takes about
   twenty seconds, since the largest circle in each gap of the head is searched for in pgfmath.
+- For a shell, `role` is `margin` (the kinds that read well small, as the margin's cabinet
+  draws them), `ornament`, a group (`planispiral`, `bivalve`, `gastropod`), `any`, or a kind
+  (`ammonite`, `nautilus`, `scallop`, `cockle`, `mussel`, `clam`, `oyster`, `whelk`, `turret`,
+  `topshell`, `cowrie`). The traits are the shell's genome: `kind`, `ground`, `pattern`,
+  `view`, `preservation`, the coil's `whorls`, `expansion`, `umbilicus` and `spire`, `sculpture`,
+  `ribs`, `keel`, `septa`, `canal`, `lip` and the rest, so `traits={view=inside}` lays a valve
+  open and `traits={hand=sinistral}` coils a whelk to the left. In pure TikZ a shell takes
+  from one to six seconds.
 - `engine` is `auto` (the default), `lua` or `tikz`, for one pic or for all of them with
   `\pgfkeys{/florilegium/engine=tikz}`.
 - `traits` fixes some of the species' or the visitor's traits and leaves the rest to the seed
@@ -83,6 +92,8 @@ The traits themselves can be read too:
 \florilegiumvisitortrait{kind}
 \florilegiumtracery{3}{window}    % and a window of tracery
 \florilegiumtracerytrait{period}, \florilegiumtracerytrait{lights} lights
+\florilegiumshell{3}{any}         % and a shell
+\florilegiumshelltrait{kind}, \florilegiumshelltrait{whorls} whorls
 ```
 
 ## A genome of your own
@@ -153,7 +164,8 @@ memory grows as it needs to.
 ## What is TikZ, and what is not
 
 Everything a pic draws is computed in TeX under pdfLaTeX: the species' traits, sampled with
-pgf's own random numbers, and every point of every petal, leaf, stem, frond and wing. The
+pgf's own random numbers, and every point of every petal, leaf, stem, frond, wing, window and
+shell. The
 genome's tables in `tikzlibraryflorilegium.tables.code.tex` are plain TeX data, written once
 from `florilegium-species.lua` by `tools/tikztables.lua`, so the genome is kept in one place.
 

@@ -8,8 +8,9 @@ abstract: >-
   greedy space-filling layout that grows plants to fit the free space on each page. The
   plants and their visitors are species sampled from genomes of botanical traits, the
   headpieces over the sections windows of Gothic tracery sampled from a genome of their
-  own, and a TikZ library draws the same species and windows as pics, in pure TikZ under
-  pdfLaTeX or through Lua under LuaLaTeX.
+  own, the shells on the ground sampled from a third, and a TikZ library draws the same
+  species, windows and shells as pics, in pure TikZ under pdfLaTeX or through Lua under
+  LuaLaTeX.
 authors:
   - family-names: Raymond
     given-names: Kevin

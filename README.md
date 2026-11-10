@@ -7,9 +7,9 @@
 [![license](https://img.shields.io/github/license/kevinraymond/florilegium?color=2456c4)](LICENSE)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/kevinraymond/florilegium/badge)](https://scorecard.dev/viewer/?uri=github.com/kevinraymond/florilegium)
 
-Procedurally generated Delft-blue page margins for LaTeX, their plants, visitors and Gothic
-tracery sampled from genomes. No images, no imported paths, no external assets: every petal,
-leaf, stem and arch is a curve computed while the page is being written, painted like a
+Procedurally generated Delft-blue page margins for LaTeX, their plants, visitors, shells and
+Gothic tracery sampled from genomes. No images, no imported paths, no external assets: every
+petal, leaf, stem, whorl and arch is a curve computed while the page is being written, painted like a
 watercolor, and written straight into the PDF. Every page grows a garden of its own, and each
 document's seed its own plants.
 
@@ -165,10 +165,29 @@ under a cusped arch, and an ornament can be a trefoil, a quatrefoil or a rose.
 
 [Gothic tracery](docs/tracery.md) describes the genome, the headpiece and how a window is drawn.
 
+## Shells
+
+| shells on the ground at the foot of the plants | shells of every kind, in TikZ |
+|---|---|
+| <img src="gallery/shells-ground.png" alt="an ammonite, a turret shell and a cowrie lying on the ground under the footer's vine" width="400"> | <img src="gallery/shells-specimens.png" alt="ammonites, bivalves, whelks and cowries drawn in TikZ" width="400"> |
+
+A shell is sampled from a genome too: an ammonite or a nautilus, five kinds of bivalve, three
+sea snails or a cowrie, a coil drawn as David Raup's tube. Each document has a cabinet of four,
+and on one page in three a few of them lie on the ground beside the root, under the footer's
+vine. `theme=shells` fills the whole margin with them, among strands of wrack. The same shells
+are TikZ pics.
+
+```latex
+\usepackage[grown,noshells]{florilegium}   % or no shells on the ground
+\pic {florilegium shell={seed=3, role=ammonite, size=3cm}};
+```
+
+[Shells](docs/shells.md) describes the genome, where they lie and how each kind is drawn.
+
 ## In pure TikZ
 
 The species don't need Lua. Under pdfLaTeX, `\usetikzlibrary{florilegium}` samples each plant,
-visitor and window of tracery from its genome, grows it and paints it with pgfmath and TikZ
+visitor, window of tracery and shell from its genome, grows it and paints it with pgfmath and TikZ
 alone, and each of the strips above is one `\pic`. It takes a minute and a half for a strip of three plants 21 cm
 tall, and pdfTeX needs more memory than it has by default. Under LuaLaTeX, the same pics are drawn by
 florilegium's Lua in under a second, within a fraction of a point of pure TikZ's drawing. Only
@@ -294,6 +313,8 @@ text without one (option `nomargin`), per page. `make bench` measures every row 
   and pdfLaTeX's memory; [the traits](docs/traits.md) lists every trait a pic can fix.
 - [Gothic tracery](docs/tracery.md) describes the windows' genome, the headpieces over the
   sections and their vine, the initial's arch, and how a window is drawn.
+- [Shells](docs/shells.md) describes the shells' genome, the cabinet on the margin's ground, the
+  pic, and how each kind is drawn.
 - [Themes](docs/themes.md) shows geometric, math and shells, and how to write a theme.
 - [How it works](docs/how-it-works.md) follows the painting, the growth loop, the reading of the
   page, the initials and the animation.
@@ -341,8 +362,10 @@ make playground             # the browser playground at http://localhost:8000/we
   [*Pollinator Syndromes*](https://www.fs.usda.gov/wildflowers/pollinators/What_is_Pollination/syndromes.shtml)
   page. Heads and daisy discs are packed on Helmut Vogel's model of the sunflower (Mathematical
   Biosciences, 1979), and a butterfly's pattern follows the nymphalid groundplan of Schwanwitsch
-  (1924) and Süffert (1927). A snail's shell is Raup's coiled tube (Journal of Paleontology,
-  1966), its ring placed as Okabe and Yoshimura reparameterize it (Scientific Reports, 2017).
+  (1924) and Süffert (1927). A snail's shell and every coiled shell is Raup's coiled tube
+  (Journal of Paleontology, 1966), its ring placed as Okabe and Yoshimura reparameterize it
+  (Scientific Reports, 2017), and its whorls touch where W times D is at most 1, as McGhee
+  states it (Interface Focus, 2015).
 - The tracery's periods are Thomas Rickman's names (*An Attempt to Discriminate the Styles
   of English Architecture*, 1817), and its cusped heads and foiled circles follow Sven
   Havemann and Dieter W. Fellner, [*Generative Parametric Design of Gothic Window
