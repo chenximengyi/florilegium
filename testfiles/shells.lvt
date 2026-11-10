@@ -1,0 +1,29 @@
+% shells.lvt -- shells (board #5340): seed 20's second page has three of the document's
+% cabinet lying on the margin's ground (an ammonite, a turret shell, a cowrie), under the
+% footer's vine; the last page's text ends early, so the garden spills under it. Then the
+% five shells \florilegiumornament knows by name.
+\input{regression-test}
+\documentclass[11pt,a4paper]{article}
+\renewcommand\rmdefault{cmr}
+\usepackage[T1]{fontenc}
+\usepackage[a4paper,left=68mm,right=22mm,top=32mm,bottom=30mm,headsep=8mm]{geometry}
+\def\florilegiumseed{20}
+\usepackage[grown]{florilegium}
+\directlua{require("fingerprint")}
+\newcount\paracount
+\newcommand\paras[1]{\paracount=0
+  \loop Shells lie on the margin's ground on one page in three: beside the root and along
+  the bottom of the footer band, each tilted as it fell, the footer's vine and its leaves in
+  front of them. They come from the document's cabinet of four, so a reader sees the same
+  collection come back.\par
+  \advance\paracount 1 \ifnum\paracount<#1 \repeat}
+\begin{document}
+\START
+\paras{12}
+\newpage
+\paras{2}
+\florilegiumornament{scallop} \florilegiumornament{ammonite} \florilegiumornament{nautilus}
+\florilegiumornament{whelk} \florilegiumornament{cowrie}
+\florilegiumtextend
+\clearpage
+\END

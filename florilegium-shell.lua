@@ -192,7 +192,7 @@ local function septa(s, B, chamber)
   local d = 360 / 12
   local th = min(B.t1, P.tm - chamber) - d * range(0.2, 0.8)
   local nl = 2.5                                     -- saddles and lobes across the band
-  local npts = D.lod == 0 and 96 or 40
+  local npts = D.lod == 0 and 64 or 32
   local f1, f2 = range(0, 360), range(0, 360)
   while th > B.t0 + 0.3 * d do
     -- a lobe about as deep as it is wide: its depth a length, a fraction of the whorl's height
@@ -280,9 +280,10 @@ local function planispiral(s, size)
   local x0, x1, y0, y1 = 1e9, -1e9, 1e9, -1e9
   for _, p in ipairs(last.O) do x0, x1, y0, y1 = min(x0, p[1]), max(x1, p[1]), min(y0, p[2]), max(y1, p[2]) end
   local sc = size / max(x1 - x0, y1 - y0)
+  if D.measure then return (x1 - x0) * sc, (y1 - y0) * sc end
   local unit = ink.unit()                            -- cm per local unit, before the shell's frame
   ink.push()
-  ink.translate(-(x0 + x1) / 2 * sc, -y0 * sc)
+  ink.translate(-(x0 + x1) / 2 * sc, -(D.center and (y0 + y1) / 2 or y0) * sc)
   ink.scale(sc)
   D.cm = sc * unit                                   -- cm per unit of the shell's frame
   D.bp = D.cm * 28.3465
@@ -304,19 +305,20 @@ local function planispiral(s, size)
     local B = bands[k + 1]
     N.pen.accent = accent or (s.preservation == "nacre" and k >= 1)
     local tk = t + sym(0.03)
-    bandpath(B) fill(tone(tk), 1)
     local bw = B.W[#B.W] * D.cm                     -- the band across at its widest, cm
+    local bx0, bx1, by0, by1 = 1e9, -1e9, 1e9, -1e9
+    for _, p in ipairs(B.O) do bx0, bx1, by0, by1 = min(bx0, p[1]), max(bx1, p[1]), min(by0, p[2]), max(by1, p[2]) end
     if D.lod < 2 and bw > K(0.03) then
+      -- the band's outline once, as the clip, its wash flooded into it
       bandpath(B) ink.clip()
+      ink.flood(tone(tk), bx0, by0, bx1, by1)
       shade(s, B)
       if D.lod == 0 and bw > K(0.12) then
-        local bx0, bx1, by0, by1 = 1e9, -1e9, 1e9, -1e9
-        for _, p in ipairs(B.O) do bx0, bx1, by0, by1 = min(bx0, p[1]), max(bx1, p[1]), min(by0, p[2]), max(by1, p[2]) end
         N.mottle(bx0, by0, bx1, by1, mold and 7 or 4, 0.12 * (bx1 - bx0), tk - 0.14, tk + 0.18, mold and 14 or 4)
       end
       if s.kind == "nautilus" and (k == 0 or bw > K(0.1)) then flames(s, B) end
       if ribbed then ribs(s, B) end
-      if mold and D.lod == 0 then septa(s, B, chamber) end
+      if mold and D.lod == 0 and bw > K(0.1) then septa(s, B, chamber) end
       if k == 0 and s.preservation == "nacre" then
         -- worn through to the nacre: copper streaks along the whorl, as wear follows it
         N.pen.accent = true
@@ -332,6 +334,8 @@ local function planispiral(s, size)
         N.pen.accent = false
       end
       ink.unclip()
+    else
+      bandpath(B) fill(tone(tk), 1)
     end
   end
   N.pen.accent = accent
@@ -539,9 +543,10 @@ local function bivalve(s, size)
   for _, p in ipairs(outline) do box(p) end
   for _, w in ipairs(wings) do for _, p in ipairs(w.pts) do box(p) end end
   local sc = size / max(x1 - x0, y1 - y0)
+  if D.measure then return (x1 - x0) * sc, (y1 - y0) * sc end
   local unit = ink.unit()
   ink.push()
-  ink.translate(-(x0 + x1) / 2 * sc, -y0 * sc)
+  ink.translate(-(x0 + x1) / 2 * sc, -(D.center and (y0 + y1) / 2 or y0) * sc)
   ink.scale(sc)
   D.cm = sc * unit
   local across_cm = size * unit
@@ -576,8 +581,8 @@ local function bivalve(s, size)
   -- the valve: its wash, then in its clip the light, the grain, the pattern, the ribs or
   -- ridges, the growth lines; inside up, the pale nacre or porcelain, the rim, the scars
   local nacre = inside and (s.kind == "oyster" or s.kind == "mussel")
-  outlinepath(outline) fill(tone(t), 1)
   outlinepath(outline) ink.clip()
+  ink.flood(tone(t), x0, y0, x1, y1)
   local n = #marc
   local C = { 0, 0 }
   if s.kind == "oyster" then
@@ -792,10 +797,22 @@ local function gwhorl(j)
     W.lcap[i + 1] = gp(ta, -90 + 180 * i / 12)
   end
   W.h = W.top[10][2] - W.bot[10][2]                -- across the whorl at its front
+  W.x0, W.x1, W.y0, W.y1 = 1e9, -1e9, 1e9, -1e9
+  for _, part in ipairs({ W.top, W.bot, W.rcap, W.lcap }) do
+    for _, p in ipairs(part) do W.x0, W.x1, W.y0, W.y1 = min(W.x0, p[1]), max(W.x1, p[1]), min(W.y0, p[2]), max(W.y1, p[2]) end
+  end
   return W
 end
+-- every other point, and the last: enough for a whorl under 3 mm
+local function thin(pts)
+  local out = {}
+  for i = 1, #pts, 2 do out[#out + 1] = pts[i] end
+  if #pts % 2 == 0 then out[#out + 1] = pts[#pts] end
+  return out
+end
 local function gpath(W)
-  curve(W.rcap, true) curve(reversed(W.bot), false) curve(W.lcap, false) curve(W.top, false) close()
+  local f = W.small and thin or function(p) return p end
+  curve(f(W.rcap), true) curve(reversed(f(W.bot)), false) curve(f(W.lcap), false) curve(f(W.top), false) close()
 end
 -- its outline but for the bottom edge, which a canal hides: the base runs into the canal
 local function gline_nobase(W)
@@ -822,7 +839,7 @@ local function gsurface(s, W)
   N.streak(darkcap, 0.25 * h, 0.25 * h, tone(0.08), 0.24)
   local lit = GA.hx > 0 and galong(W, 25, 165, 100) or galong(W, 25, 15, 80)
   swell(lit, 0.22 * h, WHITE, W.j == 0 and 0.45 or 0.35)
-  if D.lod == 0 and h * D.cm > K(0.25) then
+  if D.lod == 0 and h * D.cm > K(0.3) then
     local x0, x1, y0, y1 = 1e9, -1e9, 1e9, -1e9
     for _, p in ipairs(W.top) do x0, x1, y1 = min(x0, p[1]), max(x1, p[1]), max(y1, p[2]) end
     for _, p in ipairs(W.bot) do y0 = min(y0, p[2]) end
@@ -875,7 +892,7 @@ local function gsurface(s, W)
       end
     end
   end
-  if (s.sculpture == "cords" or s.sculpture == "cancellate") and s.cords > 0 and h * D.cm > K(0.08) then
+  if (s.sculpture == "cords" or s.sculpture == "cancellate") and s.cords > 0 and h * D.cm > K(0.12) then
     for c = 1, s.cords do
       local psi = 75 - 150 * c / (s.cords + 1)
       curve(galong(W, psi, 3, 177), true) stroke(tone(t - 0.2), 0.45 * D.pen, 0.42, true)
@@ -993,9 +1010,10 @@ local function gastropod(s, size)
   if s.lip == "flared" then local c = gcenter(0) box({ c[1] + GA.hx * 1.2 * 1.06, c[2] }) end
   box({ 0, 0 })                                     -- the apex
   local sc = size / max(x1 - x0, y1 - y0)
+  if D.measure then return (x1 - x0) * sc, (y1 - y0) * sc end
   local unit = ink.unit()
   ink.push()
-  ink.translate(-(x0 + x1) / 2 * sc, -y0 * sc)
+  ink.translate(-(x0 + x1) / 2 * sc, -(D.center and (y0 + y1) / 2 or y0) * sc)
   ink.scale(sc)
   D.cm = sc * unit
   local across_cm = size * unit
@@ -1009,11 +1027,16 @@ local function gastropod(s, size)
     local W = whorls[j]
     if W.h * D.cm > K(0.02) or j == 1 then
       N.pen.accent = s.preservation == "nacre" and j > #whorls - 3     -- worn at the apex
-      gpath(W) fill(tone(t + sym(0.03)), 1)
-      if D.lod < 2 and W.h * D.cm > K(0.05) then
+      W.small = W.h * D.cm < K(0.3)
+      local tw = tone(t + sym(0.03))
+      if D.lod < 2 and W.h * D.cm > K(0.08) then          -- detail on whorls 0.8 mm tall and up
+        -- the outline once, as the clip, and the wash flooded into it
         gpath(W) ink.clip()
+        ink.flood(tw, W.x0, W.y0, W.x1, W.y1)
         gsurface(s, W)
         ink.unclip()
+      else
+        gpath(W) fill(tw, 1)
       end
       N.pen.accent = false
       if j == 1 and s.canal ~= "none" then gline_nobase(W) else gpath(W) end
@@ -1041,9 +1064,10 @@ local function cowrie(s, size)
     egg[i + 1] = { 0.5 * cos(u), 0.5 * A * sin(u) * (1 + 0.08 * cos(u)) }
   end
   local sc = size / 1
+  if D.measure then return size, A * 1.08 * size end
   local unit = ink.unit()
   ink.push()
-  ink.translate(0, 0.5 * A * 1.08 * sc)
+  ink.translate(0, D.center and 0 or 0.5 * A * 1.08 * sc)
   ink.scale(sc)
   D.cm = sc * unit
   local across_cm = size * unit
@@ -1112,9 +1136,10 @@ end
 
 -- ---------------------------------------------------------------- entry
 -- Draw the shell `s` (M.shsample's table) `size` across at most in the local unit, its base
--- on the origin, from pgf's generator seeded with `seed` (as the TikZ library seeds a
--- pic's drawing). Returns its width and height.
-function M.draw(s, seed, size)
+-- on the origin (`center`: its middle), from pgf's generator seeded with `seed` (as the
+-- TikZ library seeds a pic's drawing). Returns its width and height.
+function M.draw(s, seed, size, center)
+  D.center = center
   if seed < 1 or seed > 2147483646 then seed = (seed - 1) % 2147483646 + 1 end
   G = ink.pgfrng(seed)
   G.step() G.step()
@@ -1129,6 +1154,14 @@ function M.draw(s, seed, size)
   elseif s.kind == "cowrie" then w, h = cowrie(s, size)
   else w, h = gastropod(s, size) end
   N.pen.lift, N.pen.accent = lift, accent
+  return w, h
+end
+-- its width and height as M.draw would draw it, without drawing it
+function M.measure(s, seed, size)
+  D.measure = true
+  local ok, w, h = pcall(M.draw, s, seed, size)
+  D.measure = false
+  if not ok then error(w, 0) end
   return w, h
 end
 

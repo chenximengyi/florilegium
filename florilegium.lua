@@ -218,11 +218,14 @@ local HELPER = { ghost = true, branch_path = true, mottle = true, streak = true,
 -- or a rose window, sampled for the role with the trait fixed
 local TRACERY = { trefoil = { "ornament", "kind=foil, foils=3" }, quatrefoil = { "ornament", "kind=foil, foils=4" },
   cinquefoil = { "ornament", "kind=foil, foils=5" }, sexfoil = { "ornament", "kind=foil, foils=6" }, rose = { "rose", "kind=rose" } }
+-- shells by name (board #5340): the kind fixed, the rest sampled from the ornament's seed
+local SHELLS = { scallop = "kind=scallop, view=outside", ammonite = "kind=ammonite", nautilus = "kind=nautilus",
+  whelk = "kind=whelk, view=mouth", cowrie = "kind=cowrie, view=back" }
 function M.ornament(name, size, inkhex, acchex, angle, seed)
   local F = primitives()
   local fn = F[name]
-  local tr = TRACERY[name]
-  if not tr and (type(fn) ~= "function" or HELPER[name]) then tex.error("florilegium: unknown primitive '" .. tostring(name) .. "'") return end
+  local tr, sh = TRACERY[name], SHELLS[name]
+  if not tr and not sh and (type(fn) ~= "function" or HELPER[name]) then tex.error("florilegium: unknown primitive '" .. tostring(name) .. "'") return end
   nornament = nornament + 1
   inkhex, acchex = hexkey("ink", inkhex), hexkey("accent", acchex)
   -- the k-th ornament of the document always gets the same shape, unless a seed
@@ -250,6 +253,11 @@ function M.ornament(name, size, inkhex, acchex, angle, seed)
     local w = species.tsample(s % 2147483646 + 1, tr[1], nil, tr[2] and species.fixes(tr[2], "tracery") or nil)
     ink.translate(0, -S * p[3])
     require("florilegium-tracery").draw(w, s, 2 * S * p[3])
+  elseif sh then
+    -- a shell, centered in the disc
+    local species = require("florilegium-species")
+    local x = species.shsample(s % 2147483646 + 1, "any", nil, species.fixes(sh, "shell"))
+    require("florilegium-shell").draw(x, s, 1.9 * S * p[3], true)
   elseif scaled[name] then ink.scale(S * p[3]) fn(ink.rng(s), p[5] or {})
   else fn(ink.rng(s), S * p[3], p[5] or {}) end
   ink.flush()
@@ -572,9 +580,10 @@ local function use_organs()
 end
 
 -- the grown composition for this page; M.visitors = false (option novisitors)
--- leaves out the visitors. M.bleed (cm, florilegium-svg.lua's --bleed) lets the safety
+-- leaves out the visitors, M.shells = false (option noshells) the shells on the ground. M.bleed (cm, florilegium-svg.lua's --bleed) lets the safety
 -- clip reach past the paper's edge; LuaLaTeX never sets it
 M.visitors = true
+M.shells = true
 M.bleed = 0
 function M.grown(seed, spill, spilly, box)
   local g = M.geometry()
@@ -582,6 +591,7 @@ function M.grown(seed, spill, spilly, box)
   g.marks, hide = settings(page_marks(box))
   if hide then bare_headpieces(g.marks) M.last_captions, M.last_stats = nil, nil return end
   g.seed, g.spill, g.spilly, g.visitors, g.age, g.theme = seed, spill, spilly, M.visitors, M.age, usable_theme()
+  g.shells = M.shells
   g.docseed = M.docseed
   g.headpiece = function(mk, leaf) return headpiece_at(mk, g, leaf) end
   if M.bleed > 0 then g.bleed = M.bleed end

@@ -174,7 +174,7 @@ end
 -- o: seed, page, paper ("a4", "letter", ... or {w, h}), left right top bottom
 -- headsep headheight footskip (lengths), twoside, textend (a length from the top
 -- of the text block: the last page, with the garden in the space below), season
--- ("spring", "summer", "autumn" or 0..1), theme, density, intensity, visitors,
+-- ("spring", "summer", "autumn" or 0..1), theme, density, intensity, visitors, shells,
 -- ink, accent (RRGGBB), head (false: no head rule), authored, background (RRGGBB),
 -- bleed (a length, for e-books and screens: the garden's safety clip reaches past the
 -- paper's edge and the SVG that far around the paper), id (prefix for the clip ids). Returns the SVG, the page layout g (cm), and a table:
@@ -245,6 +245,7 @@ function M.page(o)
     fl.density = density
     fl.intensity = intensity
     fl.visitors = o.visitors ~= false
+    fl.shells = o.shells ~= false
     fl.bleed = o.bleed and M.sp(o.bleed) * 2.54 / (72.27 * 65536) or 0
     local g = fl.geometry()
     fl.last_captions, fl.last_stats = nil, nil
@@ -324,6 +325,7 @@ usage: texlua florilegium-svg.lua [options] > page.svg      (lua 5.3 or 5.4 work
   --density X       0.05..1 (default 1)      --intensity X   0..1 (default 1)
   --ink RRGGBB      (default 2456C4)         --accent RRGGBB (default B4662F)
   --novisitors      no visitors (insects, snails, birds)
+  --noshells        no shells on the margin's ground
   --nohead          leave out the head rule and its ivy leaf
   --authored        the hand-placed composition (A4, 68 mm left margin)
   --background RRGGBB   paint the paper (default: transparent)
@@ -335,7 +337,7 @@ A length is a number and a unit (mm, cm, in, pt, bp); a bare number is mm.
 
 function M.main(argv)
   local o, file = {}, nil
-  local flags = { twoside = true, novisitors = "visitors", nohead = "head", authored = true }
+  local flags = { twoside = true, novisitors = "visitors", noshells = "shells", nohead = "head", authored = true }
   local values = { seed = 1, page = 1, paper = 1, left = 1, right = 1, top = 1, bottom = 1, headsep = 1, headheight = 1,
     footskip = 1, textend = 1, season = 1, theme = 1, density = 1, intensity = 1, ink = 1, accent = 1, background = 1,
     bleed = 1 }
