@@ -400,6 +400,338 @@ local function planispiral(s, size)
   return (x1 - x0) * sc, (y1 - y0) * sc
 end
 
+-- ---------------------------------------------------------------- bivalves
+-- A valve is drawn from its outline, as the report recommends over the sweep: its beak up,
+-- the valve about 1 long and `aspect` high. The outline is an ellipse and the beak above it
+-- joined by the two tangents from the beak (their touching points in closed form): a beak
+-- just over the ellipse is a cockle's or a clam's umbo, one well above it a scallop's fan
+-- with its straight sides, one low at an end a mussel's wedge with its straight lower edge.
+-- A valve grows at its edge, so a growth line is the outline shrunk toward the beak, and a
+-- rib runs from the beak to the edge.
+local V = {}
+local function tobeak(p, t) return { V.B[1] + t * (p[1] - V.B[1]), V.B[2] + t * (p[2] - V.B[2]) } end
+local function shrink(pts, t)
+  local out = {}
+  for i, p in ipairs(pts) do out[i] = tobeak(p, t) end
+  return out
+end
+local function line(p, q, n)
+  local out = {}
+  for i = 0, n do out[i + 1] = { p[1] + (q[1] - p[1]) * i / n, p[2] + (q[2] - p[2]) * i / n } end
+  return out
+end
+local function lengths(pts)
+  local acc = { 0 }
+  for i = 2, #pts do acc[i] = acc[i - 1] + sqrt((pts[i][1] - pts[i - 1][1]) ^ 2 + (pts[i][2] - pts[i - 1][2]) ^ 2) end
+  return acc
+end
+-- the point d along the polyline (acc its lengths)
+local function along(pts, acc, d)
+  for i = 2, #pts do
+    if acc[i] >= d or i == #pts then
+      local f = max(0, min(1, (d - acc[i - 1]) / max(1e-9, acc[i] - acc[i - 1])))
+      return { pts[i - 1][1] + f * (pts[i][1] - pts[i - 1][1]), pts[i - 1][2] + f * (pts[i][2] - pts[i - 1][2]) }
+    end
+  end
+end
+local function atan2(y, x) return math.atan(y, x) / RAD end
+-- the point p moved d away from the beak
+local function outward(p, d)
+  local dx, dy = p[1] - V.B[1], p[2] - V.B[2]
+  local l = max(1e-9, sqrt(dx * dx + dy * dy))
+  return { p[1] + d * dx / l, p[2] + d * dy / l }
+end
+-- the beak, the ellipse, the touching points and the arc between them (the margin a rib
+-- reaches), its light; m 1 or -1 sets which side is the front (the beak leans that way)
+local function valve_shape(s, m)
+  local H, kind = s.aspect, s.kind
+  local a, b, bx, by = 0.5
+  if kind == "mussel" then
+    b = H / 2
+    bx, by = -0.64 + s.beak, -0.7 * b                 -- at the front end, low: a straight lower edge
+  else
+    local u = kind == "scallop" and 0.2 * H or kind == "oyster" and 0.12 or kind == "clam" and 0.06 or 0.035
+    local lean = kind == "scallop" and 0 or kind == "cockle" and 0.6 or 0.9
+    b = (H - u) / 2
+    bx, by = (s.beak - 0.5) * lean, b + u
+  end
+  bx = bx * m
+  V.B, V.a, V.b, V.H = { bx, by }, a, b, max(H, 2 * b)
+  local uu, vv = bx / a, by / b
+  local ph, de = atan2(vv, uu), math.acos(1 / sqrt(uu * uu + vv * vv)) / RAD
+  local t1, t2 = ph + de, ph - de + 360
+  local n = ceil((t2 - t1) / 4)
+  local arc, L = {}, {}
+  -- an oyster's edge is lumpy and ragged
+  local p1, p2, p3, p4 = range(0, 360), range(0, 360), range(0, 360), range(0, 360)
+  for i = 0, n do
+    local th = t1 + (t2 - t1) * i / n
+    local x, y = a * cos(th), b * sin(th)
+    if kind == "oyster" then
+      local k = 1 + 0.06 * sin(3 * th + p1) + 0.04 * sin(5 * th + p2) + 0.02 * sin(11 * th + p3) + 0.012 * sin(23 * th + p4)
+      x, y = x * k, y * k
+    end
+    arc[i + 1] = { x, y }
+    L[i + 1] = cos(atan2(sin(th) / b, cos(th) / a) - 135)
+  end
+  V.arc, V.L, V.T1, V.T2 = arc, L, arc[1], arc[#arc]
+  V.round = kind ~= "scallop" and kind ~= "mussel"   -- an umbo, not a point
+end
+-- the outline from the beak round the margin and back, as points for `curve`
+local function valve_outline(arc)
+  local k = V.round and 2 or 6
+  local pts = line(V.B, arc[1], k)
+  for i = 2, #arc - 1 do pts[#pts + 1] = arc[i] end
+  for _, p in ipairs(line(arc[#arc], V.B, k)) do pts[#pts + 1] = p end
+  return pts
+end
+-- a point at the beak (a scallop's, a mussel's), or an umbo rounded through it
+local function outlinepath(pts)
+  if V.round then ink.smooth(slice(pts, 1, #pts - 1), true) else curve(pts, true) close() end
+end
+-- a scallop's ears: flat wings on the straight hinge either side of the beak, the front one
+-- the larger when they are unequal, with the notch for the byssus under it
+local function ears(s, m)
+  local B, H = V.B, V.H
+  local front, back = s.ears == "unequal" and 0.3 or 0.25, s.ears == "unequal" and 0.2 or 0.25
+  local out = {}
+  for side = -1, 1, 2 do
+    local e = (side == -m) and front or back
+    local T = side < 0 and V.T1 or V.T2
+    if (T[1] - B[1]) * side < 0 then T = side < 0 and V.T2 or V.T1 end
+    -- a wing: the hinge out to its end, the outer edge down and in a little, the lower edge
+    -- sloping into the valve's side (where a front ear has the notch)
+    local f = min(0.9, 0.17 * H / max(1e-6, B[2] - T[2]))
+    local Q = { B[1] + f * (T[1] - B[1]), B[2] + f * (T[2] - B[2]) }
+    local pts = { { B[1], B[2] }, { B[1] + side * e, B[2] + 0.01 * H }, { B[1] + side * e * 0.9, B[2] - 0.1 * H } }
+    if s.ears == "unequal" and side == -m then
+      pts[#pts + 1] = { B[1] + side * e * 0.62, B[2] - 0.075 * H }
+      pts[#pts + 1] = { B[1] + side * e * 0.5, B[2] - 0.11 * H }
+    end
+    pts[#pts + 1] = Q
+    out[#out + 1] = { pts = pts, e = e, side = side }
+  end
+  return out
+end
+local function bivalve(s, size)
+  local m = chance(0.5) and 1 or -1
+  valve_shape(s, m)
+  local arc = V.arc
+  local H = V.H
+  local ribbed = s.ribs > 0
+  -- ribs: where they meet the margin, evenly along it; the margin scalloped by them
+  local acc = lengths(arc)
+  local total = acc[#acc]
+  local gap = ribbed and total / s.ribs or 0
+  local marc = arc
+  if ribbed then
+    marc = {}
+    for i, p in ipairs(arc) do
+      local c = cos(360 * (acc[i] - 0.5 * gap) / gap)
+      marc[i] = outward(p, (s.kind == "scallop" and 0.1 or 0.08) * gap * c)
+    end
+  end
+  local outline = valve_outline(marc)
+  local wings = s.kind == "scallop" and ears(s, m) or {}
+  -- the frame: the valve `size` across at most, its base on the origin
+  local x0, x1, y0, y1 = 1e9, -1e9, 1e9, -1e9
+  local function box(p) x0, x1, y0, y1 = min(x0, p[1]), max(x1, p[1]), min(y0, p[2]), max(y1, p[2]) end
+  for _, p in ipairs(outline) do box(p) end
+  for _, w in ipairs(wings) do for _, p in ipairs(w.pts) do box(p) end end
+  local sc = size / max(x1 - x0, y1 - y0)
+  local unit = ink.unit()
+  ink.push()
+  ink.translate(-(x0 + x1) / 2 * sc, -y0 * sc)
+  ink.scale(sc)
+  D.cm = sc * unit
+  local across_cm = size * unit
+  D.lod = across_cm < K(0.5) and 2 or across_cm < K(1.2) and 1 or 0
+  D.pen = max(0.3, min(0.85, 0.028 * across_cm * 28.3465))
+  local inside = s.view == "inside"
+  local t = s.tone - 0.04
+  if s.ground == "pale" then t = min(0.72, t + 0.25) elseif s.ground == "dark" then t = t - 0.12 end
+  if inside then t = min(0.8, t + 0.26) end
+  D.t = t
+  local spacing_cm = gap * D.cm
+  local showribs = ribbed and D.lod < 2 and spacing_cm > K(0.05)
+  -- the ears, behind the valve
+  for _, w in ipairs(wings) do
+    ink.poly(w.pts, true) fill(tone(t + sym(0.02)), 1)
+    if D.lod < 2 then
+      ink.poly(w.pts, true) ink.clip()
+      for k = 1, 2 do
+        local y = V.B[2] - 0.045 * H * k
+        moveto(V.B[1], y) lineto(V.B[1] + w.side * w.e * 1.1, y) stroke(tone(0.08), 0.3 * D.pen, 0.28, true)
+      end
+      if D.lod == 0 then
+        for k = 1, 4 do
+          local x = V.B[1] + w.side * w.e * k / 4.5
+          moveto(V.B[1], V.B[2]) lineto(x, V.B[2] - 0.14 * H) stroke(tone(0.1), 0.3 * D.pen, 0.25, true)
+        end
+      end
+      ink.unclip()
+    end
+    ink.poly(w.pts, true) stroke(tone(0.05), 0.8 * D.pen, 0.85, true)
+  end
+  -- the valve: its wash, then in its clip the light, the grain, the pattern, the ribs or
+  -- ridges, the growth lines; inside up, the pale nacre or porcelain, the rim, the scars
+  local nacre = inside and (s.kind == "oyster" or s.kind == "mussel")
+  outlinepath(outline) fill(tone(t), 1)
+  outlinepath(outline) ink.clip()
+  local n = #marc
+  local C = { 0, 0 }
+  if s.kind == "oyster" then
+    -- layers stacked toward the beak, each edge ragged
+    local layers = s.ridges
+    for j = 1, layers do
+      local tj = 1 - 0.62 * j / (layers + 1)
+      local pts = {}
+      for i, p in ipairs(shrink(marc, tj)) do pts[i] = { p[1] + sym(0.012 * H), p[2] + sym(0.012 * H) } end
+      local o = valve_outline(pts)
+      outlinepath(o) fill(tone(t + (j % 2 == 0 and 0.05 or -0.03)), 0.5)
+      if D.lod < 2 then curve(pts, true) stroke(tone(0.08), 0.4 * D.pen, 0.5, true) end
+    end
+  end
+  if nacre then
+    N.pen.accent = true
+    outlinepath(valve_outline(shrink(marc, 0.86))) fill(tone(t + 0.1), 0.6)
+    N.pen.accent = false
+  end
+  if D.lod < 2 then
+    -- the dome: shadow along the margin toward the lower right (inside: the upper left, the
+    -- hollow's far wall), light on the upper left toward the beak (inside: the lower right)
+    local dark = inside and function(i) return V.L[i] > K(0.2) end or function(i) return V.L[i] < K(-0.2) end
+    local b0, b1 = run(n, dark)
+    if b0 and b1 - b0 >= 3 then
+      local w = H * (inside and 0.14 or 0.08 + 0.18 * s.inflation)
+      N.streak(slice(marc, b0, b1), 0.4 * w, w, tone(0.08), inside and 0.28 or 0.18 + 0.3 * s.inflation)
+    end
+    -- where the margin faces the light most (inside: least), toward the beak
+    local li = 1
+    for i = 2, n do if (inside and V.L[i] < V.L[li]) or (not inside and V.L[i] > V.L[li]) then li = i end end
+    local lit = arc[li]
+    local hl = {}
+    for i = 0, 4 do hl[i + 1] = tobeak(lit, 0.18 + 0.5 * i / 4) end
+    swell(hl, 0.1 * H, WHITE, inside and 0.35 or 0.42)
+    if inside then
+      local deep = {}
+      for i = 0, 3 do deep[i + 1] = tobeak(C, 0.05 + 0.4 * i / 3) end
+      swell(deep, 0.1 * H, tone(0.1), 0.14)
+    end
+    if D.lod == 0 then
+      N.mottle(x0, y0, x1, y1, 5, 0.12 * H, t - 0.14, t + 0.18, 4)
+    end
+    -- the pattern, outside
+    local ct = s.contrast
+    if not inside and s.pattern ~= "none" then
+      if s.pattern == "bands" then
+        local nb = floor(range(2, 4.99))
+        for j = 1, nb do
+          local ta = 0.3 + 0.65 * (j - 0.5) / nb
+          local tb = ta + range(0.04, 0.09)
+          curve(shrink(marc, min(1, tb)), true) curve(reversed(shrink(marc, ta)), false) close()
+          fill(tone(t - 0.22), 0.3 + 0.35 * ct)
+        end
+      elseif s.pattern == "rays" then
+        local nr = floor(range(3, 6.99))
+        for j = 1, nr do
+          local d0 = total * (j - range(0.75, 0.95)) / nr
+          local d1 = d0 + total * range(0.05, 0.1)
+          local pts = { V.B }
+          for i = 0, 4 do pts[#pts + 1] = along(marc, acc, d0 + (d1 - d0) * i / 4) end
+          ink.poly(pts, true) fill(tone(t - 0.2), 0.2 + 0.3 * ct, true)
+        end
+      elseif s.pattern == "zigzags" then
+        for j = 1, 4 do
+          local tj = 0.35 + 0.6 * j / 4.5
+          local z = {}
+          for i = 1, n, 2 do z[#z + 1] = tobeak(marc[i], tj + ((i // 2) % 2 == 0 and 0.035 or -0.035)) end
+          ink.poly(z, false) stroke(tone(t - 0.26), 0.6 * D.pen, 0.3 + 0.4 * ct, true)
+        end
+      else
+        for _ = 1, floor(range(14, 30)) do
+          local p = tobeak(along(marc, acc, range(0, total)), range(0.3, 0.95))
+          local r = H * range(0.018, 0.035)
+          ink.smooth(N.blob(p[1], p[2], r, r * 0.8, 0.25, 7), true) fill(tone(t - 0.24), 0.35 + 0.4 * ct, true)
+        end
+      end
+    end
+    -- ribs: a groove between each two, from the beak to a trough of the margin, a light crest
+    -- along each; inside, the grooves show faintly
+    if showribs then
+      for j = 1, s.ribs do
+        local p = along(arc, acc, (j - 0.5) * gap)
+        if j < s.ribs then
+          local q = outward(along(arc, acc, j * gap), -(s.kind == "scallop" and 0.1 or 0.08) * gap)
+          local g = { tobeak(q, 0.06), tobeak(q, 0.37), tobeak(q, 0.68), q }
+          taperpts(g, 0.02 * gap, 0.34 * gap, tone(t - 0.2), inside and 0.15 or 0.36)
+        end
+        if D.lod == 0 and not inside then
+          local crest = {}
+          for i = 0, 4 do crest[i + 1] = tobeak(p, 0.15 + 0.8 * i / 4) end
+          swell(crest, 0.16 * gap, WHITE, 0.32)
+        end
+      end
+    end
+    -- concentric ridges (a clam's): a dark line with a light one just past it, closer
+    -- together toward the margin; growth lines everywhere else
+    if s.sculpture == "ridges" then
+      for j = 1, s.ridges do
+        local tj = 0.22 + 0.76 * (j / (s.ridges + 0.6)) ^ 0.8
+        curve(shrink(marc, tj), true) stroke(tone(t - 0.2), 0.45 * D.pen, 0.42, true)
+        if D.lod == 0 then curve(shrink(marc, tj + 0.012), true) stroke(WHITE, 0.4 * D.pen, 0.4) end
+      end
+    elseif D.lod == 0 and s.kind ~= "oyster" then
+      local light = t < K(0.32)                       -- on a dark shell the lines are paler
+      for _, tj in ipairs({ 0.94, 0.87, 0.78, 0.66 }) do
+        curve(shrink(marc, tj + sym(0.015)), true)
+        if light then stroke(WHITE, 0.3 * D.pen, 0.22) else stroke(tone(t - 0.15), 0.3 * D.pen, 0.25, true) end
+      end
+    end
+    if inside then
+      -- the rim, the pallial line, the muscle scars, the hinge
+      N.streak(marc, 0.03 * H, 0.03 * H, tone(t - 0.12), 0.45)
+      if s.kind ~= "scallop" and s.kind ~= "oyster" then
+        curve(shrink(marc, 0.8), true) stroke(tone(0.1), 0.45 * D.pen, 0.35, true)
+      end
+      local scars = (s.kind == "scallop" or s.kind == "oyster") and { { 0.12 * m, -0.05, 0.11 } }
+        or s.kind == "mussel" and { { 0.22 * m, 0.04 * H, 0.1 }, { -0.38 * m, -0.1 * H, 0.04 } }
+        or { { -0.3 * m, 0.25 * H, 0.07 }, { 0.3 * m, 0.25 * H, 0.08 } }
+      for _, c in ipairs(scars) do
+        local r = 0.8 * c[3] * H
+        ink.smooth(N.blob(c[1], c[2], r, r * 0.75, 0.25, 7), true) fill(tone(t - 0.16), 0.26, true)
+      end
+      if D.lod == 0 and s.kind ~= "oyster" then
+        for k = -2, 2 do
+          if k ~= 0 then
+            local p = tobeak(k < 0 and V.T1 or V.T2, 0.06 * abs(k) + 0.03)
+            local q = tobeak(p, 0.82)
+            moveto(p[1], p[2] - 0.012 * H) lineto(q[1], q[2] - 0.03 * H) stroke(tone(0.08), 0.6 * D.pen, 0.55, true)
+          end
+        end
+      end
+      if nacre and D.lod == 0 then
+        N.pen.accent = true
+        local g = {}
+        for i = 0, 4 do g[i + 1] = tobeak(along(arc, acc, total * 0.6), 0.3 + 0.4 * i / 4) end
+        swell(g, 0.06 * H, WHITE, 0.5)
+        N.pen.accent = false
+      end
+    end
+  end
+  ink.unclip()
+  -- the outline, and the beak's tip
+  outlinepath(outline) stroke(tone(0.05), D.pen, 0.85, true)
+  if D.lod < 2 and s.kind ~= "mussel" then
+    local b = V.B
+    local r = 0.035 * H
+    moveto(b[1] - m * r, b[2] - 0.6 * r) curveto(b[1] - m * 0.3 * r, b[2] + 0.4 * r, b[1] + m * 0.5 * r, b[2] + 0.3 * r, b[1], b[2])
+    stroke(tone(0.05), 0.7 * D.pen, 0.7, true)
+  end
+  ink.pop()
+  return (x1 - x0) * sc, (y1 - y0) * sc
+end
+
 -- ---------------------------------------------------------------- entry
 -- Draw the shell `s` (M.shsample's table) `size` across at most in the local unit, its base
 -- on the origin, from pgf's generator seeded with `seed` (as the TikZ library seeds a
@@ -414,7 +746,8 @@ function M.draw(s, seed, size)
   local lift, accent = N.pen.lift, N.pen.accent
   N.pen.lift, N.pen.accent = 0, false
   local w, h = 0, 0
-  if s.group == "planispiral" then w, h = planispiral(s, size) end
+  if s.group == "planispiral" then w, h = planispiral(s, size)
+  elseif s.group == "bivalve" then w, h = bivalve(s, size) end
   N.pen.lift, N.pen.accent = lift, accent
   return w, h
 end
