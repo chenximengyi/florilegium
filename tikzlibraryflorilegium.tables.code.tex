@@ -3717,7 +3717,7 @@
   \flo@TT{oculus}{\flo@C{0}}%
   \flo@TT{tone}{\flo@R{0.3}{0.2}}%
   \flo@TT{accent}{\flo@TBY{hood}{tr@foil@accent}}}
-\def\flo@ktraits{kind,group,size,tone,ground,pattern,contrast,view,preservation,whorls,expansion,umbilicus,spire,aperture,hand,sculpture,ribs,cords,ridges,keel,septa,broken,aspect,beak,ears,inflation,shoulder,suture,canal,lip,folds}
+\def\flo@ktraits{kind,group,size,tone,ground,pattern,contrast,view,preservation,involution,whorls,expansion,umbilicus,spire,aperture,hand,sculpture,ribs,cords,ridges,keel,septa,broken,aspect,beak,ears,inflation,shoulder,suture,canal,lip,folds}
 \expandafter\def\csname flo@krole@margin\endcsname{\flo@W{18}{{ammonite}{3}{nautilus}{4}{scallop}{7}{cockle}{9}{mussel}{10}{clam}{11}{oyster}{12}{whelk}{14}{turret}{15}{topshell}{16}{cowrie}{18}}}
 \expandafter\def\csname flo@krole@ornament\endcsname{\flo@W{9}{{ammonite}{2}{nautilus}{4}{scallop}{7}{whelk}{8}{cowrie}{9}}}
 \expandafter\def\csname flo@krole@planispiral\endcsname{\flo@W{4}{{ammonite}{3}{nautilus}{4}}}
@@ -3737,6 +3737,15 @@
 \expandafter\def\csname flo@krole@cowrie\endcsname{\flo@W{2}{{cowrie}{2}}}
 \expandafter\def\csname flo@d@sh@ammonite@contrast@_\endcsname{\flo@R{0.35}{0.65}}
 \expandafter\def\csname flo@d@sh@ammonite@contrast@none\endcsname{\flo@C{0}}
+\expandafter\def\csname flo@d@sh@ammonite@whorls@_\endcsname{\flo@R{3.5}{1.5}}
+\expandafter\def\csname flo@d@sh@ammonite@whorls@evolute\endcsname{\flo@R{5}{3}}
+\expandafter\def\csname flo@d@sh@ammonite@whorls@intermediate\endcsname{\flo@R{4}{2}}
+\expandafter\def\csname flo@d@sh@ammonite@expansion@_\endcsname{\flo@R{2.2}{0.8}}
+\expandafter\def\csname flo@d@sh@ammonite@expansion@evolute\endcsname{\flo@R{1.5}{0.4}}
+\expandafter\def\csname flo@d@sh@ammonite@expansion@intermediate\endcsname{\flo@R{1.8}{0.5}}
+\expandafter\def\csname flo@d@sh@ammonite@umbilicus@_\endcsname{\flo@R{0.02}{0.13}}
+\expandafter\def\csname flo@d@sh@ammonite@umbilicus@evolute\endcsname{\flo@R{0.3}{0.15}}
+\expandafter\def\csname flo@d@sh@ammonite@umbilicus@intermediate\endcsname{\flo@R{0.15}{0.15}}
 \expandafter\def\csname flo@d@sh@ammonite@ribs@_\endcsname{\flo@I{18}{48}}
 \expandafter\def\csname flo@d@sh@ammonite@ribs@smooth\endcsname{\flo@C{0}}
 \expandafter\def\csname flo@d@sh@ammonite@septa@_\endcsname{\flo@C{none}}
@@ -3750,9 +3759,10 @@
   \flo@KT{contrast}{\flo@KBY{pattern}{sh@ammonite@contrast}}%
   \flo@KT{view}{\flo@C{flank}}%
   \flo@KT{preservation}{\flo@W{8}{{shell}{3}{mold}{6}{pyrite}{7}{nacre}{8}}}%
-  \flo@KT{whorls}{\flo@R{4}{3}}%
-  \flo@KT{expansion}{\flo@R{1.6}{1.0}}%
-  \flo@KT{umbilicus}{\flo@R{0.1}{0.28}}%
+  \flo@KT{involution}{\flo@W{8}{{evolute}{3}{intermediate}{6}{involute}{8}}}%
+  \flo@KT{whorls}{\flo@KBY{involution}{sh@ammonite@whorls}}%
+  \flo@KT{expansion}{\flo@KBY{involution}{sh@ammonite@expansion}}%
+  \flo@KT{umbilicus}{\flo@KBY{involution}{sh@ammonite@umbilicus}}%
   \flo@KT{spire}{\flo@C{0}}%
   \flo@KT{aperture}{\flo@C{0}}%
   \flo@KT{hand}{\flo@C{none}}%
@@ -3783,6 +3793,7 @@
   \flo@KT{contrast}{\flo@KBY{pattern}{sh@nautilus@contrast}}%
   \flo@KT{view}{\flo@C{flank}}%
   \flo@KT{preservation}{\flo@W{7}{{shell}{6}{nacre}{7}}}%
+  \flo@KT{involution}{\flo@C{involute}}%
   \flo@KT{whorls}{\flo@R{3}{0.6}}%
   \flo@KT{expansion}{\flo@R{3.1}{0.5}}%
   \flo@KT{umbilicus}{\flo@R{0.02}{0.04}}%
@@ -3816,6 +3827,7 @@
   \flo@KT{contrast}{\flo@KBY{pattern}{sh@scallop@contrast}}%
   \flo@KT{view}{\flo@W{4}{{outside}{3}{inside}{4}}}%
   \flo@KT{preservation}{\flo@C{shell}}%
+  \flo@KT{involution}{\flo@C{none}}%
   \flo@KT{whorls}{\flo@C{0}}%
   \flo@KT{expansion}{\flo@C{0}}%
   \flo@KT{umbilicus}{\flo@C{0}}%
@@ -3849,6 +3861,7 @@
   \flo@KT{contrast}{\flo@KBY{pattern}{sh@cockle@contrast}}%
   \flo@KT{view}{\flo@W{4}{{outside}{3}{inside}{4}}}%
   \flo@KT{preservation}{\flo@C{shell}}%
+  \flo@KT{involution}{\flo@C{none}}%
   \flo@KT{whorls}{\flo@C{0}}%
   \flo@KT{expansion}{\flo@C{0}}%
   \flo@KT{umbilicus}{\flo@C{0}}%
@@ -3882,6 +3895,7 @@
   \flo@KT{contrast}{\flo@KBY{pattern}{sh@mussel@contrast}}%
   \flo@KT{view}{\flo@W{4}{{outside}{3}{inside}{4}}}%
   \flo@KT{preservation}{\flo@C{shell}}%
+  \flo@KT{involution}{\flo@C{none}}%
   \flo@KT{whorls}{\flo@C{0}}%
   \flo@KT{expansion}{\flo@C{0}}%
   \flo@KT{umbilicus}{\flo@C{0}}%
@@ -3917,6 +3931,7 @@
   \flo@KT{contrast}{\flo@KBY{pattern}{sh@clam@contrast}}%
   \flo@KT{view}{\flo@W{4}{{outside}{3}{inside}{4}}}%
   \flo@KT{preservation}{\flo@C{shell}}%
+  \flo@KT{involution}{\flo@C{none}}%
   \flo@KT{whorls}{\flo@C{0}}%
   \flo@KT{expansion}{\flo@C{0}}%
   \flo@KT{umbilicus}{\flo@C{0}}%
@@ -3950,6 +3965,7 @@
   \flo@KT{contrast}{\flo@KBY{pattern}{sh@oyster@contrast}}%
   \flo@KT{view}{\flo@W{2}{{outside}{1}{inside}{2}}}%
   \flo@KT{preservation}{\flo@C{shell}}%
+  \flo@KT{involution}{\flo@C{none}}%
   \flo@KT{whorls}{\flo@C{0}}%
   \flo@KT{expansion}{\flo@C{0}}%
   \flo@KT{umbilicus}{\flo@C{0}}%
@@ -3990,6 +4006,7 @@
   \flo@KT{contrast}{\flo@KBY{pattern}{sh@whelk@contrast}}%
   \flo@KT{view}{\flo@W{4}{{mouth}{3}{back}{4}}}%
   \flo@KT{preservation}{\flo@C{shell}}%
+  \flo@KT{involution}{\flo@C{none}}%
   \flo@KT{whorls}{\flo@R{5}{3}}%
   \flo@KT{expansion}{\flo@R{1.9}{0.9}}%
   \flo@KT{umbilicus}{\flo@R{0}{0.06}}%
@@ -4029,6 +4046,7 @@
   \flo@KT{contrast}{\flo@KBY{pattern}{sh@turret@contrast}}%
   \flo@KT{view}{\flo@W{4}{{mouth}{3}{back}{4}}}%
   \flo@KT{preservation}{\flo@C{shell}}%
+  \flo@KT{involution}{\flo@C{none}}%
   \flo@KT{whorls}{\flo@R{9}{6}}%
   \flo@KT{expansion}{\flo@R{1.15}{0.25}}%
   \flo@KT{umbilicus}{\flo@R{0}{0.06}}%
@@ -4066,6 +4084,7 @@
   \flo@KT{contrast}{\flo@KBY{pattern}{sh@topshell@contrast}}%
   \flo@KT{view}{\flo@W{4}{{mouth}{3}{back}{4}}}%
   \flo@KT{preservation}{\flo@W{4}{{shell}{3}{nacre}{4}}}%
+  \flo@KT{involution}{\flo@C{none}}%
   \flo@KT{whorls}{\flo@R{5}{2}}%
   \flo@KT{expansion}{\flo@R{1.7}{0.6}}%
   \flo@KT{umbilicus}{\flo@R{0}{0.12}}%
@@ -4099,6 +4118,7 @@
   \flo@KT{contrast}{\flo@KBY{pattern}{sh@cowrie@contrast}}%
   \flo@KT{view}{\flo@W{4}{{back}{3}{mouth}{4}}}%
   \flo@KT{preservation}{\flo@C{shell}}%
+  \flo@KT{involution}{\flo@C{none}}%
   \flo@KT{whorls}{\flo@C{0}}%
   \flo@KT{expansion}{\flo@C{0}}%
   \flo@KT{umbilicus}{\flo@C{0}}%
@@ -4285,9 +4305,10 @@
 \expandafter\def\csname flo@kok@contrast\endcsname{{}{0}{1}{1}}
 \expandafter\def\csname flo@kok@view\endcsname{{back,flank,inside,mouth,outside}{}{}{0}}
 \expandafter\def\csname flo@kok@preservation\endcsname{{mold,nacre,pyrite,shell}{}{}{0}}
+\expandafter\def\csname flo@kok@involution\endcsname{{evolute,intermediate,involute}{}{}{0}}
 \expandafter\def\csname flo@kok@whorls\endcsname{{}{3}{15}{1}}
 \expandafter\def\csname flo@kok@expansion\endcsname{{}{1.15}{3.6}{1}}
-\expandafter\def\csname flo@kok@umbilicus\endcsname{{}{0}{0.38}{1}}
+\expandafter\def\csname flo@kok@umbilicus\endcsname{{}{0}{0.45}{1}}
 \expandafter\def\csname flo@kok@spire\endcsname{{}{0}{6}{1}}
 \expandafter\def\csname flo@kok@aperture\endcsname{{}{0.7}{2.4}{1}}
 \expandafter\def\csname flo@kok@hand\endcsname{{dextral,sinistral}{}{}{0}}

@@ -1335,8 +1335,9 @@ TRACERY.describe = M.tdescribe
 do
   M.SHTRAITS = {
     "kind", "group", "size", "tone", "ground", "pattern", "contrast", "view", "preservation",
-    -- the coil
-    "whorls", "expansion", "umbilicus", "spire", "aperture", "hand",
+    -- the coil: an ammonite's involution (how much each whorl hides the one before) first,
+    -- since its W and D go together
+    "involution", "whorls", "expansion", "umbilicus", "spire", "aperture", "hand",
     -- the surface: ribs (a whorl's, or a valve's from its beak), spiral cords, concentric
     -- ridges or layers
     "sculpture", "ribs", "cords", "ridges",
@@ -1351,7 +1352,7 @@ do
   -- what a shell does not have: every trait a constant (no draw)
   local SHNONE = {
     pattern = C("none"), preservation = C("shell"),
-    whorls = C(0), expansion = C(0), umbilicus = C(0), spire = C(0), aperture = C(0), hand = C("none"),
+    involution = C("none"), whorls = C(0), expansion = C(0), umbilicus = C(0), spire = C(0), aperture = C(0), hand = C("none"),
     ribs = C(0), cords = C(0), ridges = C(0), keel = C("none"), septa = C("none"), broken = C(0),
     aspect = C(0), beak = C(0), ears = C("none"), inflation = C(0),
     shoulder = C("none"), suture = C(0), canal = C("none"), lip = C("none"), folds = C(0),
@@ -1375,7 +1376,12 @@ do
     { name = "ammonite", group = "planispiral", w = 3, roles = { margin = 3, ornament = 2 }, d = {
       size = R(30, 180), ground = W("ink", 3, "pale", 2),
       preservation = W("shell", 3, "mold", 3, "pyrite", 1, "nacre", 1),
-      whorls = R(4, 7), expansion = R(1.6, 2.6), umbilicus = R(0.1, 0.38),
+      -- evolute: many slowly widening whorls, a wide umbilicus; involute: few, fast, hiding
+      -- the ones before; W D stays under 1 in each
+      involution = W("evolute", 3, "intermediate", 3, "involute", 2),
+      whorls = BY("involution", { evolute = R(5, 8), intermediate = R(4, 6), _ = R(3.5, 5) }),
+      expansion = BY("involution", { evolute = R(1.5, 1.9), intermediate = R(1.8, 2.3), _ = R(2.2, 3) }),
+      umbilicus = BY("involution", { evolute = R(0.3, 0.45), intermediate = R(0.15, 0.3), _ = R(0.02, 0.15) }),
       sculpture = W("ribs", 4, "branching", 3, "tubercles", 2, "smooth", 1),
       ribs = BY("sculpture", { smooth = C(0), _ = I(18, 48) }),
       keel = W("none", 3, "keel", 2, "grooved", 1),
@@ -1387,7 +1393,8 @@ do
     { name = "nautilus", group = "planispiral", w = 1, roles = { margin = 1, ornament = 2 }, d = {
       size = R(140, 220), ground = W("pale", 3, "ink", 1), pattern = C("flammules"),
       preservation = W("shell", 6, "nacre", 1),
-      whorls = R(3, 3.6), expansion = R(3.1, 3.6), umbilicus = R(0.02, 0.06), sculpture = C("smooth"),
+      involution = C("involute"), whorls = R(3, 3.6), expansion = R(3.1, 3.6), umbilicus = R(0.02, 0.06),
+      sculpture = C("smooth"),
     } },
     -- a scallop: a fan on a straight hinge with ears, strong ribs from the beak at its middle
     { name = "scallop", group = "bivalve", w = 3, roles = { margin = 3, ornament = 3 }, d = {
@@ -1483,6 +1490,7 @@ do
     check(not coiled or s.expansion * s.umbilicus <= 1, "whorls that do not touch (W D > 1)")
     check(coiled or (s.expansion == 0 and s.umbilicus == 0 and s.spire == 0), "a coil's numbers on a shell without a coil")
     check(s.group ~= "planispiral" or (coiled and s.spire == 0), "a planispiral with a spire, or without a coil")
+    check((s.involution ~= "none") == (s.group == "planispiral"), "an involution on a shell that is no planispiral, or one without")
     check((s.aperture > 0) == (s.group == "gastropod" and coiled), "a mouth's shape on a shell that is no coiled gastropod, or one without")
     check((s.suture > 0) == (s.group == "gastropod" and coiled), "a suture's depth on a shell that is no coiled gastropod, or one without")
     check(s.shoulder == "none" or (s.group == "gastropod" and coiled), "a shoulder on a shell that is no coiled gastropod")

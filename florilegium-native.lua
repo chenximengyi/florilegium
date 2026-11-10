@@ -507,6 +507,8 @@ local function streak(pts, w0, w1, color, op)
     return (w0 + (w1 - w0) * u) * (u < 0.12 and 0.4 + 5 * u or 1) / 2
   end), true) fill(color, op)
 end
+-- for florilegium-shell.lua, which draws in the same hand
+M.tone, M.mottle, M.streak, M.taper, M.ribbon, M.ribbonpts = tone, mottle, streak, taper, ribbon, ribbonpts
 -- the six points of a cubic (\flo@vbezier), for an open smooth curve (\flo@openpath)
 local function bezier6(x0, y0, x1, y1, x2, y2, x3, y3)
   local b, pts = ink.bezier3(x0, y0, x1, y1, x2, y2, x3, y3), {}

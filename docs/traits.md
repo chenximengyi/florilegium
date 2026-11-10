@@ -174,9 +174,10 @@ This page is written by `tools/tikztables.lua` from `florilegium-species.lua`.
 | `contrast` | a number from 0 to 1 |
 | `view` | `back`, `flank`, `inside`, `mouth`, `outside` |
 | `preservation` | `mold`, `nacre`, `pyrite`, `shell` |
+| `involution` | `evolute`, `intermediate`, `involute` |
 | `whorls` | a number from 3 to 15 |
 | `expansion` | a number from 1.15 to 3.6 |
-| `umbilicus` | a number from 0 to 0.38 |
+| `umbilicus` | a number from 0 to 0.45 |
 | `spire` | a number from 0 to 6 |
 | `aperture` | a number from 0.7 to 2.4 |
 | `hand` | `dextral`, `sinistral` |

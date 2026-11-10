@@ -13,7 +13,7 @@ local M = { ink = ink, flora = flora }
 -- stops such a mix before anything is drawn. A release changes all of them together.
 M.version = "2.0.1"
 local PARTS = { "ink", "flora", "grow", "authored", "figures", "theme-geometric", "theme-math", "initial", "svg", "species",
-  "pgfmath", "native", "tracery" }
+  "pgfmath", "native", "tracery", "shell" }
 
 local function where(file, format, module)     -- " (path)" for the message, if it can be found
   local ok, path = pcall(function() return kpse.find_file(file, format) end)
@@ -272,6 +272,19 @@ function M.tracery(seed, role, width, traits)
     string.format("\\def\\flo@traceryheight{%.4f}", h))
 end
 M.tracery = guarded(M.tracery)
+
+-- a shell at the origin of a TikZ scope, `size` cm across at most, its base on the origin
+-- (the scratch sheets; the pic and the margin come later, board #5339 and #5340). The
+-- drawing's seed is seed + 1, as a pic's is
+function M.shell(seed, role, size, traits)
+  sync_transform()
+  local species = require("florilegium-species")
+  local fix = traits and traits ~= "" and species.fixes(traits, "shell") or nil
+  local s = species.shsample(seed, role, nil, fix)
+  require("florilegium-shell").draw(s, seed + 1, size)
+  ink.flush()
+end
+M.shell = guarded(M.shell)
 
 -- \florilegiumheadpiece: a headpiece of tracery in a box of the given width (sp), its
 -- sill on the baseline, the k-th of the document unless a seed is given. With the
@@ -609,7 +622,7 @@ M.authored = guarded(M.authored)
 -- load the rest of the package now, so that a mixed set stops in the preamble and not
 -- halfway through a page (florilegium-initial waits for the first initial; florilegium-svg
 -- runs only outside TeX, where it loads this file and so is checked here too)
-for _, part in ipairs({ "grow", "authored", "figures", "theme-geometric", "theme-math", "tracery" }) do
+for _, part in ipairs({ "grow", "authored", "figures", "theme-geometric", "theme-math", "tracery", "shell" }) do
   require("florilegium-" .. part)
 end
 M.check_versions()
