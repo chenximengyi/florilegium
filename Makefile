@@ -5,6 +5,9 @@ RUN     ?=
 LUA      = florilegium-ink.lua florilegium-flora.lua florilegium-species.lua florilegium-pgfmath.lua florilegium-native.lua florilegium.lua florilegium-initial.lua florilegium-figures.lua florilegium-theme-geometric.lua florilegium-theme-math.lua
 GS      ?= gs
 SEED    ?= 7
+# texlua comes with LuaLaTeX; a plain lua 5.3+ runs the same scripts, so a machine with only
+# lua can still make the SVGs (and tools/genomes.lua, which has always used lua)
+SVGLUA  ?= $(shell command -v texlua >/dev/null 2>&1 && echo texlua || echo lua)
 # the manual and the zip are dated by the last commit, so the same commit gives the same bytes
 EPOCH   ?= $(shell git log -1 --format=%ct 2>/dev/null || date +%s)
 
@@ -134,7 +137,7 @@ preview: florilegium.pdf florilegium-grow.pdf showcase.pdf spread.pdf specimen-g
 #   -> build/svg-7.svg, the drawing on page 1 of florilegium-grow.tex with that seed
 svg: florilegium-svg.lua florilegium-grow.lua florilegium-authored.lua $(LUA)
 	mkdir -p build
-	$(RUN) texlua florilegium-svg.lua --seed $(SEED) -o build/svg-$(SEED).svg
+	$(RUN) $(SVGLUA) florilegium-svg.lua --seed $(SEED) -o build/svg-$(SEED).svg
 
 # an earlier release's margin against this tree's, and the TikZ library's engines, timed on
 # this machine; prints a Markdown table (a few minutes; pure TikZ under pdfLaTeX is most of it)
@@ -161,7 +164,17 @@ social: tools/social.tex tools/social.lua tools/hershey/scripts.jhf florilegium.
 playground:
 	python3 -m http.server 8000
 
+# the browser demo (demo/fullscreen): species-data.js written from the package's own
+# tables, then the check that the browser samples the same species the PDF grows for a
+# seed. The demo opens as demo/fullscreen/index.html?seed=7 (needs lua and node; the rest
+# of this Makefile needs LuaLaTeX)
+genomes:
+	lua tools/genomes.lua
+	mkdir -p build
+	lua tools/genomes.lua --check 12 > build/genome-reference.txt
+	node demo/fullscreen/species-check.js build/genome-reference.txt
+
 clean:
 	rm -rf build *.aux *.log *.out *.toc *.synctex.gz
 
-.PHONY: all zip gallery animation preview postscript pscheck luacheck check svg bench social playground clean
+.PHONY: all zip gallery animation preview postscript pscheck luacheck check svg bench social playground genomes clean
