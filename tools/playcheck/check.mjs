@@ -166,6 +166,23 @@ check('style: math, its equations set by MathJax', s.caps > 0 && /theme=math/.te
   check('math: the command line too', !/--season|--novisitors/.test(c2.snippet), c2.snippet)
   await tab('latex')
 }
+s = await choose('style', 'shells washed up')
+{
+  const sh = await page.evaluate(() => window.current.stats.shells)
+  const words = (x) => x.text[0].toLowerCase() + x.text.slice(1, -1)
+  const cab = sh.filter((x) => x.cabinet && x.count), own = sh.filter((x) => !x.cabinet && x.count)
+  check('style: shells, the cabinet and the page\'s own in words', /theme=shells/.test(s.snippet) && cab.length > 0 && own.length > 0
+    && [...cab, ...own].every((x) => s.text.includes(words(x))), s.text.match(/a cabinet that comes back[^.]*\./)?.[0])
+  const terms = await page.$$eval('#colophon .term', (t) => t.map((x) => x.dataset.k))
+  check('shells: no season and no visitors in the colophon', !terms.includes('season') && !terms.includes('visitors') && !/summer|autumn|isitors/.test(s.colophon), s.colophon.slice(0, 160))
+  check('shells: the snippets leave out what it ignores', !/florilegiumage|novisitors/.test(s.snippet), 'autumn was set before switching')
+  const sparse = await page.evaluate(() => { document.querySelector('.term[data-k=density]').click(); return document.querySelector('#chooser').textContent })
+  await page.keyboard.press('Escape')
+  check('shells: the sparsest density is a single strand', /a single strand/.test(sparse) && !/vine|stem|figures/.test(sparse))
+  const n3 = await tab('svg')
+  check('shells: the head rule note names its scallop', /the head rule and the scallop that starts it/.test(n3.note) && !/ivy/.test(n3.note), n3.note)
+  await tab('latex')
+}
 s = await choose('style', 'flowering plants')
 check('flora: the season comes back as it was', /in autumn/.test(s.colophon) && /florilegiumage\{1\}/.test(s.snippet))
 s = await choose('season', 'summer')

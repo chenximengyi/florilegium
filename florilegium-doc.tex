@@ -1,3 +1,4 @@
+% !TEX program = lualatex
 % florilegium-doc.tex -- the manual, the PDF that texdoc florilegium opens.
 %   lualatex florilegium-doc.tex   (three times from nothing, for the contents and the links;  make florilegium-doc.pdf)
 % Its text is the documentation in docs/*.md, with README.md's opening, origin, quick start,
@@ -24,7 +25,7 @@
   tex.sprint("\string\\def\string\\flodate{" .. tonumber(d) .. " " .. months[tonumber(m)] .. " " .. y .. "}")
 }
 \hypersetup{pdftitle={florilegium, version \floversion}, pdfauthor={Kevin Raymond},
-  pdfsubject={Procedurally generated floral page margins for LuaLaTeX, and plants in TikZ}}
+  pdfsubject={Procedurally generated page margins for LuaLaTeX, and plants, tracery and shells in TikZ}}
 
 \setlength{\parindent}{0pt}
 \setlength{\parskip}{0.6\baselineskip plus 2pt}
@@ -42,8 +43,8 @@
   \vspace*{6mm}
   {\fontsize{40}{44}\selectfont florilegium\par}
   \vspace{4mm}
-  {\large Procedurally generated floral page margins for LuaLaTeX,\\
-  and plants and their visitors in TikZ\par}
+  {\large Procedurally generated page margins for LuaLaTeX,\\
+  and plants, their visitors, shells and Gothic tracery in TikZ\par}
   \vspace{5mm}
   Version \floversion, \flodate\par
   \vspace{2mm}

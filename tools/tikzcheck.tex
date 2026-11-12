@@ -1,7 +1,8 @@
 % The TikZ side of tools/tikzcheck.lua: draws species \tikzcheckfrom..\tikzcheckto (role
 % \tikzcheckrole, or any), or the "seed role" lines of the file \tikzchecklist, with the pure-TikZ library
 % and writes each one's choices, one line per species, to <jobname>.choices in the output
-% directory; visitors instead of plants when \tikzcheckvisitor is defined, and with the traits
+% directory; visitors instead of plants when \tikzcheckvisitor is defined, windows of tracery
+% when \tikzchecktracery is, shells when \tikzcheckshell is, and with the traits
 % \tikzcheckfix fixed when that is defined. Runs under pdflatex and lualatex.
 \documentclass{article}
 \usepackage{tikz}
@@ -11,7 +12,10 @@
 \newwrite\tikzcheckout
 \immediate\openout\tikzcheckout=\jobname.choices
 \florilegiumspecieslogtrue
-\ifdefined\tikzcheckvisitor\let\tikzchecksample\florilegiumvisitor\else\let\tikzchecksample\florilegiumspecies\fi
+\ifdefined\tikzcheckvisitor\let\tikzchecksample\florilegiumvisitor
+\else\ifdefined\tikzchecktracery\let\tikzchecksample\florilegiumtracery
+\else\ifdefined\tikzcheckshell\let\tikzchecksample\florilegiumshell
+\else\let\tikzchecksample\florilegiumspecies\fi\fi\fi
 % traits fixed for every species (\tikzcheckfix, "compound=palmate, leaflets=7"), if given
 \ifdefined\tikzcheckfix\edef\tikzcheckopt{[\tikzcheckfix]}\else\def\tikzcheckopt{}\fi
 \ifdefined\tikzchecklist

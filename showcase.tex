@@ -1,3 +1,4 @@
+% !TEX program = lualatex
 %% showcase.tex -- what the grown margin does besides growing: it reads the text.
 %% LuaLaTeX, two passes (the option aging reads the page count of the first):
 %%   lualatex showcase.tex && lualatex showcase.tex
@@ -6,7 +7,7 @@
 \usepackage[T1]{fontenc}
 \usepackage[a4paper,left=68mm,right=22mm,top=32mm,bottom=30mm,headsep=8mm]{geometry}
 \usepackage{fancyhdr}
-\usepackage[grown,sections,aging]{florilegium}
+\usepackage[grown,sections,headpieces,aging]{florilegium}
 
 \pagestyle{fancy}\fancyhf{}
 \fancyhead[R]{\small\textsc{A year in the margin}}
@@ -20,9 +21,9 @@
 \florilegiuminitial[5]{E}{very} page of this document grows its own garden, but the
 gardens here also read the text they surround. This first page is spring: the plant is
 young, its leaves are small and pale, and it is mostly in bud; the last page is autumn.
-The document loads the package with three options, and the sections that follow show what
+The document loads the package with four options, and the sections that follow show what
 each of them does, along with a few things that need no option at all:
-\begin{center}\code{\textbackslash usepackage[grown,sections,aging]\{florilegium\}}\end{center}
+\begin{center}\code{\textbackslash usepackage[grown,sections,headpieces,aging]\{florilegium\}}\end{center}
 
 The letter that opens this paragraph is one of them. It was set with
 \code{\textbackslash florilegiuminitial[5]\{E\}}, which reads the outline of the letter from an OpenType font (Latin
@@ -43,6 +44,19 @@ garden is drawn and the page box is searched for these marks, so the garden know
 height of each heading on the same page in the same run. Where the margin is already
 taken, by the large flower at the top of the page for example, the flower is made
 smaller or left out.
+
+\subsection{A headpiece over the section}
+
+The window of tracery above this section's heading is the option \code{headpieces}: every
+section gets one, sampled from a genome of its own as the plants are, its period first and
+then its arch, its lights, the figures in its head and their foils. A headpiece is a screen
+of lights under a flat arch. The heading leaves a mark, and when the page is shipped out the
+headpiece is drawn from that mark, on the side the margin is on, so that a vine can twine up
+its jamb with the leaves of the nearest plant and that plant can send a branch to the vine's
+foot. \code{\textbackslash florilegiumheadpiece} sets one by hand, with a seed, a width and
+traits of its own; \code{\textbackslash florilegiuminitialframe\{arch\}} opens an initial
+under a cusped arch, and \code{\textbackslash florilegiumornament\{quatrefoil\}} sets a
+foil in the line, \florilegiumornament{quatrefoil} like this.
 
 \subsection{A flower where the text asks for one}
 

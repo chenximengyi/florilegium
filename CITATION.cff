@@ -3,12 +3,14 @@ message: If you use florilegium in your work, please cite it as below.
 type: software
 title: florilegium
 abstract: >-
-  Procedurally generated Delft-blue floral page margins for LuaLaTeX. Every petal, leaf
-  and stem is a parametric curve computed in Lua while the page is written, and placed by a
+  Procedurally generated Delft-blue page margins for LuaLaTeX. Every petal, leaf, stem and
+  arch is a parametric curve computed in Lua while the page is written, and placed by a
   greedy space-filling layout that grows plants to fit the free space on each page. The
-  plants and their visitors are species sampled from genomes of botanical traits, and a
-  TikZ library draws the same species as pics, in pure TikZ under pdfLaTeX or through Lua
-  under LuaLaTeX.
+  plants and their visitors are species sampled from genomes of botanical traits, the
+  headpieces over the sections windows of Gothic tracery sampled from a genome of their
+  own, the shells on the ground sampled from a third, and a TikZ library draws the same
+  species, windows and shells as pics, in pure TikZ under pdfLaTeX or through Lua under
+  LuaLaTeX.
 authors:
   - family-names: Raymond
     given-names: Kevin

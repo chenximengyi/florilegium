@@ -36,6 +36,114 @@ local function R(a, b) return { "r", a, b } end
 local function C(v) return { "c", v } end
 local function BY(key, map) return { "by", key, map } end
 
+-- ---------------------------------------------------------------- sampling
+-- one draw from a distribution; rng is an ink.pgfrng; sp holds the traits drawn so far
+local function draw(d, rng, sp)
+  local kind = d[1]
+  if kind == "c" then return d[2]
+  elseif kind == "i" then return rng.random(d[2], d[3])
+  elseif kind == "r" then
+    -- as \flo@R{a}{b-a} computes it: \pgfmathparse{a+(b-a)*rnd}, to the scaled point
+    local a, w = pm.sp(tostring(d[2])), pm.sp(tostring(d[3] - d[2]))
+    return pm.add(a, pm.mulf(w, math.floor(rng.rnd() * 65536 + 0.5))) / 65536
+  elseif kind == "w" then
+    local total = 0
+    for i = 3, #d, 2 do total = total + d[i] end
+    local k = rng.random(1, total)
+    for i = 2, #d, 2 do
+      k = k - d[i + 1]
+      if k <= 0 then return d[i] end
+    end
+  elseif kind == "by" then
+    local v = sp[d[2]]
+    local sub = d[3][tostring(v)] or d[3]._
+    assert(sub, "florilegium: no distribution for " .. d[2] .. " = " .. tostring(v))
+    return draw(sub, rng, sp)
+  end
+  error("florilegium: unknown distribution " .. tostring(kind))
+end
+
+-- Lehmer's generator answers seeds 1, 2, 3 ... with nearly proportional first values,
+-- so the first two are thrown away (TikZ: \pgfmathgeneratepseudorandomnumber twice).
+M.WARM = 2
+
+-- ---------------------------------------------------------------- a family of genomes
+-- The plants and the visitors are two families of one shape, and a third (a window of
+-- tracery) adds its tables and nothing else. A family f has: traits, the draw order
+-- (the first names the kind, a plant's body plan or a visitor's kind); kinds, each with
+-- a name, a weight w, the roles it may fill, and d, its own distributions; derived, the
+-- trait that follows from the kind (a plan's clade, a kind's group); fallback(k, trait),
+-- the distribution a kind's own table leaves out; weight(k, role), its weight in a role,
+-- or nil; roles, the role names (a role may also name a kind, for a specimen of it);
+-- rolelist, the roles' order in the TeX tables; noun ("plant"), what the family samples;
+-- refuse(kind, fix), an error for a fixed value that kind cannot draw, or nil; own(k, trait),
+-- the distribution the kind really draws, for the values a fixed trait may take; tex, the
+-- family's macro names in tikzlibraryflorilegium.tables.code.tex; violations(x) and
+-- describe(x), the rules and the words. family(f) adds byname, dist, rolekinds, sample
+-- and values.
+local function family(f)
+  f.byname = {}
+  for i, k in ipairs(f.kinds) do f.byname[k.name] = k k.index = i end
+  -- a trait's distribution for a kind: the kind's own, else the family's fallback
+  function f.dist(kind, trait)
+    local k = f.byname[kind]
+    if f.derived and trait == f.derived then return C(k[f.derived]) end
+    return k.d[trait] or f.fallback(k, trait)
+  end
+  -- the kinds a role may draw, as a W over their names (in f.kinds order); a role may
+  -- also name one kind ("rose", "fern", "ladybird"), for a specimen of it. A role's own
+  -- name comes first: "monocot" is the role (lily, iris or the generic monocot), not the
+  -- plan of that name.
+  function f.rolekinds(role)
+    if f.byname[role] and not f.roles[role] then return W(role, f.byname[role].w) end
+    local t = {}
+    for _, k in ipairs(f.kinds) do
+      local w = f.weight(k, role)
+      if w then t[#t + 1] = k.name t[#t + 1] = w end
+    end
+    assert(#t > 0, "florilegium: no " .. f.noun .. " for the role " .. tostring(role))
+    return W(table.unpack(t))
+  end
+  -- one of the family from a pgf seed (1 .. 2^31-2) for a role; log, if given, is a
+  -- function(trait, value) called after every draw. Returns the sample and the generator,
+  -- left where \florilegiumspecies leaves pgf's (organs go on from there). A real-valued
+  -- trait is the number pgfmath computes, a multiple of 2^-16.
+  -- fix, if given, is a table of traits fixed (M.fixes): each still takes its draw, then
+  -- its value is the fixed one, and a trait that depends on it (BY) follows it; a fixed
+  -- kind picks its own distributions. The traits drawn before a fixed one are as they
+  -- would have been; those after it too, unless a trait that depends on it draws
+  -- differently (a constant takes no draw, a range one), which moves every later draw along
+  function f.sample(seed, role, log, fix)
+    fix = fix or {}
+    local rng = ink.pgfrng(seed)
+    for _ = 1, M.WARM do rng.step() end
+    local x = { seed = seed, role = role or "any" }
+    local first = f.traits[1]
+    x[first] = draw(f.rolekinds(x.role), rng, x)
+    if fix[first] ~= nil then x[first] = fix[first] end
+    if f.refuse then
+      local refused = f.refuse(x[first], fix)
+      if refused then error(refused, 0) end
+    end
+    if log then log(first, x[first]) end
+    for i = 2, #f.traits do
+      local t = f.traits[i]
+      x[t] = draw(f.dist(x[first], t), rng, x)
+      if fix[t] ~= nil then x[t] = fix[t] end
+      if log then log(t, x[t]) end
+    end
+    return x, rng
+  end
+  f.own = f.own or function(k, trait) return f.dist(k.name, trait) end
+  return f
+end
+M.FAMILIES = {}                      -- in the order of the TeX tables
+function M.family(name)
+  local f = M.FAMILIES[name]
+  assert(f, "florilegium: no family of genomes named " .. tostring(name))
+  return f
+end
+
 -- the order of the draws; every species draws them in this order
 M.TRAITS = {
   "plan", "clade", "syndrome", "color", "form", "symmetry", "fused", "merosity", "merovar",
@@ -376,88 +484,22 @@ M.PLANS = {
     dimorphic = W(0, 4, 1, 1),
   } },
 }
-local PLAN = {}
-for i, p in ipairs(M.PLANS) do PLAN[p.name] = p p.index = i end
-
--- a trait's distribution for a plan: the plan's own, else its clade's, else everyone's
-function M.dist(plan, trait)
-  local p = PLAN[plan]
-  if trait == "clade" then return C(p.clade) end
-  return p.d[trait] or CLADE[p.clade][trait] or COMMON[trait]
-end
-
--- the plans a role may draw, as a W over plan names (in M.PLANS order); a role may also
--- name one plan ("rose", "fern"), for a specimen of that plan. A role's own name comes
--- first: "monocot" is the role (lily, iris or the generic monocot), not the plan of that
--- name. "any" draws every flowering plan (not a plan set apart, the fern).
+-- the plants: a trait's distribution is the plan's own, else its clade's, else
+-- everyone's; a role ("hero", "spray", "monocot", "any") draws its plans by their
+-- weights, and "any" every flowering plan (not a plan set apart, the fern)
 M.ROLES = { hero = true, spray = true, monocot = true, any = true }
-function M.roleplans(role)
-  if PLAN[role] and not M.ROLES[role] then return W(role, PLAN[role].w) end
-  local t = {}
-  for _, p in ipairs(M.PLANS) do
-    if (role == "any" and not p.apart) or p.roles[role] then t[#t + 1] = p.name t[#t + 1] = p.w end
-  end
-  assert(#t > 0, "florilegium: no plant for the role " .. tostring(role))
-  return W(table.unpack(t))
-end
-
--- ---------------------------------------------------------------- sampling
--- one draw from a distribution; rng is an ink.pgfrng; sp holds the traits drawn so far
-local function draw(d, rng, sp)
-  local kind = d[1]
-  if kind == "c" then return d[2]
-  elseif kind == "i" then return rng.random(d[2], d[3])
-  elseif kind == "r" then
-    -- as \flo@R{a}{b-a} computes it: \pgfmathparse{a+(b-a)*rnd}, to the scaled point
-    local a, w = pm.sp(tostring(d[2])), pm.sp(tostring(d[3] - d[2]))
-    return pm.add(a, pm.mulf(w, math.floor(rng.rnd() * 65536 + 0.5))) / 65536
-  elseif kind == "w" then
-    local total = 0
-    for i = 3, #d, 2 do total = total + d[i] end
-    local k = rng.random(1, total)
-    for i = 2, #d, 2 do
-      k = k - d[i + 1]
-      if k <= 0 then return d[i] end
-    end
-  elseif kind == "by" then
-    local v = sp[d[2]]
-    local sub = d[3][tostring(v)] or d[3]._
-    assert(sub, "florilegium: no distribution for " .. d[2] .. " = " .. tostring(v))
-    return draw(sub, rng, sp)
-  end
-  error("florilegium: unknown distribution " .. tostring(kind))
-end
-
--- a species from a pgf seed (1 .. 2^31-2) for a role ("hero", "spray", "monocot",
--- "any"); log, if given, is a function(trait, value) called after every draw. Returns the
--- species and the generator, left where \florilegiumspecies leaves pgf's (organs go on
--- from there). A real-valued trait is the number pgfmath computes, a multiple of 2^-16.
--- Lehmer's generator answers seeds 1, 2, 3 ... with nearly proportional first values,
--- so the first two are thrown away (TikZ: \pgfmathgeneratepseudorandomnumber twice).
-M.WARM = 2
--- fix, if given, is a table of traits fixed (M.fixes): each still takes its draw, then its
--- value is the fixed one, and a trait that depends on it (BY) follows it; a fixed plan
--- picks its own distributions. The traits drawn before a fixed one are as they would have
--- been; those after it too, unless a trait that depends on it draws differently (a
--- constant takes no draw, a range one), which moves every later draw along
-function M.sample(seed, role, log, fix)
-  fix = fix or {}
-  local rng = ink.pgfrng(seed)
-  for _ = 1, M.WARM do rng.step() end
-  local sp = { seed = seed, role = role or "any" }
-  sp.plan = draw(M.roleplans(sp.role), rng, sp)
-  if fix.plan ~= nil then sp.plan = fix.plan end
-  local refused = M.refused(sp.plan, fix)
-  if refused then error(refused, 0) end
-  if log then log("plan", sp.plan) end
-  for i = 2, #M.TRAITS do
-    local t = M.TRAITS[i]
-    sp[t] = draw(M.dist(sp.plan, t), rng, sp)
-    if fix[t] ~= nil then sp[t] = fix[t] end
-    if log then log(t, sp[t]) end
-  end
-  return sp, rng
-end
+local PLANT = family {
+  name = "plant", noun = "plant", what = "a species", heading = "A species",
+  traits = M.TRAITS, kinds = M.PLANS, derived = "clade", roles = M.ROLES,
+  rolelist = { "hero", "spray", "monocot", "any" },
+  fallback = function(p, trait) return CLADE[p.clade][trait] or COMMON[trait] end,
+  weight = function(p, role) if (role == "any" and not p.apart) or p.roles[role] then return p.w end end,
+  refuse = function(plan, fix) return M.refused(plan, fix) end,
+  tex = { traits = "traits", role = "role", kind = "plan", T = "T", BY = "BY", d = "", ok = "ok" },
+}
+M.FAMILIES[1], M.FAMILIES.plant = PLANT, PLANT
+local PLAN = PLANT.byname
+M.dist, M.roleplans, M.sample = PLANT.dist, PLANT.rolekinds, PLANT.sample
 
 -- ---------------------------------------------------------------- the rules
 -- report section 5c; a species that breaks one is a bug in the tables
@@ -488,6 +530,7 @@ function M.violations(sp)
   check(not fern or (sp.pinnae >= 8 and sp.stipe > 0 and sp.outline ~= "none"), "a frond without pinnae or stipe")
   return v
 end
+PLANT.violations = M.violations
 
 -- ---------------------------------------------------------------- in words
 local NUM = { "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve",
@@ -583,6 +626,7 @@ function M.describe(sp)
     .. leaf_words(sp) .. (sp.tendrils == 1 and ", climbing by tendrils" or "") .. "; then " .. FRUIT[sp.fruit] .. "."
   return s:sub(1, 1):upper() .. s:sub(2)
 end
+PLANT.describe = M.describe
 
 -- ---------------------------------------------------------------- a document's plants
 -- showy: flowers that can carry a page, one at a time or in a loose cluster, not a
@@ -781,45 +825,24 @@ M.VKINDS = {
     bill = W("curved", 2, "straight", 1), crest = W(0, 5, 1, 1), tail = R(0.3, 0.45),
   } },
 }
-local VKIND = {}
-for i, k in ipairs(M.VKINDS) do VKIND[k.name] = k k.index = i end
+-- the visitors: what a kind's table leaves out it does not have (VNONE); a role draws
+-- its kinds by the weights in their roles, "any" every kind by its weight; the TeX
+-- tables are a namespace of their own (\flo@VT, \flo@VBY), since visitors and plants
+-- share trait names. A visitor's values (M.values) are only what some kind draws itself:
+-- a kind without a shell holds a placeholder that no drawing of a shell can take
 M.VROLES = { bee = true, butterfly = true, moth = true, bird = true, beetle = true, fly = true, leaf = true,
   stem = true, perch = true, any = true }
-
-function M.vdist(kind, trait)
-  local k = VKIND[kind]
-  if trait == "group" then return C(k.group) end
-  return k.d[trait] or VNONE[trait]
-end
--- the kinds a role may draw, as a W over kind names (in M.VKINDS order); a role may
--- also name one kind ("ladybird"); "any" draws every kind by its weight
-function M.vrolekinds(role)
-  if VKIND[role] and not M.VROLES[role] then return W(role, VKIND[role].w) end
-  local t = {}
-  for _, k in ipairs(M.VKINDS) do
-    local w = role == "any" and k.w or k.roles[role]
-    if w then t[#t + 1] = k.name t[#t + 1] = w end
-  end
-  assert(#t > 0, "florilegium: no visitor for the role " .. tostring(role))
-  return W(table.unpack(t))
-end
--- a visitor from a pgf seed for a role, as M.sample draws a plant
-function M.vsample(seed, role, log, fix)
-  fix = fix or {}
-  local rng = ink.pgfrng(seed)
-  for _ = 1, M.WARM do rng.step() end
-  local v = { seed = seed, role = role or "any" }
-  v.kind = draw(M.vrolekinds(v.role), rng, v)
-  if fix.kind ~= nil then v.kind = fix.kind end
-  if log then log("kind", v.kind) end
-  for i = 2, #M.VTRAITS do
-    local t = M.VTRAITS[i]
-    v[t] = draw(M.vdist(v.kind, t), rng, v)
-    if fix[t] ~= nil then v[t] = fix[t] end
-    if log then log(t, v[t]) end
-  end
-  return v, rng
-end
+local VISITOR = family {
+  name = "visitor", noun = "visitor", what = "a visitor", heading = "A visitor",
+  traits = M.VTRAITS, kinds = M.VKINDS, derived = "group", roles = M.VROLES,
+  rolelist = { "bee", "butterfly", "moth", "bird", "beetle", "fly", "leaf", "stem", "perch", "any" },
+  fallback = function(_, trait) return VNONE[trait] end,
+  weight = function(k, role) return role == "any" and k.w or k.roles[role] end,
+  own = function(k, trait) return k.d[trait] end,
+  tex = { traits = "vtraits", role = "vrole", kind = "vkind", T = "VT", BY = "VBY", d = "vis@", ok = "vok" },
+}
+M.FAMILIES[2], M.FAMILIES.visitor = VISITOR, VISITOR
+M.vdist, M.vrolekinds, M.vsample = VISITOR.dist, VISITOR.rolekinds, VISITOR.sample
 
 -- ---------------------------------------------------------------- a genome of your own
 -- Some traits fixed, the rest sampled (board #5109): "compound=palmate, leaflets=7". The
@@ -843,29 +866,32 @@ local function collect(d, acc)
   elseif k == "by" then for _, sub in pairs(d[3]) do collect(sub, acc) end
   end
 end
-local VALUES = {}
--- trait -> { names = {name = true}, lo, hi, real }: what fixing it may give, for plants
--- (visitor false) or visitors. A visitor's trait takes only the kinds that draw it: a kind
--- without a shell holds a placeholder (VNONE) that no drawing of a shell can take
-function M.values(visitor)
-  local key = visitor and "v" or "p"
-  if VALUES[key] then return VALUES[key] end
+-- a family: the name of one (plant, visitor), or, as the first callers wrote it, true for
+-- the visitors and false (or nothing) for the plants
+local function famof(which)
+  if which == true then return VISITOR elseif not which then return PLANT end
+  return type(which) == "table" and which or M.family(which)
+end
+-- trait -> { names = {name = true}, lo, hi, real }: what fixing it may give, for a family
+-- (f.own: the distributions a kind really draws)
+function M.values(which)
+  local f = famof(which)
+  if f.VALUES then return f.VALUES end
   local out = {}
-  local traits, first = visitor and M.VTRAITS or M.TRAITS, visitor and "kind" or "plan"
-  for i, t in ipairs(traits) do
+  for i, t in ipairs(f.traits) do
     local acc = { names = {} }
-    if i == 1 then
-      for _, x in ipairs(visitor and M.VKINDS or M.PLANS) do acc.names[x.name] = true end
-    else
-      for _, x in ipairs(visitor and M.VKINDS or M.PLANS) do
-        if not visitor then collect(M.dist(x.name, t), acc) elseif x.d[t] then collect(x.d[t], acc) end
+    for _, k in ipairs(f.kinds) do
+      if i == 1 then acc.names[k.name] = true
+      else
+        local d = f.own(k, t)
+        if d then collect(d, acc) end
       end
     end
     out[t] = acc
   end
-  out[visitor and "group" or "clade"] = nil
-  assert(out[first])
-  VALUES[key] = out
+  if f.derived then out[f.derived] = nil end
+  assert(out[f.traits[1]])
+  f.VALUES = out
   return out
 end
 -- A fixed value that the other kind of plant draws, but not this one: a name only the fern
@@ -923,15 +949,16 @@ end
 -- "trait=value, ..." as a table of fixed traits, each value as the sampler holds it (a name,
 -- a whole number, or a real number to the scaled point, as TeX reads it); an unknown trait
 -- or a value the genome cannot draw is an error
-function M.fixes(text, visitor)
-  local fix, vals = {}, M.values(visitor)
+function M.fixes(text, which)
+  local f = famof(which)
+  local fix, vals = {}, M.values(f)
   for item in tostring(text or ""):gmatch("[^,]+") do
     local t, v = item:match("^%s*([%w_]+)%s*=%s*(.-)%s*$")
     if not t then
       if item:match("%S") then error("florilegium: not trait=value: '" .. item .. "'", 0) end
     else
       local ok = vals[t]
-      if not ok then error("florilegium: " .. (visitor and "a visitor" or "a species") .. " has no trait '" .. t .. "'", 0) end
+      if not ok then error("florilegium: " .. f.what .. " has no trait '" .. t .. "'", 0) end
       -- as TeX reads it (\flo@fixcheck): pgfkeys takes one pair of braces off a value; a
       -- number is a plain decimal (a minus sign first or none, at most one point), compared
       -- with the range as TeX holds both, in sp
@@ -977,6 +1004,7 @@ function M.vviolations(v)
   check(v.size > 0, "a visitor of no size")
   return out
 end
+VISITOR.violations = M.vviolations
 -- a visitor in words, after "a" or "an": "butterfly with scalloped wings and a row of eyespots"
 -- the ground in the words of the animal's own colors (the copper paints warm ones)
 local GROUNDW = {
@@ -1044,6 +1072,557 @@ function M.vdescribe(v)
   elseif #with > 1 then s = s .. " with " .. concat(with, ", ", 1, #with - 1) .. " and " .. with[#with] end
   return s .. after
 end
+VISITOR.describe = M.vdescribe
+
+-- ---------------------------------------------------------------- tracery
+-- A window of Gothic tracery sampled as a plant is (board #5235, the frames report, part
+-- B). Its kind is what it is on the page: a window (a traceried arch), a headpiece (a
+-- wide, shallow arch over a title), an arcade (bays under a straight top), a rose, or a
+-- foil alone (a trefoil or quatrefoil as an ornament). The period then locks the
+-- vocabulary as a body plan locks a plant: no ogee before 1310, no spherical triangle
+-- after 1350. One number does most of the drawing, the arch's excess (its radius over
+-- its span, after Havemann and Fellner 2004): 0.5 a round arch, 1 equilateral, more a
+-- lancet, less a drop arch. Lengths are fractions of the span; the drawing is circles
+-- struck from the springing points and the centers they give (the report's snap points).
+M.TTRAITS = {
+  "kind", "period", "masonry", "arch", "excess", "rise", "ogee", "shoulder", "jamb",
+  "lights", "split", "branch", "depth", "setdown", "bar", "border", "transoms",
+  "figure", "foils", "foilshape", "cusps", "cuspdepth", "orders", "hood", "spandrel",
+  "spokes", "rings", "oculus", "tone", "accent",
+}
+-- for every kind; a kind overrides any of them
+local TCOMMON = {
+  -- plate tracery (openings cut through a slab) belongs to the earliest windows
+  masonry = BY("period", { early_english = W("plate", 3, "bar", 1), _ = C("bar") }),
+  arch = BY("period", {
+    early_english = W("lancet", 3, "equilateral", 2),
+    geometric = W("equilateral", 4, "lancet", 1, "drop", 1),
+    curvilinear = W("equilateral", 3, "drop", 2, "ogee", 1),
+    perpendicular = W("fourcentered", 3, "drop", 2, "equilateral", 1),
+    rayonnant = C("equilateral"),
+    flamboyant = W("equilateral", 2, "ogee", 2, "drop", 1),
+  }),
+  -- radius over span; a four-centered arch is set by its rise and shoulders instead
+  excess = BY("arch", { round = C(0.5), segmental = R(0.52, 0.7), drop = R(0.6, 0.9), equilateral = C(1),
+    lancet = R(1.1, 1.6), ogee = R(0.8, 1.1), _ = C(0) }),
+  rise = BY("arch", { fourcentered = R(0.25, 0.4), _ = C(0) }),          -- rise over span
+  ogee = BY("arch", { ogee = R(0.4, 0.7), _ = C(0) }),                  -- the reversal, as a fraction of the rise
+  shoulder = BY("arch", { fourcentered = R(0.12, 0.25), _ = C(0) }),     -- the shoulder arcs' radius over span
+  jamb = C(0),                                                          -- the jambs' height over span
+  lights = C(0),
+  -- how the lights group under sub-arches: in two halves, a center light with the rest
+  -- each side, or not at all (Perpendicular mullions run to the arch)
+  split = BY("period", { perpendicular = C("flat"), _ = BY("lights", {
+    ["1"] = C("flat"), ["2"] = W("binary", 3, "flat", 1), ["3"] = W("center", 2, "flat", 2),
+    ["4"] = W("binary", 3, "flat", 1), ["5"] = W("center", 2, "flat", 1), ["6"] = W("binary", 3, "flat", 1),
+    ["7"] = W("center", 2, "flat", 1), _ = C("flat") }) }),
+  -- the head's construction: sub-arches with a figure above, mullions forking in a Y,
+  -- intersecting arcs, panels straight up to the arch, the lights' ogee heads repeated
+  -- up the head as a net (reticulated), ogee heads with mouchettes and daggers flowing
+  -- above them, or a headpiece's screen
+  branch = BY("lights", { ["0"] = C("none"), ["1"] = C("none"), _ = BY("period", {
+    early_english = C("subarch"), geometric = W("subarch", 4, "Y", 1, "intersecting", 1),
+    curvilinear = W("subarch", 3, "intersecting", 1, "Y", 1, "reticulated", 2, "flowing", 2),
+    perpendicular = W("panel", 3, "subarch", 1),
+    rayonnant = C("subarch"), flamboyant = W("subarch", 2, "Y", 1, "flowing", 3, "reticulated", 1) }) }),
+  depth = BY("branch", { subarch = BY("lights", { ["2"] = C(1), ["3"] = C(1), ["4"] = I(1, 2), ["5"] = I(1, 2),
+    ["6"] = I(1, 2), ["7"] = I(1, 2), _ = I(1, 3) }), _ = C(0) }),
+  setdown = BY("branch", { subarch = R(0, 0.12), _ = C(0) }),            -- the sub-arches' springing, below the main one
+  bar = R(0.012, 0.03),                                                 -- a bar's half-width over span
+  border = R(0.02, 0.06),                                               -- the main arch's bar, over span
+  transoms = C(0),
+  figure = BY("branch", { subarch = BY("period", {
+    early_english = W("oculus", 3, "foiled", 2, "none", 1), geometric = W("foiled", 6, "triangle", 2, "oculus", 1),
+    curvilinear = W("foiled", 2, "dagger", 2, "mouchettes", 3, "soufflet", 2, "triangle", 1),
+    perpendicular = W("foiled", 2, "none", 1), rayonnant = W("foiled", 4, "oculus", 1),
+    flamboyant = W("mouchettes", 4, "soufflet", 3, "dagger", 2) }), _ = C("none") }),
+  foils = BY("figure", { foiled = W(3, 2, 4, 5, 5, 1, 6, 3, 8, 1), triangle = W(0, 1, 3, 2), soufflet = C(4), _ = C(0) }),
+  foilshape = BY("period", { early_english = C("round"), geometric = W("round", 4, "pointed", 1), rayonnant = C("round"),
+    curvilinear = W("pointed", 2, "round", 1), perpendicular = W("pointed", 3, "round", 1),
+    flamboyant = W("pointed", 3, "round", 1) }),
+  -- cusps in each light's head: two make a trefoiled head
+  cusps = BY("period", { early_english = W(0, 2, 2, 1), geometric = W(2, 3, 0, 1), curvilinear = W(2, 3, 4, 1, 0, 1),
+    perpendicular = W(2, 3, 4, 2), rayonnant = W(2, 2, 0, 1), flamboyant = W(2, 2, 4, 1) }),
+  cuspdepth = R(0.12, 0.28),                                            -- a cusp's reach over the opening's width
+  orders = I(1, 3),                                                     -- recessed rings round the arch
+  hood = C("none"),                                                     -- the drip molding over the arch
+  spandrel = C("blank"),                                                -- what fills the leftover corners
+  spokes = C(0), rings = C(0), oculus = C(0),
+  tone = R(0.3, 0.5),                                                   -- the wash in the openings
+  accent = BY("hood", { stops = W("center", 2, "stops", 2, "none", 1), _ = W("center", 3, "none", 2) }),
+}
+-- kinds: w, the weight among all; roles, the weight in each place on the page
+-- (headpiece: over a title; window: a pic or an initial's frame; rose; ornament)
+M.TKINDS = {
+  { name = "window", w = 4, roles = { window = 1, frame = 1 }, d = {
+    period = W("early_english", 2, "geometric", 4, "curvilinear", 3, "perpendicular", 3, "rayonnant", 1, "flamboyant", 2),
+    jamb = R(0.8, 2.2),
+    lights = BY("period", { early_english = I(1, 3), geometric = I(2, 5), curvilinear = I(2, 5),
+      perpendicular = I(3, 7), rayonnant = I(2, 4), flamboyant = I(2, 5) }),
+    transoms = BY("period", { perpendicular = I(0, 2), _ = C(0) }),
+    hood = W("none", 1, "plain", 2, "stops", 2),
+    spandrel = BY("period", { early_english = C("blank"), geometric = W("blank", 2, "trefoil", 2),
+      curvilinear = W("blank", 1, "trefoil", 1, "dagger", 2), perpendicular = W("blank", 2, "trefoil", 1),
+      rayonnant = W("blank", 1, "trefoil", 1), flamboyant = W("dagger", 2, "blank", 1) }),
+  } },
+  -- a wide, shallow arch: segmental, four-centered, or an ogee depressed over shoulders
+  { name = "headpiece", w = 3, roles = { headpiece = 3 }, d = {
+    period = W("geometric", 3, "curvilinear", 2, "perpendicular", 4, "flamboyant", 2),
+    arch = BY("period", { geometric = C("segmental"), curvilinear = W("ogee", 2, "segmental", 2),
+      perpendicular = W("fourcentered", 4, "segmental", 2), flamboyant = W("ogee", 2, "fourcentered", 1, "segmental", 1) }),
+    -- flat: a segmental arch struck from well below the springing, a four-centered or
+    -- ogee arch rising a fifth of its span at most, over short jambs
+    excess = BY("arch", { segmental = R(1, 1.6), _ = C(0) }),
+    rise = BY("arch", { fourcentered = R(0.1, 0.16), ogee = R(0.11, 0.17), _ = C(0) }),
+    shoulder = BY("arch", { fourcentered = R(0.04, 0.08), ogee = R(0.05, 0.08), _ = C(0) }),
+    jamb = R(0.12, 0.18),
+    lights = I(5, 8),
+    orders = I(1, 2), border = R(0.015, 0.035),
+    -- a screen: every light its own cusped head straight under the arch, small foils in
+    -- the stone between the heads (no sub-arches, which would double the height)
+    split = C("flat"), branch = BY("period", { perpendicular = W("panel", 1, "screen", 3), _ = C("screen") }),
+    depth = C(0), setdown = C(0),
+    figure = BY("branch", { screen = W("foiled", 5, "oculus", 1, "none", 1), _ = C("none") }),
+    foils = BY("figure", { foiled = W(3, 3, 4, 3, 5, 1), _ = C(0) }),
+    hood = W("plain", 2, "stops", 2, "none", 1),
+    spandrel = W("foliage", 4, "trefoil", 2, "blank", 1),
+  } },
+  -- bays side by side under a straight molding, each a small window
+  { name = "arcade", w = 2, roles = { headpiece = 2 }, d = {
+    period = W("early_english", 1, "geometric", 2, "perpendicular", 4),
+    arch = BY("period", { early_english = W("lancet", 2, "equilateral", 1, "round", 1),
+      geometric = W("equilateral", 3, "drop", 1), perpendicular = W("fourcentered", 3, "drop", 1) }),
+    jamb = R(0.3, 0.8),
+    lights = I(5, 10),
+    branch = C("none"), figure = C("none"), depth = C(0), setdown = C(0),
+    hood = W("plain", 2, "none", 1),
+    spandrel = W("trefoil", 2, "blank", 2, "foliage", 1),
+  } },
+  { name = "rose", w = 2, roles = { rose = 1, ornament = 1 }, d = {
+    period = W("geometric", 3, "rayonnant", 3, "flamboyant", 2),
+    masonry = C("bar"), arch = C("none"), cusps = C(0), orders = I(1, 2),
+    spokes = W(6, 1, 8, 3, 12, 4, 16, 3), rings = I(1, 2), oculus = R(0.12, 0.3),
+  } },
+  -- a foiled circle alone, the margin's ornament
+  { name = "foil", w = 2, roles = { ornament = 3 }, d = {
+    period = W("early_english", 1, "geometric", 4, "perpendicular", 1, "flamboyant", 1),
+    masonry = C("bar"), arch = C("none"), figure = C("foiled"),
+    foils = W(3, 4, 4, 5, 5, 1, 6, 2, 8, 1), cusps = C(0), orders = I(1, 2),
+  } },
+}
+M.TROLES = { headpiece = true, window = true, frame = true, rose = true, ornament = true, any = true }
+local TRACERY = family {
+  name = "tracery", noun = "tracery", what = "a window", heading = "A window of tracery",
+  traits = M.TTRAITS, kinds = M.TKINDS, roles = M.TROLES,
+  rolelist = { "headpiece", "window", "frame", "rose", "ornament", "any" },
+  fallback = function(_, trait) return TCOMMON[trait] end,
+  weight = function(k, role) return role == "any" and k.w or k.roles[role] end,
+  tex = { traits = "ttraits", role = "trole", kind = "tkind", T = "TT", BY = "TBY", d = "tr@", ok = "tok" },
+}
+M.FAMILIES[3], M.FAMILIES.tracery = TRACERY, TRACERY
+M.tdist, M.trolekinds, M.tsample = TRACERY.dist, TRACERY.rolekinds, TRACERY.sample
+
+-- the rules of tracery (the report's T1-T8 and its period table); one broken is a bug
+local LATE = { ogee = 1, dagger = 1, mouchettes = 1, soufflet = 1 }   -- curvilinear and later
+local EARLY = { early_english = 1, geometric = 1, rayonnant = 1 }
+local FOILED = { foiled = 1, soufflet = 1 }
+function M.tviolations(w)
+  local out = {}
+  local function check(ok, what) if not ok then out[#out + 1] = what end end
+  local early = EARLY[w.period]
+  check(not early or not (LATE[w.arch] or LATE[w.figure]), "an ogee or a flowing figure before 1310")
+  check(w.branch ~= "panel" or w.period == "perpendicular", "panel tracery outside the Perpendicular")
+  check(w.figure ~= "triangle" or w.period ~= "perpendicular", "a spherical triangle in the Perpendicular")
+  check(w.arch ~= "fourcentered" or w.period == "perpendicular" or w.period == "flamboyant", "a four-centered arch before 1350")
+  check(w.masonry ~= "plate" or w.period == "early_english", "plate tracery after 1250")
+  check((w.lights == 0) == (w.kind == "rose" or w.kind == "foil"), "lights on a rose or a foil, or a window without")
+  check((w.arch == "none") == (w.kind == "rose" or w.kind == "foil"), "a rose or a foil with an arch, or a window without one")
+  check(w.branch ~= "none" or w.depth == 0, "sub-arches without the construction")
+  check(w.lights < 2 or w.depth <= math.floor(math.log(w.lights, 2)), "more sub-arches than lights")
+  check(w.branch == "subarch" or w.depth == 0 and w.setdown == 0, "sub-arches set down under another head")
+  check(w.figure == "none" or w.branch == "subarch" or w.branch == "screen" or w.kind == "foil", "a head figure with no sub-arches to sit on")
+  check(w.branch ~= "screen" or w.kind == "headpiece", "a screen of lights that is not a headpiece")
+  check((w.branch ~= "reticulated" and w.branch ~= "flowing") or w.period == "curvilinear" or w.period == "flamboyant",
+    "reticulated or flowing tracery outside the curvilinear and flamboyant")
+  check((w.foils > 0) == (FOILED[w.figure] ~= nil or (w.figure == "triangle" and w.foils == 3)), "foils without a foiled figure, or one without foils")
+  check(w.foils == 0 or w.foils >= 3, "fewer than three foils")
+  check((w.spokes > 0) == (w.kind == "rose"), "spokes on something not a rose, or a rose without")
+  check(w.kind ~= "rose" or (w.rings > 0 and w.oculus > 0), "a rose without rings or an eye")
+  check(w.accent ~= "stops" or w.hood == "stops", "copper on hood stops that are not there")
+  check(w.arch ~= "round" or w.excess == 0.5, "a round arch with an excess other than a half")
+  check(w.arch ~= "equilateral" or w.excess == 1, "an equilateral arch with an excess other than one")
+  check(w.arch ~= "lancet" or w.excess > 1, "a lancet with its centers inside the span")
+  check(w.arch ~= "drop" or (w.excess < 1 and w.excess > 0.5), "a drop arch with its centers outside the span")
+  local shouldered = w.arch == "fourcentered" or (w.kind == "headpiece" and w.arch == "ogee")
+  check(not shouldered or (w.rise > 0 and w.shoulder > 0), "a four-centered or depressed arch without rise or shoulders")
+  check(shouldered or (w.rise == 0 and w.shoulder == 0), "rise or shoulders on an arch not four-centered")
+  check((w.arch == "ogee") == (w.ogee > 0), "an ogee without its reversal, or a reversal on another arch")
+  check(w.transoms == 0 or w.period == "perpendicular", "transoms outside the Perpendicular")
+  check(w.kind ~= "foil" or w.figure == "foiled", "a foil that is not foiled")
+  return out
+end
+TRACERY.violations = M.tviolations
+
+-- a window in words: "a geometric window of three lights under a sexfoil, the lights
+-- trefoiled, in two orders under a hood mold ending in stops"
+local PERIODW = { early_english = "Early English", geometric = "geometric", curvilinear = "curvilinear",
+  perpendicular = "Perpendicular", rayonnant = "rayonnant", flamboyant = "flamboyant" }
+local ARCHW = { round = "round", segmental = "segmental", drop = "drop", equilateral = "equilateral", lancet = "lancet",
+  fourcentered = "four-centered", ogee = "ogee" }
+local FOILW = { [3] = "trefoil", [4] = "quatrefoil", [5] = "cinquefoil", [6] = "sexfoil", [8] = "multifoil" }
+local FIGUREW = { oculus = "an oculus", triangle = "a spherical triangle", dagger = "a dagger",
+  mouchettes = "a pair of mouchettes", soufflet = "a soufflet" }
+local CUSPW = { [1] = "cusped", [2] = "trefoiled", [3] = "trefoiled", [4] = "cinquefoiled", [5] = "cinquefoiled" }
+local function foilw(w)
+  local name = FOILW[w.foils] or n_(w.foils) .. "-foiled circle"
+  if w.foilshape == "pointed" then name = "pointed " .. name end
+  return a_(name)
+end
+local function an_(word) return (word:match("^[aeiouAEIOU]") and "an " or "a ") .. word end
+function M.tdescribe(w)
+  local s
+  local period = PERIODW[w.period]
+  if w.kind == "foil" then
+    s = foilw(w) .. " in the " .. period .. " manner"
+  elseif w.kind == "rose" then
+    s = an_(period .. " rose of " .. n_(w.spokes) .. " spokes") .. (w.rings > 1 and " in two rings" or "")
+      .. " round " .. (w.oculus > 0.22 and "a wide eye" or "a small eye")
+  else
+    local arcade = w.kind == "arcade"
+    local what = w.kind == "headpiece" and "headpiece" or arcade and "arcade" or "window"
+    s = an_(period .. " " .. what .. " of " .. n_(w.lights) .. (arcade and " bays" or w.lights == 1 and " light" or " lights"))
+    if w.figure == "foiled" then s = s .. " under " .. foilw(w)
+    elseif FIGUREW[w.figure] then s = s .. " under " .. FIGUREW[w.figure]
+    elseif w.branch == "Y" then s = s .. ", the mullions forking in a Y"
+    elseif w.branch == "intersecting" then s = s .. ", the mullions crossing in the head"
+    elseif w.branch == "panel" then s = s .. " paneled to the arch"
+    elseif w.branch == "reticulated" then s = s .. ", the head reticulated"
+    elseif w.branch == "flowing" then s = s .. ", mouchettes flowing in the head" end
+    if w.branch == "screen" and w.figure ~= "none" then s = s .. " between the heads" end
+    s = s .. ", in " .. (arcade and ARCHW[w.arch] .. " arches" or an_(ARCHW[w.arch] .. " arch"))
+    if w.masonry == "plate" then s = s .. " cut through the slab" end
+    if w.transoms > 0 then s = s .. " crossed by " .. (w.transoms == 1 and "a transom" or "two transoms") end
+  end
+  if w.orders > 1 then s = s .. " of " .. n_(w.orders) .. " orders" end
+  if w.hood == "stops" then s = s .. " with a hood mold ending in stops"
+  elseif w.hood == "plain" then s = s .. " with a hood mold" end
+  if w.cusps > 0 and w.kind ~= "rose" and w.kind ~= "foil" then
+    s = s .. ", the " .. (w.kind == "arcade" and "bays" or "lights") .. " " .. CUSPW[w.cusps]
+  end
+  if w.spandrel == "foliage" then s = s .. ", foliage in the spandrels"
+  elseif w.spandrel == "trefoil" then s = s .. ", trefoils in the spandrels"
+  elseif w.spandrel == "dagger" then s = s .. ", daggers in the spandrels" end
+  s = s .. "."
+  return s:sub(1, 1):upper() .. s:sub(2)
+end
+TRACERY.describe = M.tdescribe
+
+-- ---------------------------------------------------------------- shells
+-- A shell (board #5335, the shells report's part A) is sampled as a visitor is: its kind
+-- first (an ammonite, a scallop, a whelk ...), which fixes its group, then the traits the
+-- report gives that kind, each a constant where the kind has no such thing. Three groups:
+-- planispirals coil flat and are seen from the side, down the axis (ammonites, the
+-- nautilus); bivalves are drawn from the outline of one valve; gastropods are the sea
+-- snails' empty shells, Raup's coiled tube with a spire, but for the cowrie, whose spire is
+-- hidden and which is drawn from its outline too. The coil is Raup's (1966), its ring
+-- placed as Okabe and Yoshimura place it (2017): expansion W (how many times the tube
+-- widens in a turn), umbilicus D (the tube's inner edge over its outer, from the axis),
+-- spire T (how far the tube slides along the axis in a turn, for its distance from it) and
+-- aperture S (the mouth's height for its width); a shell without a coil has them all 0.
+-- size is the real shell's in mm, its longest extent; ground the wash it is painted in;
+-- preservation what shows of its surface: the shell, a mold (an ammonite whose shell has
+-- worn away, its septa's suture lines showing), pyrite or nacre (both in the copper).
+do
+  M.SHTRAITS = {
+    "kind", "group", "size", "tone", "ground", "pattern", "contrast", "view", "preservation",
+    -- the coil: an ammonite's involution (how much each whorl hides the one before) first,
+    -- since its W and D go together
+    "involution", "whorls", "expansion", "umbilicus", "spire", "aperture", "hand",
+    -- the surface: ribs (a whorl's, or a valve's from its beak), spiral cords, concentric
+    -- ridges or layers
+    "sculpture", "ribs", "cords", "ridges",
+    -- an ammonite's keel, the suture lines of its septa on a mold, a broken last whorl
+    "keel", "septa", "broken",
+    -- an outline's width for its length (a valve's, a cowrie's), the beak's place along the
+    -- hinge (0 at one end, 0.5 in the middle), a scallop's ears, how domed a valve is
+    "aspect", "beak", "ears", "inflation",
+    -- a gastropod's shoulder, how deep its suture runs, the canal, the lip, columella folds
+    "shoulder", "suture", "canal", "lip", "folds",
+  }
+  -- what a shell does not have: every trait a constant (no draw)
+  local SHNONE = {
+    pattern = C("none"), preservation = C("shell"),
+    involution = C("none"), whorls = C(0), expansion = C(0), umbilicus = C(0), spire = C(0), aperture = C(0), hand = C("none"),
+    ribs = C(0), cords = C(0), ridges = C(0), keel = C("none"), septa = C("none"), broken = C(0),
+    aspect = C(0), beak = C(0), ears = C("none"), inflation = C(0),
+    shoulder = C("none"), suture = C(0), canal = C("none"), lip = C("none"), folds = C(0),
+  }
+  -- a pattern's strength, where there is one
+  local CONTRAST = BY("pattern", { none = C(0), _ = R(0.35, 1) })
+  -- each group's own, under its kinds' tables
+  local SHGROUP = {
+    planispiral = { tone = R(0.28, 0.42), contrast = CONTRAST, view = C("flank"), spire = C(0) },
+    bivalve = { tone = R(0.28, 0.42), contrast = CONTRAST, view = W("outside", 3, "inside", 1), inflation = R(0.2, 0.6) },
+    gastropod = { tone = R(0.28, 0.42), contrast = CONTRAST, view = W("mouth", 3, "back", 1), hand = C("dextral"),
+      umbilicus = R(0, 0.06), suture = R(0.15, 0.7) },
+  }
+  -- kinds: group; w, the weight among all kinds and in its group's role; roles, the weight
+  -- in the others (margin: lying on the margin's ground, the shapes that read small first;
+  -- ornament: alone, as an ornament). A coil's whorls touch when W D <= 1 (McGhee 2015), so
+  -- an ammonite's wide umbilicus comes with a slowly widening coil
+  M.SHKINDS = {
+    -- an ammonite: ribs simple, forking or knobbed; a mold shows the septa's suture lines,
+    -- the frilled (ammonitic) ones of the Jurassic and Cretaceous most often
+    { name = "ammonite", group = "planispiral", w = 3, roles = { margin = 3, ornament = 2 }, d = {
+      size = R(30, 180), ground = W("ink", 3, "pale", 2),
+      preservation = W("shell", 3, "mold", 3, "pyrite", 1, "nacre", 1),
+      -- evolute: many slowly widening whorls, a wide umbilicus; involute: few, fast, hiding
+      -- the ones before; W D stays under 1 in each
+      involution = W("evolute", 3, "intermediate", 3, "involute", 2),
+      whorls = BY("involution", { evolute = R(5, 8), intermediate = R(4, 6), _ = R(3.5, 5) }),
+      expansion = BY("involution", { evolute = R(1.5, 1.9), intermediate = R(1.8, 2.3), _ = R(2.2, 3) }),
+      umbilicus = BY("involution", { evolute = R(0.3, 0.45), intermediate = R(0.15, 0.3), _ = R(0.02, 0.15) }),
+      sculpture = W("ribs", 4, "branching", 3, "tubercles", 2, "smooth", 1),
+      ribs = BY("sculpture", { smooth = C(0), _ = I(18, 48) }),
+      keel = W("none", 3, "keel", 2, "grooved", 1),
+      septa = BY("preservation", { mold = W("ammonitic", 3, "ceratitic", 1, "goniatitic", 1), _ = C("none") }),
+      broken = W(0, 4, 1, 1),
+    } },
+    -- the chambered nautilus: one wide whorl hiding the rest (W 3.4 and D 0.04, Raup 1967),
+    -- a dimple at the center, flame stripes on its older half
+    { name = "nautilus", group = "planispiral", w = 1, roles = { margin = 1, ornament = 2 }, d = {
+      size = R(140, 220), ground = W("pale", 3, "ink", 1), pattern = C("flammules"),
+      preservation = W("shell", 6, "nacre", 1),
+      involution = C("involute"), whorls = R(3, 3.6), expansion = R(3.1, 3.6), umbilicus = R(0.02, 0.06),
+      sculpture = C("smooth"),
+    } },
+    -- a scallop: a fan on a straight hinge with ears, strong ribs from the beak at its middle
+    { name = "scallop", group = "bivalve", w = 3, roles = { margin = 3, ornament = 3 }, d = {
+      size = R(40, 120), ground = W("ink", 3, "pale", 2, "dark", 1),
+      pattern = W("none", 3, "bands", 1, "rays", 1, "zigzags", 1, "dots", 1),
+      sculpture = C("ribs"), ribs = I(12, 24), aspect = R(0.9, 1.05), beak = C(0.5),
+      ears = W("equal", 2, "unequal", 3),
+    } },
+    -- a cockle: round and domed, crowded ribs scalloping its edge
+    { name = "cockle", group = "bivalve", w = 2, roles = { margin = 2 }, d = {
+      size = R(25, 60), ground = W("pale", 3, "ink", 2), pattern = W("none", 3, "bands", 1),
+      sculpture = C("ribs"), ribs = I(18, 34), aspect = R(0.85, 1), beak = R(0.42, 0.5), inflation = R(0.5, 0.8),
+    } },
+    -- a mussel: a dark wedge with its beak at the narrow end, nacre inside
+    { name = "mussel", group = "bivalve", w = 2, roles = { margin = 1 }, d = {
+      size = R(40, 100), ground = W("dark", 3, "ink", 1), sculpture = C("smooth"),
+      aspect = R(0.4, 0.55), beak = R(0, 0.06),
+    } },
+    -- a clam: an oval with its beak off center, concentric ridges, often rayed
+    { name = "clam", group = "bivalve", w = 2, roles = { margin = 1 }, d = {
+      size = R(25, 70), ground = W("pale", 3, "ink", 2), pattern = W("none", 2, "rays", 2, "zigzags", 1),
+      sculpture = W("ridges", 3, "smooth", 1), ridges = BY("sculpture", { ridges = I(6, 14), _ = C(0) }),
+      aspect = R(0.65, 0.82), beak = R(0.25, 0.4),
+    } },
+    -- an oyster: lumpy, in layers, as often lying open on its pale inside as not
+    { name = "oyster", group = "bivalve", w = 1, roles = { margin = 1 }, d = {
+      size = R(50, 130), ground = W("pale", 2, "ink", 2), sculpture = C("layers"), ridges = I(4, 8),
+      aspect = R(0.7, 1.2), beak = R(0.05, 0.25), view = W("outside", 1, "inside", 1),
+    } },
+    -- a whelk: a spindle drawn out into a canal, columella folds now and then (as a tulip
+    -- shell's); the lightning whelk coils to the left
+    { name = "whelk", group = "gastropod", w = 2, roles = { margin = 2, ornament = 1 }, d = {
+      size = R(50, 180), ground = W("pale", 2, "ink", 2), pattern = W("none", 2, "bands", 2, "flammules", 2),
+      whorls = R(5, 8), expansion = R(1.7, 2.1), spire = R(2, 3.2), aperture = R(1.3, 1.6),
+      hand = W("dextral", 49, "sinistral", 1),
+      sculpture = W("ribs", 2, "cords", 2, "cancellate", 1, "nodes", 2, "smooth", 1),
+      ribs = BY("sculpture", { ribs = I(8, 14), cancellate = I(8, 14), nodes = I(7, 11), _ = C(0) }),
+      cords = BY("sculpture", { cords = I(3, 7), cancellate = I(3, 6), _ = C(0) }),
+      shoulder = W("none", 2, "rounded", 2, "angular", 2), canal = W("long", 2, "short", 2),
+      lip = W("thick", 2, "plain", 2, "flared", 1), folds = W(0, 3, 2, 1, 3, 1),
+    } },
+    -- a turret shell: a tall screw of many slowly widening whorls (a high spire goes with a
+    -- low W, Okabe and Yoshimura 2017); the triphorids coil to the left
+    { name = "turret", group = "gastropod", w = 2, roles = { margin = 1 }, d = {
+      size = R(25, 90), ground = W("ink", 2, "pale", 2, "dark", 1), pattern = W("none", 2, "bands", 1, "flammules", 1),
+      whorls = R(9, 15), expansion = R(1.15, 1.3), spire = R(3, 5), aperture = R(0.95, 1.2),
+      hand = W("dextral", 49, "sinistral", 1),
+      sculpture = W("cords", 3, "ribs", 2, "cancellate", 1, "smooth", 1),
+      ribs = BY("sculpture", { ribs = I(14, 24), cancellate = I(14, 22), _ = C(0) }),
+      cords = BY("sculpture", { cords = I(2, 5), cancellate = I(2, 4), _ = C(0) }),
+      shoulder = W("none", 3, "angular", 1), lip = C("plain"),
+    } },
+    -- a topshell: a cone on a flat base (a 60-70 degree apex is T about 2), now and then worn
+    -- down to its nacre
+    { name = "topshell", group = "gastropod", w = 2, roles = { margin = 1 }, d = {
+      size = R(12, 35), ground = W("ink", 2, "pale", 1), pattern = W("flammules", 2, "bands", 1, "dots", 1, "none", 1),
+      preservation = W("shell", 3, "nacre", 1),
+      whorls = R(6, 9), expansion = R(1.5, 1.7), spire = R(1.8, 2.4), aperture = R(0.8, 0.95), umbilicus = R(0, 0.06),
+      sculpture = W("cords", 3, "smooth", 2, "nodes", 1),
+      ribs = BY("sculpture", { nodes = I(10, 16), _ = C(0) }), cords = BY("sculpture", { cords = I(3, 6), _ = C(0) }),
+      shoulder = W("none", 3, "angular", 1), lip = C("plain"),
+    } },
+    -- a cowrie: a glossy egg, seen from above or from beneath with its toothed slit
+    { name = "cowrie", group = "gastropod", w = 2, roles = { margin = 2, ornament = 1 }, d = {
+      size = R(15, 80), ground = W("ink", 2, "dark", 1, "pale", 1), pattern = W("dots", 3, "bands", 1, "none", 1),
+      view = W("back", 3, "mouth", 1), umbilicus = C(0), suture = C(0), sculpture = C("smooth"),
+      aspect = R(0.55, 0.72), lip = C("toothed"),
+    } },
+  }
+  M.SHROLES = { margin = true, ornament = true, planispiral = true, bivalve = true, gastropod = true, any = true }
+  local SHELL = family {
+    name = "shell", noun = "shell", what = "a shell", heading = "A shell",
+    traits = M.SHTRAITS, kinds = M.SHKINDS, derived = "group", roles = M.SHROLES,
+    rolelist = { "margin", "ornament", "planispiral", "bivalve", "gastropod", "any" },
+    fallback = function(k, trait) return SHGROUP[k.group][trait] or SHNONE[trait] end,
+    weight = function(k, role) if role == "any" or role == k.group then return k.w end return k.roles[role] end,
+    -- a shell's values (M.values) are what its kind or group draws, never SHNONE's placeholders
+    own = function(k, trait) return k.d[trait] or SHGROUP[k.group][trait] end,
+    tex = { traits = "ktraits", role = "krole", kind = "kkind", T = "KT", BY = "KBY", d = "sh@", ok = "kok" },
+  }
+  M.FAMILIES[4], M.FAMILIES.shell = SHELL, SHELL
+  M.shdist, M.shrolekinds, M.shsample = SHELL.dist, SHELL.rolekinds, SHELL.sample
+
+  -- the rules of shells (the report's A6); one broken is a bug in the tables
+  local RIBBED = { ribs = 1, branching = 1, tubercles = 1, cancellate = 1, nodes = 1 }
+  local NACREOUS = { oyster = 1, mussel = 1 }                  -- a valve whose inside is nacre
+  function M.shviolations(s)
+    local out = {}
+    local function check(ok, what) if not ok then out[#out + 1] = what end end
+    local coiled = s.whorls > 0
+    check(not coiled or s.group ~= "bivalve", "a coil on a bivalve")
+    check(not coiled or (s.expansion > 1 and s.umbilicus >= 0 and s.umbilicus < 1 and s.spire >= 0),
+      "a coil outside Raup's bounds (W > 1, 0 <= D < 1, T >= 0)")
+    check(not coiled or s.expansion * s.umbilicus <= 1, "whorls that do not touch (W D > 1)")
+    -- along the axis too: a ring sits T y0 (1 - 1/W) above the next one round, and each
+    -- reaches S of its size up and down
+    local y0 = coiled and (1 + s.umbilicus) / (1 - s.umbilicus) or 0
+    check(s.group ~= "gastropod" or not coiled or s.spire * y0 * (s.expansion - 1) <= s.aperture * (s.expansion + 1),
+      "whorls that part along the axis (T y0 (W - 1) > S (W + 1))")
+    check(coiled or (s.expansion == 0 and s.umbilicus == 0 and s.spire == 0), "a coil's numbers on a shell without a coil")
+    check(s.group ~= "planispiral" or (coiled and s.spire == 0), "a planispiral with a spire, or without a coil")
+    check((s.involution ~= "none") == (s.group == "planispiral"), "an involution on a shell that is no planispiral, or one without")
+    check((s.aperture > 0) == (s.group == "gastropod" and coiled), "a mouth's shape on a shell that is no coiled gastropod, or one without")
+    check((s.suture > 0) == (s.group == "gastropod" and coiled), "a suture's depth on a shell that is no coiled gastropod, or one without")
+    check(s.shoulder == "none" or (s.group == "gastropod" and coiled), "a shoulder on a shell that is no coiled gastropod")
+    check((s.hand == "none") == (s.group ~= "gastropod"), "a handedness on a shell that shows none, or a gastropod without one")
+    check(s.hand ~= "sinistral" or s.kind == "whelk" or s.kind == "turret", "a sinistral shell other than a whelk or a turret")
+    check(s.canal == "none" or s.kind == "whelk", "a canal on a shell that is no spindle")
+    check((s.lip == "toothed") == (s.kind == "cowrie"), "a toothed slit on a shell that is no cowrie, or a cowrie without one")
+    check(s.lip == "none" or s.group == "gastropod", "a lip on a shell that is no gastropod")
+    check(s.folds == 0 or s.kind == "whelk", "columella folds on a shell that is no spindle")
+    check((s.preservation ~= "pyrite" and s.preservation ~= "mold") or s.kind == "ammonite", "pyrite or a mold on a shell other than an ammonite")
+    check(s.preservation ~= "nacre" or s.kind == "ammonite" or s.kind == "nautilus" or s.kind == "topshell",
+      "nacre showing on a shell that has none to show")
+    check((s.septa ~= "none") == (s.preservation == "mold"), "suture lines on a shell, or a mold without them")
+    check((s.view == "flank") == (s.group == "planispiral"), "a planispiral seen other than from the side")
+    check((s.view == "outside" or s.view == "inside") == (s.group == "bivalve"), "a valve's view on a shell that is no bivalve")
+    check((s.view == "mouth" or s.view == "back") == (s.group == "gastropod"), "a gastropod's view on a shell that is no gastropod")
+    check((s.ribs > 0) == (RIBBED[s.sculpture] ~= nil), "ribs counted on a shell that has none, or a ribbed shell without a count")
+    check((s.cords > 0) == (s.sculpture == "cords" or s.sculpture == "cancellate"), "cords counted on a shell without them, or one with them uncounted")
+    check((s.ridges > 0) == (s.sculpture == "ridges" or s.sculpture == "layers"), "ridges counted on a shell without them, or one with them uncounted")
+    check(s.ridges == 0 or s.group == "bivalve", "concentric ridges on a shell that is no bivalve")
+    check(s.ears == "none" or s.kind == "scallop", "ears on a shell that is no scallop")
+    check(s.keel == "none" or s.kind == "ammonite", "a keel on a shell that is no ammonite")
+    check(s.broken == 0 or s.group == "planispiral", "a broken whorl on a shell that is no planispiral")
+    check((s.aspect > 0) == (s.group == "bivalve" or s.kind == "cowrie"), "an outline's aspect on a shell drawn from its coil, or an outline without one")
+    check((s.beak == 0 and s.inflation == 0) or s.group == "bivalve", "a beak or a dome on a shell that is no bivalve")
+    check((s.contrast > 0) == (s.pattern ~= "none"), "a pattern without strength, or strength without a pattern")
+    return out
+  end
+  SHELL.violations = M.shviolations
+  -- a shell in the copper: pyrite, nacre worn through, or a valve lying open on its nacre
+  function M.shcopper(s)
+    return s.preservation == "pyrite" or s.preservation == "nacre" or (s.view == "inside" and NACREOUS[s.kind] ~= nil)
+  end
+
+  -- a shell in words: "a pyritized ammonite with forking ribs and a keel, its last whorl
+  -- broken", "a sinistral whelk of six whorls with a long canal, knobbed on its shoulder"
+  local SHKINDW = { ammonite = "ammonite", nautilus = "chambered nautilus", scallop = "scallop", cockle = "cockle",
+    mussel = "mussel", clam = "clam", oyster = "oyster", whelk = "whelk", turret = "turret shell", topshell = "topshell",
+    cowrie = "cowrie" }
+  local PATTERNW = { bands = "banded", rays = "rayed", flammules = "flame-striped", zigzags = "zigzag-marked", dots = "spotted" }
+  local SEPTAW = { goniatitic = "zigzag", ceratitic = "saw-toothed", ammonitic = "frilled" }
+  -- a count in words, to ninety-nine (an ammonite has up to 48 ribs a whorl)
+  local TENS = { [2] = "twenty", [3] = "thirty", [4] = "forty", [5] = "fifty", [6] = "sixty", [7] = "seventy",
+    [8] = "eighty", [9] = "ninety" }
+  local function count_(k)
+    if k < 20 or k > 99 then return n_(k) end
+    return TENS[k // 10] .. (k % 10 > 0 and "-" .. NUM[k % 10] or "")
+  end
+  -- the head ("a sinistral banded whelk"), what it is made of ("of seven whorls"), what it has
+  -- ("with a long canal and spiral cords"), then the rest, each after a comma ("latticed",
+  -- "its lip thickened")
+  function M.shdescribe(s)
+    local adj = {}
+    if s.preservation == "pyrite" then adj[#adj + 1] = "pyritized" end
+    if s.hand == "sinistral" then adj[#adj + 1] = "sinistral" end
+    if PATTERNW[s.pattern] and s.kind ~= "nautilus" then adj[#adj + 1] = PATTERNW[s.pattern] end
+    adj[#adj + 1] = SHKINDW[s.kind] .. (s.preservation == "mold" and " mold" or "")
+    local of, has, rest = nil, {}, {}
+    local function with(what) has[#has + 1] = what end
+    local function also(what) rest[#rest + 1] = what end
+    if s.group == "planispiral" then
+      if s.sculpture == "ribs" then with(count_(s.ribs) .. " ribs a whorl")
+      elseif s.sculpture == "branching" then with("forking ribs")
+      elseif s.sculpture == "tubercles" then with("knobbed ribs") end
+      if s.keel == "keel" then with("a keel") elseif s.keel == "grooved" then with("a keel between two grooves") end
+      if s.kind == "nautilus" then with("flame stripes") end
+      if s.septa ~= "none" then also("showing its " .. SEPTAW[s.septa] .. " suture lines") end
+      if s.preservation == "nacre" then also("worn to its nacre") end
+      if s.broken == 1 then also("its last whorl broken") end
+    elseif s.group == "bivalve" then
+      if s.ribs > 0 then of = "of " .. count_(s.ribs) .. " ribs" end
+      if s.ears == "unequal" then with("unequal ears") elseif s.ears == "equal" then with("ears") end
+      if s.sculpture == "ridges" then with(count_(s.ridges) .. " concentric ridges")
+      elseif s.sculpture == "layers" then of = "in " .. count_(s.ridges) .. " layers" end
+      if s.view == "inside" then also(NACREOUS[s.kind] and "lying open on its nacre" or "lying open") end
+    else
+      if s.whorls > 0 then of = "of " .. count_(floor(s.whorls + 0.5)) .. " whorls" end
+      if s.canal ~= "none" then with("a " .. s.canal .. " canal") end
+      if s.sculpture == "cords" then with("spiral cords") end
+      local on = s.shoulder == "angular" and " on its angular shoulder" or ""
+      if s.sculpture == "ribs" then also("ribbed" .. on)
+      elseif s.sculpture == "cancellate" then also("latticed")
+      elseif s.sculpture == "nodes" then also("knobbed" .. (on ~= "" and on or " on its shoulder")) end
+      if s.lip == "flared" then also("its lip flared") elseif s.lip == "thick" then also("its lip thickened") end
+      if s.preservation == "nacre" then also("worn to its nacre") end
+      if s.kind == "cowrie" then also(s.view == "mouth" and "seen from beneath, its slit toothed" or "seen from above") end
+    end
+    local text = an_(concat(adj, " "))
+    if of then text = text .. " " .. of end
+    if #has > 0 then
+      text = text .. " with " .. (#has == 1 and has[1] or concat(has, ", ", 1, #has - 1) .. " and " .. has[#has])
+    end
+    if #rest > 0 then text = text .. ", " .. concat(rest, ", ") end
+    text = text .. "."
+    return text:sub(1, 1):upper() .. text:sub(2)
+  end
+  SHELL.describe = M.shdescribe
+
+  -- the document's cabinet (docseed as for the pool): four shells of role margin from a
+  -- stream of their own, no kind twice, more than one group, at most one in the copper, so
+  -- a page that lies one to three of them on its ground keeps the margin's copper sparse
+  local cabinets = {}
+  function M.cabinet(docseed)
+    docseed = docseed or 0
+    if cabinets[docseed] then return cabinets[docseed] end
+    local rng = ink.rng(docseed * 104729 + 701)
+    local cab, used, groups, copper, tries = {}, {}, {}, false, 0
+    while #cab < 4 do
+      local s = M.shsample(1 + floor(rng.u() * 2147483645), "margin")
+      local ok = not used[s.kind] and not (copper and M.shcopper(s))
+      if ok and #cab == 3 then
+        local n = 0
+        for _ in pairs(groups) do n = n + 1 end
+        if n == 1 and groups[s.group] then ok = false end
+      end
+      if ok then
+        used[s.kind], groups[s.group], copper = true, true, copper or M.shcopper(s)
+        cab[#cab + 1] = s
+      end
+      tries = tries + 1
+      assert(tries < 10000, "florilegium-species: no cabinet of shells for the document seed " .. docseed)
+    end
+    cabinets[docseed] = cab
+    return cab
+  end
+end
 
 -- ---------------------------------------------------------------- as TeX
 -- the tables for tikzlibraryflorilegium.code.tex: one macro per plan that draws its
@@ -1056,9 +1635,8 @@ local function sorted_keys(t)
   return ks
 end
 -- the TeX for a distribution; a BY map's entries become macros \flo@d@<name>@<value>,
--- appended to out; a visitor's (vtex) looks up the earlier trait among the visitor's
-local vtex = false
-local function tex_dist(d, name, out)
+-- appended to out; by is the family's BY macro, which looks the earlier trait up among its own
+local function tex_dist(d, name, out, by)
   local kind = d[1]
   if kind == "c" then return "\\flo@C{" .. key(d[2]) .. "}"
   elseif kind == "i" then return fmt("\\flo@I{%d}{%d}", d[2], d[3])
@@ -1070,54 +1648,41 @@ local function tex_dist(d, name, out)
   elseif kind == "by" then
     for _, k in ipairs(sorted_keys(d[3])) do
       local sub = name .. "@" .. k
-      local code = tex_dist(d[3][k], sub, out)
+      local code = tex_dist(d[3][k], sub, out, by)
       out[#out + 1] = "\\expandafter\\def\\csname flo@d@" .. sub .. "\\endcsname{" .. code .. "}"
     end
-    return (vtex and "\\flo@VBY{" or "\\flo@BY{") .. d[2] .. "}{" .. name .. "}"
+    return "\\flo@" .. by .. "{" .. d[2] .. "}{" .. name .. "}"
   end
   error("florilegium: unknown distribution " .. tostring(kind))
+end
+-- a family's tables: \flo@<traits>, \flo@<role>@<role> draws a kind, \flo@<kind>@<name> its
+-- traits with \flo@<T>; a kind's name is a role too unless a role has that name
+local function tex_family(f, out)
+  local x = f.tex
+  out[#out + 1] = "\\def\\flo@" .. x.traits .. "{" .. concat(f.traits, ",") .. "}"
+  local roles = {}
+  for _, r in ipairs(f.rolelist) do roles[#roles + 1] = r end
+  for _, k in ipairs(f.kinds) do if not f.roles[k.name] then roles[#roles + 1] = k.name end end
+  for _, role in ipairs(roles) do
+    out[#out + 1] = "\\expandafter\\def\\csname flo@" .. x.role .. "@" .. role .. "\\endcsname{"
+      .. tex_dist(f.rolekinds(role), x.role, out, x.BY) .. "}"
+  end
+  for _, k in ipairs(f.kinds) do
+    local body = {}
+    for i = 2, #f.traits do
+      local t = f.traits[i]
+      body[#body + 1] = "\\flo@" .. x.T .. "{" .. t .. "}{" .. tex_dist(f.dist(k.name, t), x.d .. k.name .. "@" .. t, out, x.BY) .. "}"
+    end
+    out[#out + 1] = "\\expandafter\\def\\csname flo@" .. x.kind .. "@" .. k.name .. "\\endcsname{%\n  "
+      .. concat(body, "%\n  ") .. "}"
+  end
 end
 function M.tex()
   local out = {
     "%% tikzlibraryflorilegium.tables.code.tex -- generated by tools/tikztables.lua from",
     "%% florilegium-species.lua; do not edit. Copyright (c) 2026 Kevin Raymond. MIT License.",
-    "\\def\\flo@traits{" .. concat(M.TRAITS, ",") .. "}",
   }
-  local roles = { "hero", "spray", "monocot", "any" }
-  for _, p in ipairs(M.PLANS) do if not M.ROLES[p.name] then roles[#roles + 1] = p.name end end
-  for _, role in ipairs(roles) do
-    out[#out + 1] = "\\expandafter\\def\\csname flo@role@" .. role .. "\\endcsname{"
-      .. tex_dist(M.roleplans(role), "role", out) .. "}"
-  end
-  for _, p in ipairs(M.PLANS) do
-    local body = {}
-    for i = 2, #M.TRAITS do
-      local t = M.TRAITS[i]
-      body[#body + 1] = "\\flo@T{" .. t .. "}{" .. tex_dist(M.dist(p.name, t), p.name .. "@" .. t, out) .. "}"
-    end
-    out[#out + 1] = "\\expandafter\\def\\csname flo@plan@" .. p.name .. "\\endcsname{%\n  "
-      .. concat(body, "%\n  ") .. "}"
-  end
-  -- the visitors: \flo@vrole@<role> draws a kind, \flo@vkind@<kind> its traits, into a
-  -- namespace of their own (\flo@VT, \flo@VBY), since visitors and plants share trait names
-  vtex = true
-  out[#out + 1] = "\\def\\flo@vtraits{" .. concat(M.VTRAITS, ",") .. "}"
-  local vroles = { "bee", "butterfly", "moth", "bird", "beetle", "fly", "leaf", "stem", "perch", "any" }
-  for _, k in ipairs(M.VKINDS) do vroles[#vroles + 1] = k.name end
-  for _, role in ipairs(vroles) do
-    out[#out + 1] = "\\expandafter\\def\\csname flo@vrole@" .. role .. "\\endcsname{"
-      .. tex_dist(M.vrolekinds(role), "vrole", out) .. "}"
-  end
-  for _, k in ipairs(M.VKINDS) do
-    local body = {}
-    for i = 2, #M.VTRAITS do
-      local t = M.VTRAITS[i]
-      body[#body + 1] = "\\flo@VT{" .. t .. "}{" .. tex_dist(M.vdist(k.name, t), "vis@" .. k.name .. "@" .. t, out) .. "}"
-    end
-    out[#out + 1] = "\\expandafter\\def\\csname flo@vkind@" .. k.name .. "\\endcsname{%\n  "
-      .. concat(body, "%\n  ") .. "}"
-  end
-  vtex = false
+  for _, f in ipairs(M.FAMILIES) do tex_family(f, out) end
   -- a value the plan's kind of plant cannot draw (M.refused): the fern's plans; per trait,
   -- the names only the fern draws and the flowering plant's; the frond's own names
   local fernplans = {}
@@ -1132,15 +1697,15 @@ function M.tex()
   end
   -- what a fixed trait may be (\florilegiumspecies[...], \florilegiumvisitor[...]): its
   -- names, the range of a number (empty if none), 1 if that number is real
-  for _, vis in ipairs({ false, true }) do
-    local vals = M.values(vis)
-    for _, t in ipairs(vis and M.VTRAITS or M.TRAITS) do
+  for _, f in ipairs(M.FAMILIES) do
+    local vals = M.values(f)
+    for _, t in ipairs(f.traits) do
       local ok = vals[t]
       if ok then
         local names = {}
         for name in pairs(ok.names) do names[#names + 1] = name end
         table.sort(names)
-        out[#out + 1] = fmt("\\expandafter\\def\\csname flo@%sok@%s\\endcsname{{%s}{%s}{%s}{%d}}", vis and "v" or "", t,
+        out[#out + 1] = fmt("\\expandafter\\def\\csname flo@%s@%s\\endcsname{{%s}{%s}{%s}{%d}}", f.tex.ok, t,
           concat(names, ","), ok.lo and key(ok.lo) or "", ok.hi and key(ok.hi) or "", ok.real and 1 or 0)
       end
     end
@@ -1154,22 +1719,23 @@ function M.traitsdoc()
   local out = {
     "# Traits",
     "",
-    "The traits a species and a visitor are sampled with, in the order they are drawn, and what",
-    "each may be fixed to: one of the names listed, or a number in the range given (a whole",
-    "number where it says so). Fix them with `\\florilegiumspecies[...]`, `\\florilegiumvisitor[...]`",
-    "or a pic's `traits` key; [the TikZ library](tikz.md#a-genome-of-your-own) shows how. `clade` and",
-    "`group` follow from the plan and the kind and are not fixed themselves.",
+    "The traits a species, a visitor, a window of tracery and a shell are sampled with, in the order",
+    "they are drawn, and what each may be fixed to: one of the names listed, or a number in the range",
+    "given (a whole number where it says so). Fix them with `\\florilegiumspecies[...]`,",
+    "`\\florilegiumvisitor[...]`, `\\florilegiumtracery[...]`, `\\florilegiumshell[...]` or a pic's `traits`",
+    "key; [the TikZ library](tikz.md#a-genome-of-your-own) shows how. `clade` and `group` follow from",
+    "the plan and the kind and are not fixed themselves.",
     "",
     "This page is written by `tools/tikztables.lua` from `florilegium-species.lua`.",
   }
-  for _, vis in ipairs({ false, true }) do
-    local vals = M.values(vis)
+  for _, f in ipairs(M.FAMILIES) do
+    local vals = M.values(f)
     out[#out + 1] = ""
-    out[#out + 1] = vis and "## A visitor" or "## A species"
+    out[#out + 1] = "## " .. f.heading
     out[#out + 1] = ""
     out[#out + 1] = "| trait | what it may be |"
     out[#out + 1] = "|---|---|"
-    for _, t in ipairs(vis and M.VTRAITS or M.TRAITS) do
+    for _, t in ipairs(f.traits) do
       local ok = vals[t]
       if ok then
         local names = {}

@@ -4,7 +4,8 @@
 -- writes their choices), samples the same seeds with florilegium-species.lua, and compares
 -- them, every choice and every real-valued trait exactly (both are pgfmath's numbers).
 --   texlua tools/tikzcheck.lua [FROM TO [ENGINE [ROLE [TRAITS]]]]   (from the repo root; default 1 1000 lualatex any)
---   (ROLE v:<role>, e.g. v:any or v:stem: visitors of that role instead of plants; TRAITS,
+--   (ROLE v:<role>, e.g. v:any or v:stem: visitors of that role instead of plants, t:<role>
+--   windows of tracery, s:<role> shells; TRAITS,
 --   e.g. "compound=palmate, leaflets=7": those traits fixed in every one, #5109)
 --   tools/in-docker texlua tools/tikzcheck.lua 1 1000 pdflatex
 --
@@ -18,7 +19,7 @@
 -- of a point, so only a choice that went the other way shows), and while its ink is within 3.5%
 -- as dark in both (a fill drawn lighter or not at all: each of its pixels is still near a gray
 -- of the other drawing, but the whole is lighter).
---   texlua tools/tikzcheck.lua draw [quick|full|fern|visitors] [compare] (compare: the last
+--   texlua tools/tikzcheck.lua draw [quick|full|fern|visitors|tracery|shells] [compare] (compare: the last
 --   builds' PDFs again, without building them; quick: fronds of every division,
 --   outline and edge, fern crowns in three seasons, then one flower, one leaf and one
 --   inflorescence of every body plan, one inflorescence of every kind and of every view
@@ -30,7 +31,8 @@
 --   ladybirds of every ground, pose, tint and pattern, caterpillars, snails and birds of
 --   every pose, ground, shell and bill; full:
 --   also two strips of three plants, as specimen-tikz.tex draws them, several minutes in
---   pure TikZ; fern: the ferns alone; visitors: the visitors alone)
+--   pure TikZ; fern: the ferns alone; visitors: the visitors alone; tracery: the windows alone;
+--   shells: the shells alone, every kind, view, sculpture and pattern, and small ones)
 package.path = "./?.lua;" .. package.path
 local fmt = string.format
 os.execute("mkdir -p build")
@@ -46,7 +48,9 @@ local function streams(path)
 end
 if arg[1] == "draw" then
   local reuse = arg[3] == "compare"           -- draw quick compare: the last builds' PDFs again
-  local full, fernonly, visonly = arg[2] == "full", arg[2] == "fern", arg[2] == "visitors"
+  local full, fernonly, visonly, traconly = arg[2] == "full", arg[2] == "fern", arg[2] == "visitors", arg[2] == "tracery"
+  local shellonly = arg[2] == "shells"
+  if traconly or shellonly then fernonly, visonly = true, true end
   local species = require("florilegium-species")
   local pics = {}
   local function pic(spec) pics[#pics + 1] = spec end
@@ -229,6 +233,74 @@ if arg[1] == "draw" then
   end
   pic("florilegium v13 flower={seed=7, size=1.9cm}")
   pic("florilegium v13 leaf={seed=7, size=4cm}")
+  end
+  if not fernonly and not visonly or traconly then
+  -- tracery: a window of every period and of every way a head branches, each kind of
+  -- figure, transoms, spandrels of each kind, a headpiece screen with foils and one with
+  -- foliage, an arcade, a rose of two rings, a foil pointed and round, and small ones
+  -- (the ladder: no cusps under 8 mm a light, plain figures under 5, the arch alone under 3)
+  for _, t in ipairs({
+      "period=early_english, lights=2, figure=oculus",
+      "period=geometric, lights=3, split=center, figure=foiled, foils=6, spandrel=trefoil, hood=stops",
+      "period=geometric, lights=2, figure=triangle, foils=3, spandrel=foliage",
+      "period=curvilinear, lights=3, branch=subarch, figure=mouchettes, spandrel=dagger",
+      "period=curvilinear, lights=4, branch=subarch, figure=soufflet, foilshape=pointed",
+      "period=flamboyant, lights=2, branch=subarch, figure=dagger, arch=ogee",
+      "period=curvilinear, branch=reticulated, lights=3",
+      "period=flamboyant, branch=flowing, lights=3",
+      "period=geometric, branch=Y, lights=3",
+      "period=geometric, branch=intersecting, lights=4",
+      "period=perpendicular, branch=panel, lights=4, transoms=1",
+      "period=perpendicular, branch=subarch, lights=3, transoms=2, figure=foiled, foils=4",
+      "period=rayonnant, lights=4, figure=foiled, foils=8, orders=3" }) do
+    pic(fmt("florilegium tracery={seed=3, role=window, size=4cm, traits={%s}}", t))
+  end
+  pic("florilegium tracery={seed=5, role=headpiece, size=12cm, traits={branch=screen, figure=foiled, foils=4}}")
+  pic("florilegium tracery={seed=6, role=headpiece, size=12cm, traits={branch=screen, figure=none, spandrel=foliage}}")
+  pic("florilegium tracery={seed=1, role=headpiece, size=12cm, traits={kind=arcade, spandrel=trefoil}}")
+  pic("florilegium tracery={seed=1, role=rose, size=3cm, traits={rings=2}}")
+  pic("florilegium tracery={seed=3, role=ornament, size=2cm, traits={kind=foil, foils=5, foilshape=pointed}}")
+  pic("florilegium tracery={seed=4, role=ornament, size=2cm, traits={kind=foil, foils=6, foilshape=round}}")
+  pic("florilegium tracery={seed=2, role=window, size=1.6cm, traits={period=geometric, lights=2, figure=foiled, foils=4}}")
+  pic("florilegium tracery={seed=2, role=window, size=0.9cm, traits={period=geometric, lights=2, figure=foiled, foils=4}}")
+  pic("florilegium tracery={seed=2, role=headpiece, size=4cm}")
+  end
+  if not fernonly and not visonly or shellonly then
+  -- shells (#5339): ammonites of every sculpture, keel and preservation, with each kind of
+  -- suture line, broken and worn to the nacre, a nautilus; each bivalve outside and inside,
+  -- with each pattern, ears, ridges and layers; whelks of either hand with canal, lip,
+  -- folds and sculpture, a turret shell, topshells from the front and the back, cowries
+  -- from above and beneath; and small ones of each group (the levels of detail)
+  for _, t in ipairs({
+      "ammonite size=3cm traits={sculpture=ribs, keel=keel}",
+      "ammonite size=3cm traits={preservation=mold, septa=ammonitic, sculpture=branching}",
+      "ammonite size=3cm traits={preservation=mold, septa=goniatitic, sculpture=smooth}",
+      "ammonite size=3cm traits={preservation=mold, septa=ceratitic, sculpture=tubercles}",
+      "ammonite size=3cm traits={sculpture=branching, keel=grooved, preservation=pyrite, broken=1}",
+      "ammonite size=3cm traits={preservation=nacre, sculpture=ribs}",
+      "nautilus size=3cm traits={}",
+      "scallop size=3cm traits={ears=unequal, pattern=rays, view=outside}",
+      "scallop size=3cm traits={pattern=dots, view=inside}",
+      "cockle size=3cm traits={pattern=bands}",
+      "mussel size=3cm traits={view=inside}",
+      "clam size=3cm traits={pattern=zigzags, sculpture=ridges}",
+      "oyster size=3cm traits={view=outside}",
+      "oyster size=3cm traits={view=inside}",
+      "whelk size=3.5cm traits={view=mouth, canal=long, lip=flared, sculpture=nodes, shoulder=angular, pattern=flammules}",
+      "whelk size=3.5cm traits={hand=sinistral, view=mouth, pattern=bands, sculpture=cancellate, lip=thick, folds=3}",
+      "turret size=3.5cm traits={view=mouth, sculpture=cords, pattern=flammules}",
+      "topshell size=3cm traits={view=back, preservation=nacre, sculpture=nodes, pattern=dots}",
+      "topshell size=3cm traits={view=mouth, sculpture=cords, pattern=bands}",
+      "cowrie size=3cm traits={view=back, pattern=dots}",
+      "cowrie size=3cm traits={view=back, pattern=bands}",
+      "cowrie size=3cm traits={view=mouth}",
+      "ammonite size=1cm traits={}",
+      "clam size=1cm traits={}",
+      "turret size=1cm traits={}",
+      "scallop size=0.4cm traits={}" }) do
+    local role, size, traits = t:match("^(%a+) size=(%S+) traits=(.*)$")
+    pic(fmt("florilegium shell={seed=3, role=%s, size=%s, traits=%s}", role, size, traits))
+  end
   end
   if not fernonly then
   -- visitors: a butterfly or moth with each wing tip, edge and tail, each pattern system
@@ -413,6 +485,10 @@ if arg[1] == "draw" then
   local KNOWN = {
     ["florilegium plant={seed=54, role=any, size=8.5cm, width=5.2cm, season=0.75}"] =
       "a leaf's room disc 0.0002 cm either side of a cell's edge (pgfmath's five-digit veclen), so TeX grows one more branch",
+    ["florilegium tracery={seed=3, role=window, size=4cm, traits={period=curvilinear, lights=3, branch=subarch, figure=mouchettes, spandrel=dagger}}"] =
+      "the same window to the eye; its four daggers' hairline outlines fall a pixel apart on the grid (1.0%)",
+    ["florilegium tracery={seed=1, role=rose, size=3cm, traits={rings=2}}"] =
+      "the same rose to the eye; thirty-two sector outlines and sixteen spokes of hairline width fall a pixel apart on the grid (1.9%)",
   }
   local bad, worst, wdark = 0, 0, 0
   -- a pic fails when its ink is this much darker or lighter, by at least 60 pixels' worth of a
@@ -541,13 +617,15 @@ local from, to = tonumber(arg[1]) or 1, tonumber(arg[2]) or 1000
 local engine = arg[3] or "lualatex"
 local role = arg[4] or "any"
 local visitor = role:match("^v:(.+)")
-if visitor then role = visitor end
+local tracery = role:match("^t:(.+)")
+local shell = role:match("^s:(.+)")
+if visitor then role = visitor elseif tracery then role = tracery elseif shell then role = shell end
 local fixtext = arg[5]
-local fix = fixtext and species.fixes(fixtext, visitor ~= nil)
+local fix = fixtext and species.fixes(fixtext, tracery and "tracery" or shell and "shell" or visitor ~= nil)
 local job = "tikzcheck-" .. engine
 
 local cmd = fmt([[%s -interaction=batchmode -output-directory=build -jobname=%s "%s%s\def\tikzcheckfrom{%d}\def\tikzcheckto{%d}\def\tikzcheckrole{%s}\input{tools/tikzcheck.tex}" >/dev/null]],
-  engine, job, visitor and "\\def\\tikzcheckvisitor{}" or "", fixtext and ("\\def\\tikzcheckfix{" .. fixtext .. "}") or "", from, to, role)
+  engine, job, visitor and "\\def\\tikzcheckvisitor{}" or tracery and "\\def\\tikzchecktracery{}" or shell and "\\def\\tikzcheckshell{}" or "", fixtext and ("\\def\\tikzcheckfix{" .. fixtext .. "}") or "", from, to, role)
 local t0 = os.time()
 os.remove("build/" .. job .. ".choices")
 os.execute(cmd)
@@ -568,7 +646,7 @@ local bad = 0
 for i, line in ipairs(tex) do
   local seed = from + i - 1
   local lua = { { "seed", tostring(seed) } }
-  ;(visitor and species.vsample or species.sample)(seed, role, function(t, v)
+  ;(visitor and species.vsample or tracery and species.tsample or shell and species.shsample or species.sample)(seed, role, function(t, v)
     lua[#lua + 1] = { t, math.type(v) == "float" and pm.str(math.floor(v * 65536 + 0.5)) or tostring(v) }
   end, fix)
   local got = fields(line)
@@ -587,6 +665,6 @@ for i, line in ipairs(tex) do
     if bad <= 10 then print(fmt("seed %d: %s", seed, why)) end
   end
 end
-print(fmt("%s: %d %s (role %s%s) in %d s, %d differ", engine, #tex, visitor and "visitors" or "species", role,
+print(fmt("%s: %d %s (role %s%s) in %d s, %d differ", engine, #tex, visitor and "visitors" or tracery and "windows" or shell and "shells" or "species", role,
   fixtext and ", " .. fixtext or "", secs, bad))
 os.exit(bad == 0 and 0 or 1)

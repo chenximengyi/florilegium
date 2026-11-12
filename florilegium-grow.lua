@@ -407,7 +407,7 @@ end
 -- carries its own plant's flowers, buds, leaves and tendrils, which florilegium-native.lua
 -- draws. The rows below stand in for the motifs; they are made per page and never
 -- touch the motif table. The modules load with the first species page.
-local SPC, ORG
+local SPC, ORG, SHL                          -- species, their organs, shells (loaded when used)
 -- a pgf seed for an organ, from an ink rng (inside a closure: the animation replays it)
 local function pgfseed(r) return 1 + floor(r.u() * 2147483645) end
 -- the rows of plant i (species sp): its inflorescence, a smaller later one, buds on
@@ -824,6 +824,68 @@ function M.page(g)
     end
   end
 
+  -- species: on one page in three, one to three of the document's cabinet of shells lie on
+  -- the ground (a stream of their own decides, as the fern's does, so a page without them is
+  -- as it was): beside the root and along the bottom of the footer band, each tilted as it
+  -- fell, a soft shadow to its lower right, sized from its real size (6 to 15 mm, so it stays
+  -- in scale with the plants), drawn under the stems, so the footer's vine and the leaves
+  -- pass in front of them. Their discs keep the plants' leaves and branches off them, but for
+  -- an edge (k 0.75)
+  local shells = {}
+  if comm and g.shells ~= false and D >= 0.35 then
+    local ss = ink.rng(g.seed * 7919 + 701)
+    if ss.chance(1 / 3) then
+      if not SHL then SHL = require("florilegium-shell") end
+      local cab = SPC.cabinet(g.docseed or 0)
+      local n = ss.chance(0.5) and 1 or ss.chance(0.7) and 2 or 3
+      local order = { 1, 2, 3, 4 }
+      for i = 4, 2, -1 do local j = ss.int(1, i) order[i], order[j] = order[j], order[i] end
+      local ground = 0.47
+      for k = 1, n do
+        local s = cab[order[k]]
+        local f = (math.log(s.size) - math.log(12)) / (math.log(220) - math.log(12))
+        local size = (0.6 + 0.9 * max(0, min(1, f))) * ss.range(0.9, 1.1)
+        -- how it lies: a coil on its edge, a valve and a cowrie nearly flat, a spired shell
+        -- on its side, its apex either way
+        local tilt
+        if s.group == "planispiral" or s.kind == "cowrie" then tilt = ss.sym(14)
+        elseif s.group == "bivalve" then tilt = ss.range(15, 55) * (ss.chance(0.5) and 1 or -1)
+        else tilt = ss.range(60, 100) * (ss.chance(0.5) and 1 or -1) end
+        local z = pgfseed(rng.fork())
+        local w, h = SHL.measure(s, z, size)
+        local c, sn = abs(cos(tilt * rad)), abs(sin(tilt * rad))
+        local hx, hy = 0.5 * (w * c + h * sn), 0.5 * (w * sn + h * c)
+        -- beside the root or along the footer, clear of the shells already down
+        local x
+        for _ = 1, 12 do
+          local x0, x1
+          if FOOTER and (k > 1 or ss.chance(0.5)) then x0, x1 = g.colright + 0.2 + hx, fx1 - 0.5 - hx
+          else x0, x1 = root[1] + 0.35 + hx, g.colright - 0.3 - hx end
+          local cand = ss.range(x0, max(x0, x1))
+          local ok = true
+          for _, o in ipairs(shells) do if abs(cand - o.x) < hx + o.hx + 0.12 then ok = false end end
+          if ok then x = cand break end
+        end
+        if x then
+          local y = ground + 0.92 * hy
+          shells[#shells + 1] = { x = x, hx = hx, s = s }
+          disc(x, y, 0.45 * max(w, h), 0.75)
+          event({ kind = "bloom", phase = "stems", off = 0.3 + 0.25 * k, size = 1 })
+          place(L_GHOST, x, y, 90 + tilt, function()             -- behind the stems and leaves
+            -- the shadow, on the ground whichever way the shell lies, to the right on the page
+            ink.push() ink.rotate(-tilt)
+            ink.push() ink.translate((g.mirror and -0.3 or 0.3) * hx, -0.92 * hy + 0.04) ink.scale(1.05 * hx, 0.09)
+            ink.circle(0, 0, 1) ink.fill(ink.tone(0.08), 0.13, true)
+            ink.pop() ink.pop()
+            -- on a mirrored page the mirror undone, so a whelk keeps its hand and its light
+            if g.mirror then ink.scale(-1, 1) end
+            SHL.draw(s, z, size, true)
+          end)
+        end
+      end
+    end
+  end
+
   -- on the last page, branches arch out of the main stems into the space under
   -- the text, each ending in a flower
   local leafy = {}
@@ -866,6 +928,7 @@ function M.page(g)
   local counts = {}
   for _, m in ipairs(motifs) do counts[m.name] = 0 end
   if fern then counts.fern = nfronds end
+  if #shells > 0 then counts.shell = #shells end
   -- species: plant sp's inflorescence at (x, y) along `a` (degrees), its disc as close to
   -- radius `target` as its scale range [kmin, kmax] allows; returns the disc
   local function top(sp, x, y, a, target, kmin, kmax, ev, single)
@@ -1046,10 +1109,37 @@ function M.page(g)
     local m = M.motifs[a]                     -- a plant without tendrils
     return m, m and (m.smin + m.smax) / 2
   end
+  -- a headpiece of tracery over the text (\florilegiumheadpiece): a branch from the
+  -- nearest stem to the foot of the vine twining its jamb, which stands past the
+  -- column's edge, so the safety clip reaches the text there
+  local headpieces = false
+  local function headpiece_mark(mk, ev)
+    if not g.headpiece then return end
+    -- the nearest stem to the sill, by the column's edge: its plant's leaves go on the
+    -- vine, and its branch reaches the vine's foot
+    local S = nearest_stem(g.colright - 0.5, mk.y)
+    local sp = S and S[6]
+    local function leaf(r, L)
+      if sp then ORG.draw("leaf", sp, pgfseed(r), { len = L, bend = r.sym(0.2), lc = r.u(), season = osea })
+      else ink.scale(L) F.leaflet(r) end                -- a theme's page: its leaflet
+    end
+    -- drawn under the garden and outside its safety clip (layer 0), in every frame
+    local layer, tag = ink.layer(-1), ink.tag(nil)
+    local px, py = g.headpiece(mk, leaf)
+    ink.layer(layer) ink.tag(tag)
+    if not px then return end
+    if g.mirror then px = g.pw - px end
+    if py < 0.6 or py > g.ph - 0.6 then return end
+    branch_to(S, px, py, 0.94, 0.34, 0.05, ev)
+    headpieces = true
+  end
   local nmarks = 0
   for _, mk in ipairs(g.marks or {}) do
     local m, s, want
-    if comm then m, s, want = species_mark(mk)
+    if mk.kind == "headpiece" then
+      nmarks = nmarks + 1
+      headpiece_mark(mk, event({ kind = "stem", phase = "marks", i = nmarks }))
+    elseif comm then m, s, want = species_mark(mk)
     elseif mk.kind == "heading" then
       m, s = M.motifs[mk.arg == 1 and "flower" or "blossoms"], mk.arg == 1 and 0.95 or 0.7
     else
@@ -1598,7 +1688,7 @@ function M.page(g)
   ink.layer(0)
   local bleed = g.bleed or 0
   for _, r in ipairs(rects) do
-    local x1, y1, x2, y2 = r[1] - 0.25, r[2] - 0.3, r[3] + (r == col and 0.25 or 0.3), r[4] + 0.3
+    local x1, y1, x2, y2 = r[1] - 0.25, r[2] - 0.3, r[3] + (r == col and (headpieces and 0.5 or 0.25) or 0.3), r[4] + 0.3
     if bleed > 0 then
       if r[1] < 0.6 then x1 = x1 - bleed end
       if r[2] < 0.6 then y1 = y1 - bleed end
@@ -1650,8 +1740,14 @@ function M.page(g)
   -- what grew, for a page that describes its own garden (florilegium-svg.lua and the playground)
   -- the fern, if the page has one (not among the four: it has no stem of its own)
   local fernstat = fern and { plan = fern.plan, seed = fern.seed, text = SPC.describe(fern), fronds = nfronds } or nil
+  -- the shells on the ground, if any, each with its words
+  local shellstat
+  if #shells > 0 then
+    shellstat = {}
+    for _, sh in ipairs(shells) do shellstat[#shellstat + 1] = { kind = sh.s.kind, seed = sh.s.seed, text = SPC.shdescribe(sh.s) } end
+  end
   return { stats = { motifs = n, counts = counts, stems = #spts, cells = #gx, species = plants, fern = fernstat,
-    visitors = comm and vlist or nil } }
+    visitors = comm and vlist or nil, shells = shellstat } }
 end
 
 return M

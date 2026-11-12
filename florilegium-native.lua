@@ -44,6 +44,7 @@ local function int(a, b) return G.random(a, b) end                         -- \p
 local function K(x) return floor(x * 65536 + 0.5) / 65536 end
 -- \flo@chance: rnd < p, with p as TeX holds the constant
 local function chance(p) return G.rnd() * 65536 < floor(p * 65536 + 0.5) end
+M.range, M.sym, M.chance = range, sym, chance                              -- for florilegium-tracery.lua's wash
 -- \numexpr's division of integers: rounded, halves away from zero
 local function nediv(a, b)
   local q = (2 * abs(a) + abs(b)) // (2 * abs(b))
@@ -114,6 +115,7 @@ local function blob(x, y, rx, ry, k, n)
   end
   return pts
 end
+M.blob = blob
 -- \flo@vmottle: blotches and specks over (x0,y0)-(x1,y1), inside the clip. With `drift`
 -- the x range moves, as the library's does: it passes the range by the names \flo@xa and
 -- \flo@xb, which each blotch's curve (\flo@smoothprep) sets to its sixth and first points
@@ -505,6 +507,8 @@ local function streak(pts, w0, w1, color, op)
     return (w0 + (w1 - w0) * u) * (u < 0.12 and 0.4 + 5 * u or 1) / 2
   end), true) fill(color, op)
 end
+-- for florilegium-shell.lua, which draws in the same hand
+M.tone, M.mottle, M.streak, M.taper, M.ribbon, M.ribbonpts = tone, mottle, streak, taper, ribbon, ribbonpts
 -- the six points of a cubic (\flo@vbezier), for an open smooth curve (\flo@openpath)
 local function bezier6(x0, y0, x1, y1, x2, y2, x3, y3)
   local b, pts = ink.bezier3(x0, y0, x1, y1, x2, y2, x3, y3), {}
@@ -5304,6 +5308,18 @@ local pic = (function()
       visitor(o, true)
     elseif kind == "plants" then
       garden(o.plants, sizecm(o.size), sizecm(o.width), o.ghost ~= false, season, o.traits)
+    elseif kind == "tracery" then
+      -- a window of tracery (florilegium-tracery.lua) centered on the origin, its sill on
+      -- the x axis, `size` wide; sampled as \florilegiumtracery samples it
+      local fix = o.traits and species.fixes(o.traits, "tracery") or nil
+      local w = species.tsample(o.seed, o.role or "any", nil, fix)
+      require("florilegium-tracery").draw(w, o.draw or (o.seed == 2147483646 and 1 or o.seed + 1), o.size / 65536)
+    elseif kind == "shell" then
+      -- a shell (florilegium-shell.lua) `size` across at most, centered on the y axis with
+      -- its base on the x axis; sampled as \florilegiumshell samples it
+      local fix = o.traits and species.fixes(o.traits, "shell") or nil
+      local s = species.shsample(o.seed, o.role or "any", nil, fix)
+      require("florilegium-shell").draw(s, o.draw or (o.seed == 2147483646 and 1 or o.seed + 1), o.size / 65536)
     else
       error("florilegium-native: no pic " .. tostring(kind))
     end
@@ -5352,7 +5368,8 @@ local function rgb(s)
   local r, g, b = s:match("^%s*([%d.]+)%s*,%s*([%d.]+)%s*,%s*([%d.]+)")
   return tonumber(r), tonumber(g), tonumber(b)
 end
--- kind: flower, leaf, v13 flower, v13 leaf, inflorescence, plant, plants, fern, visitor;
+-- kind: flower, leaf, v13 flower, v13 leaf, inflorescence, plant, plants, fern, visitor,
+-- tracery, shell;
 -- seed and draw (or "") whole numbers, size and width in sp, season and scale decimals,
 -- plants "seed/role,seed/role,", ghost "true" or "false"; inkrgb, accrgb "r,g,b"; lib the
 -- library's \ProvidesFile line
@@ -5369,9 +5386,12 @@ function M.tikz(kind, seed, role, draw, size, width, season, plants, ghost, scal
     -- a trait the genome lacks, a value it cannot draw, or one the plant's kind cannot (a
     -- fern's on a flowering plant, M.refused, which sampling raises): TeX's error, once,
     -- and the pic as sampled, as the library's \flo@fixset and \flo@planfixcheck do
-    local ok, fix = pcall(species.fixes, traits, kind == "visitor")
+    local ok, fix = pcall(species.fixes, traits, (kind == "tracery" or kind == "shell") and kind or kind == "visitor")
     local err = not ok and fix or nil
-    if ok and kind ~= "visitor" then
+    if ok and (kind == "tracery" or kind == "shell") then
+      local drawn, e = pcall(kind == "shell" and species.shsample or species.tsample, o.seed, role, nil, fix)
+      if not drawn then ok, err = false, e end
+    elseif ok and kind ~= "visitor" then
       for _, p in ipairs(o.plants or { { o.seed, role } }) do
         local drawn, e = pcall(species.sample, p[1], p[2], nil, fix)
         if not drawn then ok, err = false, e break end

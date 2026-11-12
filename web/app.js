@@ -18,14 +18,20 @@ const PAPERS = {
 const TOP = 32, BOTTOM = 30, INNER = 22, MINTEXT = 60, MINMARGIN = 30     // mm, as florilegium-grow.tex
 const INKS = [['Delft blue', '2456C4'], ['teal', '1D6E7A'], ['viridian', '2F6B4F'], ['sepia', '5B2A1F'], ['madder', '8E1B3A'], ['indigo', '4B3B8F']]
 const ACCENTS = [['copper', 'B4662F'], ['ochre', 'C9A227'], ['madder', '8E1B3A'], ['cobalt', '2456C4']]
-const STYLES = [['flora', 'flowering plants'], ['geometric', 'a plant cut from flat shapes'], ['math', 'a cascade of figures and equations']]
+const STYLES = [['flora', 'flowering plants'], ['geometric', 'a plant cut from flat shapes'], ['math', 'a cascade of figures and equations'],
+  ['shells', 'shells washed up among wrack']]
 // each density is a whole phrase, so the sentence reads at every one of them
 const DENSITY = [[1, 'at full density'], [0.75, 'at three-quarter density'], [0.5, 'at half density'], [0.25, 'at quarter density'], [0.05, '']]
-const SPARSEST = { flora: 'pared down to a single vine', geometric: 'pared down to a single stem', math: 'pared down to a few figures' }
+const SPARSEST = { flora: 'pared down to a single vine', geometric: 'pared down to a single stem', math: 'pared down to a few figures',
+  shells: 'pared down to a single strand' }
 const density = () => DENSITY.map(([v, n]) => [v, v === 0.05 ? SPARSEST[state.style] : n])
 const densityWord = (v) => (density().find(([x]) => x === v) || [, `at density ${+(+v).toFixed(2)}`])[1]
-const isMath = () => state.style === 'math'                  // figures, not a plant: no season, no visitors
-const HEAD = { flora: 'its ivy leaf', geometric: 'its ivy leaf', math: 'the circle that starts it' }
+const isMath = () => state.style === 'math'                  // figures, not a plant
+const isShells = () => state.style === 'shells'              // shells and wrack, not a plant
+const unplanted = () => isMath() || isShells()               // neither has a season or visitors
+const HEAD = { flora: 'its ivy leaf', geometric: 'its ivy leaf', math: 'the circle that starts it', shells: 'the scallop that starts it' }
+// what the margin holds, in the colophon and the snippets
+const holds = () => isMath() ? 'figures' : isShells() ? 'shells' : 'garden'
 const STRENGTH = [[1, 'full'], [0.7, 'soft'], [0.4, 'faint']]
 const MARGINS = [40, 50, 60, 68, 80, 90]
 const SEEN = [['', 'most readers'], ['protan', 'protanopia'], ['deutan', 'deuteranopia'], ['tritan', 'tritanopia']]
@@ -85,8 +91,8 @@ function options(seed = state.seed) {
     visitors: state.visitors, head: state.head,
     left: (state.side === 'left' ? state.margin : INNER) + 'mm', right: (state.side === 'left' ? INNER : state.margin) + 'mm',
   }
-  if (state.season !== 'summer' && !isMath()) o.season = state.season
-  if (isMath()) o.visitors = true
+  if (state.season !== 'summer' && !unplanted()) o.season = state.season
+  if (unplanted()) o.visitors = true
   if (state.style !== 'flora') o.theme = state.style
   if (state.last) o.textend = endMM() + 'mm'
   return o
@@ -100,17 +106,17 @@ const grownKey = (o = options()) => GROWN.map((k) => o[k]).join('|')
 const term = (k, text) => `<button class="term" data-k="${k}" aria-haspopup="listbox" aria-expanded="false">${esc(text)}</button>`
 function colophon() {
   const s = state, P = paper()
-  const what = isMath() ? 'figures' : 'garden'
+  const what = holds()
   // a seed that no visitor came to says so, or the switch would seem to do nothing
   const counts = current && current.key === grownKey() && current.stats && current.stats.counts
   const vs = current && current.key === grownKey() && current.stats && current.stats.visitors   // species: the visitors that came
   const none = counts && (vs ? !vs.length : !VISITORS.some((k) => counts[k] > 0)) ? ', though none came to this seed' : ''
   return `This proof is ${P.art} ${term('paper', P.name)} page, its ${what} in a ${term('margin', s.margin + ' mm')} margin on the
     ${term('side', s.side)}. It grew from seed <span class="nowrap"><button class="stepper" data-step="-1" aria-label="Previous seed">‹</button>${term('seed', s.seed)}<button class="stepper" data-step="1" aria-label="Next seed">›</button></span>
-    ${isMath() ? '' : `in ${term('season', s.season)}, `}as ${term('style', styleName())} ${term('density', densityWord(s.density))}, and it is
+    ${unplanted() ? '' : `in ${term('season', s.season)}, `}as ${term('style', styleName())} ${term('density', densityWord(s.density))}, and it is
     printed at ${term('strength', word(s.strength, STRENGTH))} strength in ${term('ink', named(s.ink, INKS))} with ${term('accent', named(s.accent, ACCENTS))}.
-    ${isMath() ? '' : term('visitors', s.visitors ? 'Visitors are welcome' : 'No visitors come') + (s.visitors ? none : '') + '.'}
-    The text ${term('last', s.last ? `ends ${s.end}% of the way down` : 'runs the full page')}${s.last ? `, and the ${isMath() ? 'figures fill' : 'garden grows into'} the space below it` : ''}.`
+    ${unplanted() ? '' : term('visitors', s.visitors ? 'Visitors are welcome' : 'No visitors come') + (s.visitors ? none : '') + '.'}
+    The text ${term('last', s.last ? `ends ${s.end}% of the way down` : 'runs the full page')}${s.last ? `, and the ${isMath() ? 'figures fill' : isShells() ? 'shells fill' : 'garden grows into'} the space below it` : ''}.`
 }
 function plain(html) { const d = document.createElement('div'); d.innerHTML = html; return d.textContent.replace(/[‹›]/g, '').replace(/\s+/g, ' ').trim() }
 
@@ -423,6 +429,31 @@ function pageText(m) {
       toward the corner, each joined to the next by a copper arrow, and a large figure stands where the column meets the foot.`)
     if (n) P.push(`${upper(say(n))} symbols and equations fill the space that is left and run along the foot of the page, tilted a little,
       in the tones of ${inkN} and in ${accN}. In a PDF TeX sets them; here MathJax does, in the same Computer Modern.`)
+  } else if (isShells()) {
+    // the cabinet's four and the page's own kinds, in the words of florilegium-species.lua's shdescribe()
+    const sh = (m && m.stats && m.stats.shells) || []
+    const words = (x) => x.text[0].toLowerCase() + x.text.slice(1, -1)
+    const cab = sh.filter((x) => x.cabinet && x.count), own = sh.filter((x) => !x.cabinet && x.count)
+    const laid = own.reduce((a, x) => a + x.count, 0)
+    // a shell's words may hold commas, so a list of them is joined by semicolons
+    const semi = (xs) => xs.length < 2 ? xs.join('') : xs.slice(0, -1).join('; ') + '; and ' + xs[xs.length - 1]
+    const strands = s.density >= 0.6 ? 3 : s.density >= 0.25 ? 2 : 1
+    P.push(`This margin is not a plant either. It is a strip of the shore seen from above. ${upper(say(strands))} strand${strands > 1 ? 's' : ''} of wrack
+      lie from a pebble in the corner up the column${s.density >= 0.2 ? ' and one along the foot of the page' : ''}, forking as they go, with air
+      bladders in pairs along them, and the shells lie among them.`)
+    if (cab.length) {
+      P.push(`Each shell was sampled from a genome, as the plants are: first its kind, then the traits that kind allows, so that only a whelk
+        or a turret shell ever coils to the left. Seed ${s.seed} chose four shells for the whole document, a cabinet that comes back on every
+        page, and they lie lowest, the largest nearest the corner: ${semi(cab.map(words))}.`)
+    }
+    if (laid) {
+      P.push(`This page drew ${say(own.length)} kinds of its own and laid ${say(laid)} of them where there was room, larger toward the corner
+        and smaller up the column and along the foot, overlapping a little, a few tucked under their neighbors: ${semi(own.map((x) => `${say(x.count)} like ${words(x)}`))}.`)
+    }
+    if (counts.weed) {
+      P.push(`${upper(say(counts.weed))} tuft${counts.weed > 1 ? 's' : ''} of fine weed grow${counts.weed > 1 ? '' : 's'} among them${counts.weed > 1 ? `, one in ${accN}` : `, in ${accN}`}, and grit and broken shell
+        gather along the bottom.`)
+    }
   } else {
     const stems = s.density >= 0.6 ? 3 : s.density >= 0.25 ? 2 : 1
     const sp = isSpecies(), plants = sp && m && m.stats && m.stats.species
@@ -475,9 +506,9 @@ function pageText(m) {
         and a dark facet, and the flowers are stars${counts.crystal ? `, with ${count(counts.crystal, 'crystal')} among them` : ''}.`)
     }
   }
-  P.push(`Every ${s.style === 'flora' ? 'petal' : 'line'} is computed while the page is written and painted in ${s.style === 'flora' ? 'washes' : 'tones'} of one ink, ${inkN},
+  P.push(`Every ${s.style === 'flora' ? 'petal' : isShells() ? 'whorl' : 'line'} is computed while the page is written and painted in ${s.style === 'flora' ? 'washes' : 'tones'} of one ink, ${inkN},
     from its darkest to its palest, the way a single pigment thins with water. The ${accN} is the only other color on the page; it marks
-    ${isMath() ? 'the head rule, the arrows from figure to figure and some of the symbols' : 'the head rule, the hairlines and, in autumn, the turning leaves'}.`)
+    ${isMath() ? 'the head rule, the arrows from figure to figure and some of the symbols' : isShells() ? 'the head rule, the scallops beside the headings and a tuft of weed' : 'the head rule, the hairlines and, in autumn, the turning leaves'}.`)
   if (s.density < 1 || s.strength < 1) {
     P.push([s.density < 1 ? `It is grown ${densityWord(s.density)}, so there is less of everything and more paper between.` : '',
       s.strength < 1 ? `It is printed at ${word(s.strength, STRENGTH)} strength: every tone moves toward the paper, and the detail stays.` : ''].join(' '))
@@ -486,11 +517,18 @@ function pageText(m) {
     it more room or less, or drag the foot of this text up to make this the last page, and the margin fills the space the text leaves.`)
   P.push(`Seed ${s.seed} here is seed ${s.seed} in a PDF. The same Lua runs in this page as in LuaLaTeX, and the SVG you download is the
     drawing LuaLaTeX would make${s.style === 'math' ? ', its equations set by MathJax instead of TeX' : ''}.`)
-  if (s.style !== 'math') {
+  if (isShells()) {
+    P.push(`How does it know where there is room? The margin is laid over a grid of two-millimeter cells, and each cell keeps the
+      radius of the largest disc that would fit there without touching anything already laid. Each shell goes to the largest free
+      disc, those within a centimeter and a half of the wrack first, and is scaled to fit it and to how large its kind grows; the loop
+      stops when the largest free disc is under four millimeters across, and what is left near the bottom goes to grit.`)
+  } else if (s.style !== 'math') {
     P.push(`How does it know where there is room? The margin is laid over a grid of two-millimeter cells, and each cell keeps the
       radius of the largest disc that would fit there without touching anything already grown. A new branch looks only within
       three centimeters of a stem, and the loop stops when the largest free disc is under four millimeters across; what is left
       goes to leaflets and florets, or stays paper.`)
+  }
+  if (s.style !== 'math') {
     P.push(`The idea is older than the program. Michael Wong, Douglas Zongker and David Salesin described it in 1998: grow toward
       the largest free space, place what fits there, and repeat, so that the ornament fills the page the way a plant fills a wall.
       Everything here is drawn in a different way, but the loop that decides where things go is theirs.`)
@@ -500,13 +538,16 @@ function pageText(m) {
   P.push(isMath()
     ? `Nothing on this page is a stored picture. Every figure is computed from its formula while the page is written: Maurer's roses,
       Lissajous figures, Koch's snowflake, Hilbert's curve, the Petersen graph, Vogel's sunflower, and the seed chooses which, where and how large.`
+    : isShells()
+    ? `Nothing on this page is a picture of a shell. A shell is a list of traits (how fast its coil widens, how far its whorls stand
+      from the axis, its ribs and its pattern), and every whorl, rib and spot is computed from them, the coil as David Raup described it in 1966.`
     : isSpecies()
     ? `Nothing on this page is a picture of a flower. There are no stored shapes and no drawings to copy: a species is a list of
       traits (how many petals and of what shape, how its flowers cluster, how deeply its leaves are cut, what fruit follows), and every
       stem, leaf and petal is computed from them, each a little different from the last.`
     : `Nothing on this page is a picture of a flower. There are no stored shapes and no drawings to copy: every stem is a path along
       a noisy curve, every leaf a blade around its spine, every flower a ring of petals each a little different from the last, and the seed chooses all of it.`)
-  P.push(`Every page of a long document grows its own margin, from its own seed and fitted to its own space${isSpecies() ? ', its plants drawn from the same eight species' : ''}${isMath() ? '' : ', and the seasons can turn from the first page to the last'}.`)
+  P.push(`Every page of a long document grows its own margin, from its own seed and fitted to its own space${isSpecies() ? ', its plants drawn from the same eight species' : isShells() ? ', its cabinet of four shells on every page' : ''}${unplanted() ? '' : ', and the seasons can turn from the first page to the last'}.`)
   $('#text').innerHTML = `<h2><span>1</span>Seed ${esc(s.seed)}</h2>` + P.map((p) => `<p>${esc(p.replace(/\s+/g, ' ').trim())}</p>`).join('')
   fit()
 }
@@ -535,12 +576,12 @@ function snippet() {
     if (s.style !== 'flora') opts.push('theme=' + s.style)
     if (s.density < 1) opts.push('density=' + fmt(s.density))
     if (s.strength < 1) opts.push('intensity=' + fmt(s.strength))
-    if (!s.visitors && !isMath()) opts.push('novisitors')
+    if (!s.visitors && !unplanted()) opts.push('novisitors')
     const L = ['\\documentclass[11pt]{article}', `\\usepackage[${P.latex},`, `  left=${left}mm, right=${right}mm, top=${TOP}mm,`,
       `  bottom=${BOTTOM}mm, headsep=8mm]{geometry}`, `\\def\\florilegiumseed{${s.seed}}`, ...wrap('\\usepackage[', opts, ']{florilegium}')]
     if (s.ink !== DEFAULTS.ink) L.push(`\\definecolor{ink}{HTML}{${s.ink}}`)
     if (s.accent !== DEFAULTS.accent) L.push(`\\definecolor{accent}{HTML}{${s.accent}}`)
-    if (s.season !== 'summer' && !isMath()) L.push(`\\florilegiumage{${s.season === 'spring' ? 0 : 1}}`)
+    if (s.season !== 'summer' && !unplanted()) L.push(`\\florilegiumage{${s.season === 'spring' ? 0 : 1}}`)
     L.push('\\begin{document}', '...', ...(s.last ? ['% the margin fills the space below:', '\\florilegiumtextend'] : ['% \\florilegiumtextend at the very end']), '\\end{document}')
     return [L.join('\n'), `Page 1 of this document has this garden, and every page after it grows its own${isSpecies() ? ' from the same eight species' : ''}. Build it with lualatex${s.head ? '' : '; LaTeX always draws the head rule'}.`]
   }
@@ -551,19 +592,19 @@ function snippet() {
   }
   if (s.tab === 'svg') {
     const mb = current ? ` ${(current.svg.length / 1e6).toFixed(1)} MB,` : ''
-    return [`${file}:${mb} a whole ${P.name} page with a transparent background, the ${isMath() ? 'figures' : 'garden'} in its margin`,
+    return [`${file}:${mb} a whole ${P.name} page with a transparent background, the ${holds()} in its margin`,
       `For Typst, a web page or your notes. It ${term('head', s.head ? 'keeps' : 'leaves out')} the head rule and ${HEAD[s.style]}.`, true]
   }
   const a = ['texlua florilegium-svg.lua --seed ' + s.seed]
   if (s.paper !== 'a4') a.push('--paper ' + s.paper)
   if (left !== 68 || right !== INNER) a.push(`--left ${left}mm --right ${right}mm`)
-  if (s.season !== 'summer' && !isMath()) a.push('--season ' + s.season)
+  if (s.season !== 'summer' && !unplanted()) a.push('--season ' + s.season)
   if (s.style !== 'flora') a.push('--theme ' + s.style)
   if (s.density < 1) a.push('--density ' + fmt(s.density))
   if (s.strength < 1) a.push('--intensity ' + fmt(s.strength))
   if (s.ink !== DEFAULTS.ink) a.push('--ink ' + s.ink)
   if (s.accent !== DEFAULTS.accent) a.push('--accent ' + s.accent)
-  if (!s.visitors && !isMath()) a.push('--novisitors')
+  if (!s.visitors && !unplanted()) a.push('--novisitors')
   if (!s.head) a.push('--nohead')
   if (s.last) a.push(`--textend ${endMM()}mm`)
   a.push('> ' + file)

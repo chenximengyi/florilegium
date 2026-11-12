@@ -3,13 +3,15 @@
 [![build](https://github.com/kevinraymond/florilegium/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/kevinraymond/florilegium/actions/workflows/build.yml)
 [![playground](https://github.com/kevinraymond/florilegium/actions/workflows/pages.yml/badge.svg?branch=main)](https://kevinraymond.github.io/florilegium/)
 [![release](https://img.shields.io/github/v/release/kevinraymond/florilegium?color=2456c4)](https://github.com/kevinraymond/florilegium/releases/latest)
+[![CTAN](https://img.shields.io/ctan/v/florilegium?color=2456c4)](https://ctan.org/pkg/florilegium)
 [![license](https://img.shields.io/github/license/kevinraymond/florilegium?color=2456c4)](LICENSE)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/kevinraymond/florilegium/badge)](https://scorecard.dev/viewer/?uri=github.com/kevinraymond/florilegium)
 
-Procedurally generated Delft-blue floral page margins for LaTeX. No images, no imported paths,
-no external assets: every petal, leaf and stem is a curve computed while the page is being
-written, painted like a watercolor, and written straight into the PDF. Every page grows a
-garden of its own, and each document's seed its own plants, each sampled from a genome.
+Procedurally generated Delft-blue page margins for LaTeX, their plants, visitors, shells and
+Gothic tracery sampled from genomes. No images, no imported paths, no external assets: every
+petal, leaf, stem, whorl and arch is a curve computed while the page is being written, painted like a
+watercolor, and written straight into the PDF. Every page grows a garden of its own, and each
+document's seed its own plants.
 
 ![six seeds](gallery/seeds.gif)
 
@@ -18,6 +20,7 @@ the text leaves free.*
 
 **[Try it in your browser](https://kevinraymond.github.io/florilegium/)** ·
 [download the package and the PDFs](https://github.com/kevinraymond/florilegium/releases/latest) ·
+[on CTAN](https://ctan.org/pkg/florilegium) ·
 [documentation](#documentation)
 
 ## Origin
@@ -142,11 +145,50 @@ get a flower beside it in copper, the way headings were once picked out in red, 
 buds on the first page to fruit and seed heads on the last.
 [Using the package](docs/usage.md#the-margin-reads-the-text) has the details.
 
+## Gothic tracery
+
+| a headpiece over a section, the margin's vine up its jamb | windows of every period, in TikZ |
+|---|---|
+| <img src="gallery/tracery.png" alt="a headpiece of Gothic tracery over a section heading, with a vine from the margin twining its jamb" width="400"> | <img src="gallery/tracery-windows.png" alt="ten windows of Gothic tracery of different periods" width="400"> |
+
+A window of Gothic tracery is sampled from a genome of its own, the way a plant is. Its
+period comes first and sets the arch, how the head branches, the figures and their foils, the
+cusps, the orders and the hood. With the option `headpieces` every section gets one, a screen
+of lights under a flat arch. The garden sends a branch to it, and a vine twines up the jamb
+with the leaves of the nearest plant. The same windows are TikZ pics. An initial can open
+under a cusped arch, and an ornament can be a trefoil, a quatrefoil or a rose.
+
+```latex
+\usepackage[grown,headpieces]{florilegium}
+\pic {florilegium tracery={seed=3, role=window, size=4cm, traits={period=curvilinear}}};
+```
+
+[Gothic tracery](docs/tracery.md) describes the genome, the headpiece and how a window is drawn.
+
+## Shells
+
+| shells on the ground at the foot of the plants | shells of every kind, in TikZ |
+|---|---|
+| <img src="gallery/shells-ground.png" alt="an ammonite, a turret shell and a cowrie lying on the ground under the footer's vine" width="400"> | <img src="gallery/shells-specimens.png" alt="ammonites, bivalves, whelks and cowries drawn in TikZ" width="400"> |
+
+A shell is sampled from a genome too: an ammonite or a nautilus, five kinds of bivalve, three
+sea snails or a cowrie, a coil drawn as David Raup's tube. Each document has a cabinet of four,
+and on one page in three a few of them lie on the ground beside the root, under the footer's
+vine. `theme=shells` fills the whole margin with them, among strands of wrack. The same shells
+are TikZ pics.
+
+```latex
+\usepackage[grown,noshells]{florilegium}   % or no shells on the ground
+\pic {florilegium shell={seed=3, role=ammonite, size=3cm}};
+```
+
+[Shells](docs/shells.md) describes the genome, where they lie and how each kind is drawn.
+
 ## In pure TikZ
 
-The species don't need Lua. Under pdfLaTeX, `\usetikzlibrary{florilegium}` samples each plant
-and visitor from its genome, grows it and paints it with pgfmath and TikZ alone, and each of
-the strips above is one `\pic`. It takes a minute and a half for a strip of three plants 21 cm
+The species don't need Lua. Under pdfLaTeX, `\usetikzlibrary{florilegium}` samples each plant,
+visitor, window of tracery and shell from its genome, grows it and paints it with pgfmath and TikZ
+alone, and each of the strips above is one `\pic`. It takes a minute and a half for a strip of three plants 21 cm
 tall, and pdfTeX needs more memory than it has by default. Under LuaLaTeX, the same pics are drawn by
 florilegium's Lua in under a second, within a fraction of a point of pure TikZ's drawing. Only
 the margin itself, laid out around a page's text, is the package's and needs LuaLaTeX.
@@ -161,15 +203,16 @@ the margin itself, laid out around a page's text, is the package's and needs Lua
 
 ## Themes
 
-![seed 6 as the species garden, geometric and math](gallery/themes.png)
+![seed 6 as the species garden, geometric, math and shells](gallery/themes.png)
 
-*Seed 6 three times: the species garden, with `theme=geometric`, and with `theme=math`.*
+*Seed 6 four times: the species garden, with `theme=geometric`, with `theme=math` and with `theme=shells`.*
 
 The growth loop never knew what it was drawing, so a theme can redraw it. `theme=geometric`
 cuts v1.3's plant from flat, straight-edged shapes, with crystals among the flowers.
 `theme=math` grows no plant at all, but figures, families of figures and equations that cascade
-down the margin and across the foot of the page. [Themes](docs/themes.md) shows both, and how
-to write one.
+down the margin and across the foot of the page. `theme=shells` lays shells sampled from genomes
+among strands of wrack, the document's cabinet of four low in the corner. [Themes](docs/themes.md)
+shows all three, and how to write one.
 
 ## More in the margin
 
@@ -202,6 +245,7 @@ its own repository, and follows the release named beside it; questions about one
 | [wilsybubs/florilegium](https://github.com/wilsybubs/florilegium) | a fork that compiles with XeLaTeX as well | 1.1 |
 | [jfoboss/florilegium](https://github.com/jfoboss/florilegium) | a JavaScript port that regrows the garden on an e-book's part-title pages, and a Claude skill (in Russian) that builds ePub, FB2 and MOBI books with it | 1.3 |
 | [amberwhitehead/florilegium](https://github.com/amberwhitehead/florilegium) | a single web page, in plain JavaScript and SVG, that grows a garden around a poem you write | 1.1 |
+| [funkhouserw/florilegium](https://github.com/funkhouserw/florilegium) | a fork with a cat gym theme and an oak theme, and [Felilegium](https://felilegium.corporateshill.com/), a web editor that grows them, a kelp forest or the flowers around text boxes you draw and exports PNG, PDF or HTML | 2.0 |
 
 [tikz-flora](https://github.com/wn-mitch/tikz-flora) by wn-mitch is a LuaLaTeX package of its
 own that grows watercolor flora in the margin, drawn through PGF, and names florilegium among
@@ -267,7 +311,11 @@ text without one (option `nomargin`), per page. `make bench` measures every row 
   chooses its plants, and the visitors.
 - [The TikZ library](docs/tikz.md) lists the pics and their keys, and explains the two engines
   and pdfLaTeX's memory; [the traits](docs/traits.md) lists every trait a pic can fix.
-- [Themes](docs/themes.md) shows geometric and math, and how to write a theme.
+- [Gothic tracery](docs/tracery.md) describes the windows' genome, the headpieces over the
+  sections and their vine, the initial's arch, and how a window is drawn.
+- [Shells](docs/shells.md) describes the shells' genome, the cabinet on the margin's ground, the
+  pic, and how each kind is drawn.
+- [Themes](docs/themes.md) shows geometric, math and shells, and how to write a theme.
 - [How it works](docs/how-it-works.md) follows the painting, the growth loop, the reading of the
   page, the initials and the animation.
 - [SVG, Typst and the browser](docs/svg-and-web.md) and [the PostScript port](postscript/README.md)
@@ -314,8 +362,14 @@ make playground             # the browser playground at http://localhost:8000/we
   [*Pollinator Syndromes*](https://www.fs.usda.gov/wildflowers/pollinators/What_is_Pollination/syndromes.shtml)
   page. Heads and daisy discs are packed on Helmut Vogel's model of the sunflower (Mathematical
   Biosciences, 1979), and a butterfly's pattern follows the nymphalid groundplan of Schwanwitsch
-  (1924) and Süffert (1927). A snail's shell is Raup's coiled tube (Journal of Paleontology,
-  1966), its ring placed as Okabe and Yoshimura reparameterize it (Scientific Reports, 2017).
+  (1924) and Süffert (1927). A snail's shell and every coiled shell is Raup's coiled tube
+  (Journal of Paleontology, 1966), its ring placed as Okabe and Yoshimura reparameterize it
+  (Scientific Reports, 2017), and its whorls touch where W times D is at most 1, as McGhee
+  states it (Interface Focus, 2015).
+- The tracery's periods are Thomas Rickman's names (*An Attempt to Discriminate the Styles
+  of English Architecture*, 1817), and its cusped heads and foiled circles follow Sven
+  Havemann and Dieter W. Fellner, [*Generative Parametric Design of Gothic Window
+  Tracery*](https://diglib.eg.org/items/607768b5-11b0-4e72-9869-5d5df169f3f1) (VAST 2004).
 - The TikZ library draws with [PGF/TikZ](https://github.com/pgf-tikz/pgf) (Till Tantau and
   others; LPPL 1.3c or GPL 2), and its random numbers and arithmetic are pgfmath's, by Mark
   Wibrow, whose ln follows an algorithm due to Rouben Rostamian with coefficients by Alain
